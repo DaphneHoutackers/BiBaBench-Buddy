@@ -1,5 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import electron from 'vite-plugin-electron'
+import renderer from 'vite-plugin-electron-renderer'
 import base44 from '@base44/vite-plugin'
 
 // https://vite.dev/config/
@@ -15,5 +17,17 @@ export default defineConfig({
       visualEditAgent: true
     }),
     react(),
+    electron([
+      {
+        entry: 'electron/main.js',
+      },
+      {
+        entry: 'electron/preload.js',
+        onstart(options) {
+          options.reload()
+        },
+      },
+    ]),
+    renderer(),
   ]
 });
