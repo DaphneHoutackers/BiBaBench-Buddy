@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Scissors, Link2, GitMerge, Dna, Droplets, Beaker, FlaskConical,
   ChevronRight, Sparkles, ArrowLeft, BookOpen, Microscope,
-  Settings, ImageIcon, Library, PanelLeft, X, BarChart2, ChevronDown
+  Settings, ImageIcon, Library, PanelLeft, X, BarChart2, ChevronDown, Clock, Trash2
 } from 'lucide-react';
+import { useHistory } from '@/context/HistoryContext';
 import DigestCalculator from '@/components/calculators/DigestCalculator';
 import LigationCalculator from '@/components/calculators/LigationCalculator';
 import GibsonCalculator from '@/components/calculators/GibsonCalculator';
@@ -82,8 +83,9 @@ const ALL_IDS = [
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle }) {
+function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle, onRestoreHistory }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
+  const { history, deleteHistoryItem, clearHistory } = useHistory();
 
   // Auto-expand active tool's tabs
   useEffect(() => {
@@ -196,6 +198,40 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, ic
           })}
         </div>
       ))}
+
+      {/* History section */}
+      <div className={`mt-auto border-t p-2 pt-3 flex flex-col min-h-[140px] max-h-[40%] ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+        <div className="flex items-center justify-between px-1 mb-2">
+          <p className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
+            <Clock className="w-3 h-3" /> History
+          </p>
+          {history.length > 0 && (
+            <button onClick={clearHistory} className={`text-[10px] uppercase font-bold hover:underline ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>
+              Clear
+            </button>
+          )}
+        </div>
+        {history.length === 0 ? (
+          <p className={`text-xs text-center p-4 italic ${isDark ? 'text-white/30' : 'text-slate-400'}`}>No history yet.</p>
+        ) : (
+          <div className="overflow-y-auto space-y-0.5 pr-1">
+            {history.map(item => (
+              <div key={item.id} className={`group flex items-start justify-between rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
+                onClick={() => onRestoreHistory(item)}
+              >
+                <div className="flex-1 min-w-0 pr-2">
+                  <p className={`text-xs font-medium truncate ${isDark ? 'text-white/80' : 'text-slate-700'}`}>{item.title}</p>
+                  <p className={`text-[10px] truncate ${isDark ? 'text-white/40' : 'text-slate-400'}`}>{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
+                  className="opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5 text-slate-400 hover:text-red-500 transition-all">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </aside>
   );
 }
@@ -208,6 +244,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Track active tab per tool for sidebar deep-nav
   const [activeTab, setActiveTab] = useState({});
+  const [historyData, setHistoryData] = useState(null);
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -236,29 +273,37 @@ export default function Home() {
     ? [...CALCULATORS, ...ALL_TOOLS_FLAT].find(c => c.id === active)?.name
     : null;
 
-  const goHome = () => { setActive(null); setSidebarOpen(false); };
+  const goHome = () => { setActive(null); setSidebarOpen(false); setHistoryData(null); };
 
   const handleSelectTab = (toolId, tabId) => {
     setActiveTab(prev => ({ ...prev, [toolId]: tabId }));
   };
 
+  const handleRestoreHistory = (item) => {
+    setActive(item.toolId);
+    if (item.tabId) handleSelectTab(item.toolId, item.tabId);
+    setHistoryData(item);
+  };
+
 
 
   const getComponent = (id) => {
+    const isAct = active === id;
+    const hData = isAct ? historyData : null;
     switch (id) {
-      case 'digest':         return <DigestCalculator externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />;
-      case 'ligation':       return <LigationCalculator />;
-      case 'gibson':         return <GibsonCalculator />;
-      case 'pcr':            return <PCRCalculator externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />;
-      case 'dilution':       return <DilutionCalculator />;
-      case 'buffer':         return <BufferCalculator />;
-      case 'protein':        return <ProteinConcCalculator externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />;
-      case 'protocols':      return <ProtocolLibrary />;
-      case 'ai':             return <AIAssistant />;
-      case 'gel':            return <GelSimulator />;
-      case 'image-annotator':return <ImageAnnotator />;
+      case 'digest':         return <DigestCalculator externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} historyData={hData} />;
+      case 'ligation':       return <LigationCalculator historyData={hData} />;
+      case 'gibson':         return <GibsonCalculator historyData={hData} />;
+      case 'pcr':            return <PCRCalculator externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} historyData={hData} />;
+      case 'dilution':       return <DilutionCalculator historyData={hData} />;
+      case 'buffer':         return <BufferCalculator historyData={hData} />;
+      case 'protein':        return <ProteinConcCalculator externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} historyData={hData} />;
+      case 'protocols':      return <ProtocolLibrary historyData={hData} />;
+      case 'ai':             return <AIAssistant historyData={hData} />;
+      case 'gel':            return <GelSimulator historyData={hData} />;
+      case 'image-annotator':return <ImageAnnotator historyData={hData} />;
 
-      case 'plasmid':        return <PlasmidAnalyzer />;
+      case 'plasmid':        return <PlasmidAnalyzer historyData={hData} />;
       default:               return null;
     }
   };
@@ -323,12 +368,13 @@ export default function Home() {
         {!isHome && sidebarOpen && (
           <Sidebar
             active={active}
-            onSelect={(id) => setActive(id)}
+            onSelect={(id) => { setActive(id); setHistoryData(null); }}
             onSelectTab={handleSelectTab}
             activeTab={activeTab}
             onClose={() => setSidebarOpen(false)}
             isDark={isDark}
             iconStyle={iconStyle}
+            onRestoreHistory={handleRestoreHistory}
           />
         )}
 
@@ -357,7 +403,7 @@ export default function Home() {
                   {CALCULATORS.map(calc => {
                     const Icon = calc.icon;
                     return (
-                      <button key={calc.id} onClick={() => setActive(calc.id)}
+                      <button key={calc.id} onClick={() => { setActive(calc.id); setHistoryData(null); }}
                         className={`group rounded-2xl p-4 text-center border shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 ${cardBg}`}>
                         <div
                           className={`inline-flex p-2.5 rounded-xl shadow-md mb-2.5 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`}
@@ -381,7 +427,7 @@ export default function Home() {
                       const Icon = tool.icon;
                       const isSmall = group.id === 'lab';
                       return (
-                        <button key={tool.id} onClick={() => setActive(tool.id)}
+                        <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
                           className={`group relative rounded-2xl text-left border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${cardBg} ${isSmall ? 'p-3.5' : 'p-5'}`}>
                           <div
                             className={`inline-flex rounded-xl shadow-lg mb-2 ${isSmall ? 'p-2' : 'p-3 mb-3'} ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`}

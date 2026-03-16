@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FlaskConical, Info, Plus, Check, Copy } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import { useHistory } from '@/context/HistoryContext';
 
 // conc is the DEFAULT value; unit is the unit string; concType: 'mM'|'M'|'percent'|'x'|'ugmL'
 const COMPONENTS = {
@@ -109,12 +110,38 @@ function calcVolume(conc, unit, totalMl) {
   return { amount: c.toFixed(2), amountUnit: unit, note: '' };
 }
 
-export default function LysisBufferBuilder() {
+export default function LysisBufferBuilder({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [totalVol, setTotalVol] = useState('10'); // mL
   const [selections, setSelections] = useState({});
   // editable concentrations: { "Category__optName": { conc, pH } }
   const [customConcs, setCustomConcs] = useState({});
   const [copied, setCopied] = useState(false);
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  React.useEffect(() => {
+    if (historyData && historyData.toolId === 'buffer' && historyData.data?.activeTab === 'lysis') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d.totalVol !== undefined) setTotalVol(d.totalVol);
+      if (d.selections) setSelections(d.selections);
+      if (d.customConcs) setCustomConcs(d.customConcs);
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  React.useEffect(() => {
+    if (isRestoring || Object.keys(selections).length === 0) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'buffer',
+        title: `Lysis Buffer (${totalVol}mL) - ${Object.keys(selections).length} components`,
+        data: { activeTab: 'lysis', totalVol, selections, customConcs }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [totalVol, selections, customConcs, isRestoring, addHistoryItem]);
 
   const toggle = (cat, name) => {
     setSelections(prev => {

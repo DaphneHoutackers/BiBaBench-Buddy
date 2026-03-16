@@ -59,7 +59,7 @@ export default function ScienceJoke({ isDark = false }) {
   }, []);
 
   return (
-    <p className={`max-w-xl mx-auto text-sm italic ${isDark ? 'text-white/50' : 'text-slate-500'}`}>
+    <p className={`max-w-xl mx-auto text-sm italic text-center ${isDark ? 'text-white/50' : 'text-slate-500'}`}>
       "{joke}"
     </p>
   );

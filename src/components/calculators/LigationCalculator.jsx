@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link2, FlaskConical, Plus, Trash2, Copy, Check, Info, AlertTriangle, Table } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import { useHistory } from '@/context/HistoryContext';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -121,7 +122,7 @@ function MixTable({ rows, totalVolume }) {
 }
 
 // ─── Single Ligation Tab ───────────────────────────────────────────
-function SingleLigation() {
+function SingleLigation({ historyData }) {
   const [vectorConc, setVectorConc] = useState('');
   const [vectorLength, setVectorLength] = useState('');
   const [vectorAmount, setVectorAmount] = useState('50');
@@ -132,6 +133,40 @@ function SingleLigation() {
   const [usePEG, setUsePEG] = useState(false);
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  const { addHistoryItem } = useHistory();
+  const isRestoring = useRef(false);
+
+  useEffect(() => {
+    if (historyData?.data) {
+      isRestoring.current = true;
+      const d = historyData.data;
+      setVectorConc(d.vectorConc || '');
+      setVectorLength(d.vectorLength || '');
+      setVectorAmount(d.vectorAmount || '50');
+      setInserts(d.inserts || [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }]);
+      setTotalVolume(d.totalVolume || '20');
+      setLigase(d.ligase || 'T4 DNA Ligase');
+      setLigaseVol(d.ligaseVol || '1');
+      setUsePEG(d.usePEG || false);
+      setTimeout(() => { isRestoring.current = false; }, 500);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring.current) return;
+    const timeout = setTimeout(() => {
+      const allFilled = vectorConc && vectorLength && inserts.every(i => i.conc && i.length && i.ratio);
+      if (allFilled) {
+        addHistoryItem({
+          toolId: 'ligation',
+          title: `Ligation: Vector + ${inserts.length} Insert${inserts.length > 1 ? 's' : ''}`,
+          data: { tab: 'single', vectorConc, vectorLength, vectorAmount, inserts, totalVolume, ligase, ligaseVol, usePEG }
+        });
+      }
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [vectorConc, vectorLength, vectorAmount, inserts, totalVolume, ligase, ligaseVol, usePEG, addHistoryItem]);
 
   const addInsert = () => {
     const id = Math.max(...inserts.map(i => i.id)) + 1;
@@ -383,13 +418,44 @@ function defaultLigation(id) {
   };
 }
 
-function MultiLigation() {
+function MultiLigation({ historyData }) {
   const [ligations, setLigations] = useState([defaultLigation(1), defaultLigation(2)]);
   const [totalVolume, setTotalVolume] = useState('20');
   const [ligase, setLigase] = useState('T4 DNA Ligase');
   const [ligaseVol, setLigaseVol] = useState('1');
   const [usePEG, setUsePEG] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const { addHistoryItem } = useHistory();
+  const isRestoring = useRef(false);
+
+  useEffect(() => {
+    if (historyData?.data) {
+      isRestoring.current = true;
+      const d = historyData.data;
+      setLigations(d.ligations || [defaultLigation(1), defaultLigation(2)]);
+      setTotalVolume(d.totalVolume || '20');
+      setLigase(d.ligase || 'T4 DNA Ligase');
+      setLigaseVol(d.ligaseVol || '1');
+      setUsePEG(d.usePEG || false);
+      setTimeout(() => { isRestoring.current = false; }, 500);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring.current) return;
+    const timeout = setTimeout(() => {
+      const anyFilled = ligations.some(lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio));
+      if (anyFilled) {
+        addHistoryItem({
+          toolId: 'ligation',
+          title: `Multi-Ligation (${ligations.length} rxns)`,
+          data: { tab: 'multi', ligations, totalVolume, ligase, ligaseVol, usePEG }
+        });
+      }
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [ligations, totalVolume, ligase, ligaseVol, usePEG, addHistoryItem]);
 
   const pegVol = calcPegVol(totalVolume, usePEG);
 
@@ -675,7 +741,13 @@ function MultiLigation() {
   );
 }
 
-export default function LigationCalculator() {
+export default function LigationCalculator({ historyData }) {
+  const [tab, setTab] = useState('single');
+
+  useEffect(() => {
+    if (historyData?.data?.tab) setTab(historyData.data.tab);
+  }, [historyData]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
@@ -688,13 +760,13 @@ export default function LigationCalculator() {
         </div>
       </div>
 
-      <Tabs defaultValue="single">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-slate-100">
           <TabsTrigger value="single">Single Ligation</TabsTrigger>
           <TabsTrigger value="multi">Multiple Ligations</TabsTrigger>
         </TabsList>
-        <TabsContent value="single" className="mt-4"><SingleLigation /></TabsContent>
-        <TabsContent value="multi" className="mt-4"><MultiLigation /></TabsContent>
+        <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} /></TabsContent>
+        <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} /></TabsContent>
       </Tabs>
     </div>
   );

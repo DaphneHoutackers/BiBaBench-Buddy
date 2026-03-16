@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Microscope, Plus, Trash2, Scissors, Loader2, Copy, Check, Search, X, FlaskConical } from 'lucide-react';
+import { useHistory } from '@/context/HistoryContext';
 
 // ── DNA Ladders ──
 const LADDERS = {
@@ -780,7 +781,8 @@ function WesternBlotTab() {
 // ════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════
-export default function GelSimulator() {
+export default function GelSimulator({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState('manual');
   const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb Plus');
   const [lanes, setLanes] = useState([{ id: 1, label: '1', fragments: '500, 2000' }]);
@@ -797,6 +799,51 @@ export default function GelSimulator() {
   const [digestLoading, setDigestLoading] = useState(false);
   const [digestResults, setDigestResults] = useState(null);
   const [digestExcisedBands, setDigestExcisedBands] = useState({});
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'gel') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.tab !== undefined) setTab(d.tab);
+        if (d.selectedLadder !== undefined) setSelectedLadder(d.selectedLadder);
+        if (d.lanes !== undefined) setLanes(d.lanes);
+        if (d.agarose !== undefined) setAgarose(d.agarose);
+        if (d.excisedBands !== undefined) setExcisedBands(d.excisedBands);
+        if (d.laneColors !== undefined) setLaneColors(d.laneColors);
+        if (d.digestLaneColors !== undefined) setDigestLaneColors(d.digestLaneColors);
+        if (d.voltage !== undefined) setVoltage(d.voltage);
+        if (d.runtime !== undefined) setRuntime(d.runtime);
+        if (d.digestSamples !== undefined) setDigestSamples(d.digestSamples);
+        if (d.digestResults !== undefined) setDigestResults(d.digestResults);
+        if (d.digestExcisedBands !== undefined) setDigestExcisedBands(d.digestExcisedBands);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || tab === 'manual' && lanes.length === 1 && lanes[0].fragments === '500, 2000' && !digestResults) return;
+    const debounce = setTimeout(() => {
+      let title = 'Gel Simulator';
+      if (tab === 'manual') title = `Manual Gel (${lanes.length} lanes)`;
+      if (tab === 'digest' && digestResults) title = `Digest Gel (${digestResults.length} samples)`;
+      if (tab === 'wb') title = `Western Blot`;
+
+      addHistoryItem({
+        toolId: 'gel',
+        title: title,
+        data: {
+          tab, selectedLadder, lanes, agarose, excisedBands, laneColors,
+          digestLaneColors, voltage, runtime, digestSamples, digestResults,
+          digestExcisedBands
+        }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [tab, selectedLadder, lanes, agarose, excisedBands, laneColors, digestLaneColors, voltage, runtime, digestSamples, digestResults, digestExcisedBands, isRestoring, addHistoryItem]);
 
   const parsedLanes = lanes.map(l => ({
     ...l,

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useHistory } from '@/context/HistoryContext';
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -121,7 +123,7 @@ function ToolDropdown({ label, icon: Icon, children, active }) {
   );
 }
 
-function DropItem({ label, icon: Icon, onClick, onClose, children }) {
+function DropItem({ label, icon: Icon, onClick, onClose = null, children = null }) {
   return (
     <button onClick={() => { onClick?.(); onClose?.(); }}
       className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors text-left">
@@ -131,12 +133,14 @@ function DropItem({ label, icon: Icon, onClick, onClose, children }) {
   );
 }
 
-function DropContent({ onClose, children }) {
+function DropContent({ onClose = null, children = null }) {
   return <div onClick={e => e.stopPropagation()} className="px-3 py-2">{children}</div>;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function ImageAnnotator() {
+export default function ImageAnnotator({ historyData }) {
+  const { addHistoryItem } = useHistory();
+
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -169,8 +173,40 @@ export default function ImageAnnotator() {
   // Selection box drawing
   const [selectionBox, setSelectionBox] = useState(null);
   const [selectionStart, setSelectionStart] = useState(null);
+  const [selectedAnnIds, setSelectedAnnIds] = useState([]);
   // Editing a ladder band label's style
   const [editingBandId, setEditingBandId] = useState(null);
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'image') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.annotations) setAnnotations(d.annotations);
+        if (d.floatItems) setFloatItems(d.floatItems);
+        if (d.canvasSize) setCanvasSize(d.canvasSize);
+        if (d.activeTool) setActiveTool(d.activeTool);
+        if (d.numberCounter) setNumberCounter(d.numberCounter);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || (!annotations.length && !floatItems.length)) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'image',
+        title: `Image Markup: ${annotations.length} annotations, ${floatItems.length} items`,
+        data: {
+          annotations, floatItems, canvasSize, activeTool, numberCounter
+        }
+      });
+    }, 1500);
+    return () => clearTimeout(debounce);
+  }, [annotations, floatItems, canvasSize, activeTool, numberCounter, isRestoring, addHistoryItem]);
 
   const containerRef = useRef(null);
   const maxW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 60, window.innerWidth < 640 ? window.innerWidth - 32 : 900) : 900;
@@ -474,13 +510,13 @@ export default function ImageAnnotator() {
           // Select first, mark all for batch delete
           setSelectedId(annIds[0]);
           // Store all selected annotation IDs temporarily
-          window.__selectedAnnIds = annIds;
+          setSelectedAnnIds(annIds);
         }
         if (hitFloats.length > 0 && annIds.length > 0) {
-          window.__selectedAnnIds = annIds;
+          setSelectedAnnIds(annIds);
         }
       } else {
-        window.__selectedAnnIds = null;
+        setSelectedAnnIds([]);
       }
     }
     setSelectionStart(null);
@@ -542,10 +578,9 @@ export default function ImageAnnotator() {
   const deleteSelected = () => {
     if (selectedId) {
       // Also delete any batch-selected annotations
-      const batchIds = window.__selectedAnnIds || [];
-      if (batchIds.length > 1) {
-        setAnnotationsWithHistory(prev => prev.filter(a => !batchIds.includes(a.id)));
-        window.__selectedAnnIds = null;
+      if (selectedAnnIds.length > 1) {
+        setAnnotationsWithHistory(prev => prev.filter(a => !selectedAnnIds.includes(a.id)));
+        setSelectedAnnIds([]);
       } else {
         setAnnotationsWithHistory(prev => prev.filter(a=>a.id!==selectedId));
       }
@@ -558,10 +593,9 @@ export default function ImageAnnotator() {
       setSelectedFloatIds(new Set());
     }
     // Also delete batch-selected annotations
-    const batchIds = window.__selectedAnnIds || [];
-    if (batchIds.length > 0) {
-      setAnnotationsWithHistory(prev => prev.filter(a => !batchIds.includes(a.id)));
-      window.__selectedAnnIds = null;
+    if (selectedAnnIds.length > 0) {
+      setAnnotationsWithHistory(prev => prev.filter(a => !selectedAnnIds.includes(a.id)));
+      setSelectedAnnIds([]);
     }
   };
 
@@ -718,10 +752,10 @@ export default function ImageAnnotator() {
 
         {sep}
 
-        {(selectedId || hasMultiSelect || (window.__selectedAnnIds && window.__selectedAnnIds.length > 0)) && (
+        {(selectedId || hasMultiSelect || (selectedAnnIds && selectedAnnIds.length > 0)) && (
           <button onClick={()=>{ deleteSelected(); deleteSelectedFloats(); }}
             className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition-colors">
-            <Trash2 className="w-3.5 h-3.5" /> {hasMultiSelect ? `Delete (${selectedFloatIds.size + (window.__selectedAnnIds?.length||0)})` : window.__selectedAnnIds?.length > 1 ? `Delete (${window.__selectedAnnIds.length})` : 'Delete'}
+            <Trash2 className="w-3.5 h-3.5" /> {hasMultiSelect ? `Delete (${selectedFloatIds.size + (selectedAnnIds?.length||0)})` : selectedAnnIds?.length > 1 ? `Delete (${selectedAnnIds.length})` : 'Delete'}
           </button>
         )}
         <button onClick={()=>{

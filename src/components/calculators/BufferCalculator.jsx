@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Beaker, FlaskConical, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Beaker, FlaskConical, AlertTriangle, ChevronDown, ChevronUp, Trash2, Sparkles } from 'lucide-react';
 import LysisBufferBuilder from '@/components/calculators/LysisBufferBuilder';
+import AIBufferChat from '@/components/calculators/AIBufferChat';
+import { useHistory } from '@/context/HistoryContext';
 
 // ── Buffer definitions ──
 // component order: by required addition order, or largest to smallest if order doesn't matter
@@ -13,7 +15,7 @@ import LysisBufferBuilder from '@/components/calculators/LysisBufferBuilder';
 // fumeHood: true → fume hood required
 // addOnIce: true → add on ice
 // slowAdd: true → add slowly
-const BUFFERS = {
+const DEFAULT_BUFFERS = {
   'TAE (50×)': {
     category: 'Electrophoresis',
     components: [
@@ -200,21 +202,74 @@ function NumInput({ value, onChange, ...props }) {
   return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
 }
 
-export default function BufferCalculator() {
+export default function BufferCalculator({ historyData }) {
+  const { addHistoryItem } = useHistory();
+  const [savedRecipes, setSavedRecipes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('labcalc_custom_buffers')) || {}; } catch { return {}; }
+  });
+  const allBuffers = { ...DEFAULT_BUFFERS, ...savedRecipes };
+
   const [selectedBuffer, setSelectedBuffer] = useState('TAE (50×)');
   const [desiredVolume, setDesiredVolume] = useState('500');
   const [showProtocol, setShowProtocol] = useState(false);
+  const [activeTab, setActiveTab] = useState('recipes');
 
-  const buffer = BUFFERS[selectedBuffer];
-  const scaleFactor = (parseFloat(desiredVolume) || 0) / buffer.finalVolume;
-  const scaledComponents = buffer.components.map(c => ({
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'buffer') {
+      setIsRestoring(true);
+      if (historyData.data) {
+        if (historyData.data.activeTab) setActiveTab(historyData.data.activeTab);
+        if (historyData.data.selectedBuffer) setSelectedBuffer(historyData.data.selectedBuffer);
+        if (historyData.data.desiredVolume) setDesiredVolume(historyData.data.desiredVolume);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || activeTab === 'ai') return;
+
+    const timeout = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'buffer',
+        title: `Buffer: ${selectedBuffer} (${desiredVolume}mL)`,
+        data: { activeTab, selectedBuffer, desiredVolume }
+      });
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [activeTab, selectedBuffer, desiredVolume, isRestoring, addHistoryItem]);
+
+  // ensure selectedBuffer exists in allBuffers (in case of deleted recipe)
+  const safeSelected = allBuffers[selectedBuffer] ? selectedBuffer : 'TAE (50×)';
+  const buffer = allBuffers[safeSelected];
+
+  const scaleFactor = (parseFloat(desiredVolume) || 0) / (buffer.finalVolume || 1000);
+  const scaledComponents = (buffer.components || []).map(c => ({
     ...c, scaledAmount: (c.amount * scaleFactor).toFixed(2),
   }));
 
-  const hasToxic = buffer.components.some(c => c.toxic);
-  const hasFumeHood = buffer.components.some(c => c.fumeHood);
+  const hasToxic = buffer.components?.some(c => c.toxic);
+  const hasFumeHood = buffer.components?.some(c => c.fumeHood);
 
-  const categories = Array.from(new Set(Object.values(BUFFERS).map(b => b.category)));
+  const categories = Array.from(new Set(Object.values(allBuffers).map(b => b.category)));
+
+  const handleSaveAiRecipe = (name, recipeObj) => {
+    const updated = { ...savedRecipes, [name]: recipeObj };
+    setSavedRecipes(updated);
+    localStorage.setItem('labcalc_custom_buffers', JSON.stringify(updated));
+    setSelectedBuffer(name);
+    setActiveTab('recipes');
+  };
+
+  const deleteCustomRecipe = (name) => {
+    const updated = { ...savedRecipes };
+    delete updated[name];
+    setSavedRecipes(updated);
+    localStorage.setItem('labcalc_custom_buffers', JSON.stringify(updated));
+    setSelectedBuffer('TAE (50×)');
+  };
 
   return (
     <div className="space-y-6">
@@ -228,15 +283,19 @@ export default function BufferCalculator() {
         </div>
       </div>
 
-      <Tabs defaultValue="recipes">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100">
           <TabsTrigger value="recipes">Buffer Recipes</TabsTrigger>
           <TabsTrigger value="lysis">Custom Lysis Buffer</TabsTrigger>
+          <TabsTrigger value="ai" className="gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-500"/> AI Assistant</TabsTrigger>
         </TabsList>
+        <TabsContent value="ai" className="mt-0">
+          <AIBufferChat onSaveRecipe={handleSaveAiRecipe} historyData={historyData} />
+        </TabsContent>
         <TabsContent value="lysis" className="mt-4">
           <Card className="border-0 shadow-sm bg-white/80">
             <CardContent className="p-5">
-              <LysisBufferBuilder />
+              <LysisBufferBuilder historyData={historyData} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -255,7 +314,7 @@ export default function BufferCalculator() {
                   {categories.map(cat => (
                     <React.Fragment key={cat}>
                       <div className="px-2 py-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">{cat}</div>
-                      {Object.entries(BUFFERS).filter(([, b]) => b.category === cat).map(([name]) => (
+                      {Object.entries(allBuffers).filter(([, b]) => b.category === cat).map(([name]) => (
                         <SelectItem key={name} value={name} className="pl-4">{name}</SelectItem>
                       ))}
                     </React.Fragment>
@@ -286,9 +345,20 @@ export default function BufferCalculator() {
 
         <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-orange-50">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
-              <FlaskConical className="w-4 h-4 text-amber-600" />
-              Recipe for {desiredVolume} mL
+            <CardTitle className="text-base font-medium text-slate-700 flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-amber-600" />
+                Recipe for {desiredVolume} mL
+              </div>
+              {savedRecipes[safeSelected] && (
+                <button 
+                  onClick={() => deleteCustomRecipe(safeSelected)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  title="Delete custom recipe"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>

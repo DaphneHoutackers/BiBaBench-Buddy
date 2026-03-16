@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Bot, Send, User, Loader2, Sparkles, Copy, Check, Plus, Trash2, MessageSquare, ChevronLeft, Paperclip, X, FileText, Image } from 'lucide-react';
-
 import ReactMarkdown from 'react-markdown';
+import { useHistory } from '@/context/HistoryContext';
 
 const INITIAL_SUGGESTIONS = [
   "I want to make a 100mM PMSF stock. How many mg in how many µL?",
@@ -66,12 +66,14 @@ function saveChats(chats) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(chats)); } catch {}
 }
 
-export default function AIAssistant() {
+export default function AIAssistant({ historyData }) {
   const initChats = () => {
     const saved = loadChats();
     if (saved && saved.length > 0) return saved;
     return [createNewChat()];
   };
+
+  const { addHistoryItem } = useHistory();
 
   const [chats, setChats] = useState(initChats);
   const [activeChatId, setActiveChatId] = useState(() => {
@@ -97,6 +99,18 @@ export default function AIAssistant() {
   const updateActiveChat = (updater) => {
     setChats(prev => prev.map(c => c.id === activeChatId ? updater(c) : c));
   };
+
+  // Restore from global history
+  useEffect(() => {
+    if (historyData?.data?.activeChatId) {
+      const exists = chats.find(c => c.id === historyData.data.activeChatId);
+      if (exists) {
+        setActiveChatId(historyData.data.activeChatId);
+        setSuggestions(INITIAL_SUGGESTIONS);
+        setShowHistory(false);
+      }
+    }
+  }, [historyData, chats]);
 
   const fetchSuggestions = async (msgs) => {
     if (msgs.length < 2) return;
@@ -136,10 +150,11 @@ export default function AIAssistant() {
     const fileNote = files.length > 0 ? `\n[Attached: ${files.map(f => f.name).join(', ')}]` : '';
     const displayMsg = (userMsg || '') + fileNote;
 
+    const title = c.messages.length === 1 ? (userMsg || files[0]?.name || 'Chat').slice(0, 45) : activeChat.title;
     const newMessages = [...messages, { role: 'user', content: displayMsg, file_urls: fileUrls }];
     updateActiveChat(c => ({
       ...c,
-      title: c.messages.length === 1 ? (userMsg || files[0]?.name || 'Chat').slice(0, 45) : c.title,
+      title,
       messages: newMessages
     }));
     setLoading(true);
@@ -169,6 +184,14 @@ export default function AIAssistant() {
     const finalMessages = [...newMessages, { role: 'assistant', content: responseText }];
     updateActiveChat(c => ({ ...c, messages: finalMessages }));
     setLoading(false);
+
+    // Save to global history
+    addHistoryItem({
+      toolId: 'ai',
+      title: `AI: ${title}`,
+      data: { activeChatId, title }
+    });
+
     fetchSuggestions(finalMessages);
   };
 

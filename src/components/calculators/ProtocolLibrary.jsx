@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, Search, ChevronDown, ChevronUp, FlaskConical, Sparkles } from 'lucide-react';
 import ProtocolAIChat from '@/components/calculators/ProtocolAIChat';
+import { useHistory } from '@/context/HistoryContext';
 
 const PROTOCOLS = [
   {
@@ -503,9 +504,38 @@ function ProtocolCard({ protocol }) {
   );
 }
 
-export default function ProtocolLibrary() {
+export default function ProtocolLibrary({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [activeTab, setActiveTab] = useState('library');
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  React.useEffect(() => {
+    if (historyData && historyData.toolId === 'protocol') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.search !== undefined) setSearch(d.search);
+        if (d.selectedCategory !== undefined) setSelectedCategory(d.selectedCategory);
+        if (d.activeTab !== undefined) setActiveTab(d.activeTab);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  React.useEffect(() => {
+    if (isRestoring || activeTab === 'ai' || (!search && selectedCategory === 'All' && activeTab === 'library')) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'protocol',
+        title: `Protocol Library${search ? ` (Search: ${search})` : ''}`,
+        data: { search, selectedCategory, activeTab }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [search, selectedCategory, activeTab, isRestoring, addHistoryItem]);
 
   const categories = ['All', ...Array.from(new Set(PROTOCOLS.map(p => p.category)))];
 
@@ -528,7 +558,7 @@ export default function ProtocolLibrary() {
         </div>
       </div>
 
-      <Tabs defaultValue="library">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100">
           <TabsTrigger value="library">Protocol Library</TabsTrigger>
           <TabsTrigger value="ai" className="flex items-center gap-1.5">
@@ -566,7 +596,7 @@ export default function ProtocolLibrary() {
         <TabsContent value="ai" className="mt-4">
           <Card className="border-0 shadow-sm bg-white/80">
             <CardContent className="p-5">
-              <ProtocolAIChat />
+              <ProtocolAIChat historyData={historyData} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,41 +1,52 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }) } } };
+# BiBaBench-Buddy (LabCalc)
 
-**Welcome to your Base44 project** 
+**BiBaBench-Buddy** is a comprehensive suite of lab tools designed to save time and improve accuracy for molecular biologists. From buffer calculations to gel simulations and AI-assisted protocol generation.
 
-**About**
+## 🚀 Access the App
 
-View and Edit  your app on [db.com](http://db.com) 
+### 🌐 Web Application (Recommended)
+The latest version is always available online:
+**[https://bi-ba-bench-buddy.vercel.app/](https://bi-ba-bench-buddy.vercel.app/)**
 
-This project contains everything you need to run your app locally.
+### 💻 Desktop Application
+For a standalone experience, you can download the desktop version:
+- **Mac:** Find the `.dmg` installer in the [`release/`](./release) folder.
+- **Windows:** Coming soon (check GitHub Actions for latest builds).
 
-**Edit the code in your local development environment**
+---
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## ✨ Features
+- **Tool History Sidebar:** Your last 50 sessions are automatically saved and restorable with one click.
+- **AI Buffer Assistant:** Chat with AI to design buffer compositions and save them directly to your recipes.
+- **Restriction Digest:** Support for single/double/batch digests with NEB/FastDigest/HF enzymes.
+- **Gel & Western Blot Simulator:** Visualize DNA and protein migration patterns.
+- **Image Annotator:** Professional-grade labeling for your gel images and blots.
+- **Calculators:** PCR, Ligation, Gibson Assembly, Dilution, Protein Concentration, and more.
 
-**Prerequisites:** 
+---
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+## 🛠 Local Development
 
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
+### Prerequisites
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file with your API keys:
+   ```
+   VITE_AI_API_KEY=your_key_here
+   ```
 
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.db.app
-```
+### Running the App
+- **Web (Dev):** `npm run dev`
+- **Desktop (Dev):** `npm run app:dev`
 
-Run the app: `npm run dev`
+### Building for Production
+- **Web:** `npm run build`
+- **Desktop:** `npm run app:build`
 
-**Publish your changes**
+---
 
-Open [db.com](http://db.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.db.com/Integrations/Using-GitHub](https://docs.db.com/Integrations/Using-GitHub)
-
-Support: [https://app.db.com/support](https://app.db.com/support)
+## 📄 Support
+If you encounter any issues or have feature requests, please open an issue in this repository.

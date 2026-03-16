@@ -11,6 +11,7 @@ import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2 } from 'lucide-reac
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import { useHistory } from '@/context/HistoryContext';
 
 const POLYMERASES = {
   'Phusion High-Fidelity': { buffer: 'Phusion HF Buffer', bufferX: 5, dntpFinal: 0.2 },
@@ -141,7 +142,8 @@ function calcTemplateDilution(rawVol, totalVol) {
   return { dilutionFactor: minDf, dilutedVol: dfVol.toFixed(2), stockVol: stockForDil.toFixed(1), mqVol: (stockForDil * (minDf - 1)).toFixed(1), newTemplateVol: dfVol.toFixed(2), dilutedConc: null };
 }
 
-export default function PCRCalculator({ externalTab, onTabChange }) {
+export default function PCRCalculator({ externalTab, onTabChange, historyData }) {
+  const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState(externalTab || 'mix');
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
 
@@ -166,6 +168,56 @@ export default function PCRCalculator({ externalTab, onTabChange }) {
   const [taTemplate, setTaTemplate] = useState('');
   const [taPolymerase, setTaPolymerase] = useState('Phusion High-Fidelity');
   const [taResults, setTaResults] = useState(null);
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'pcr') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.tab) setTab(d.tab);
+        if (d.productLength !== undefined) setProductLength(d.productLength);
+        if (d.polymerase !== undefined) setPolymerase(d.polymerase);
+        if (d.totalVolume !== undefined) setTotalVolume(d.totalVolume);
+        if (d.primerConc !== undefined) setPrimerConc(d.primerConc);
+        if (d.useBetaine !== undefined) setUseBetaine(d.useBetaine);
+        if (d.betaineVol !== undefined) setBetaineVol(d.betaineVol);
+        if (d.extraReactions !== undefined) setExtraReactions(d.extraReactions);
+        if (d.samples !== undefined) setSamples(d.samples);
+        if (d.primersIdentical !== undefined) setPrimersIdentical(d.primersIdentical);
+        if (d.gradientMode !== undefined) setGradientMode(d.gradientMode);
+        if (d.gradientN !== undefined) setGradientN(d.gradientN);
+        if (d.taFwdPrimer !== undefined) setTaFwdPrimer(d.taFwdPrimer);
+        if (d.taRevPrimer !== undefined) setTaRevPrimer(d.taRevPrimer);
+        if (d.taTemplate !== undefined) setTaTemplate(d.taTemplate);
+        if (d.taPolymerase !== undefined) setTaPolymerase(d.taPolymerase);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || tab === 'oepcr' || tab === 'product') return; 
+    const debounce = setTimeout(() => {
+      let title = 'PCR';
+      if (tab === 'mix') {
+        title = productLength ? `PCR Mix (${productLength}bp)` : `PCR Mix`;
+      } else if (tab === 'ta') {
+        title = taFwdPrimer ? `Ta Calc (Fwd: ${taFwdPrimer.slice(0, 5)}...)` : `Ta Calc`;
+      }
+
+      addHistoryItem({
+        toolId: 'pcr',
+        title: title,
+        data: {
+          tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples,
+          primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase
+        }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples, primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, isRestoring, addHistoryItem]);
 
   const poly = POLYMERASES[polymerase];
   const vol = parseFloat(totalVolume) || 50;

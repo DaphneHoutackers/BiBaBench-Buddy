@@ -11,6 +11,7 @@ import {
 import html2canvas from 'html2canvas';
 import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
+import { useHistory } from '@/context/HistoryContext';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COLOR_PALETTE = ['#3b82f6','#8b5cf6','#f59e0b','#ef4444','#10b981','#06b6d4','#6366f1','#f97316','#84cc16','#ec4899','#14b8a6','#f43f5e'];
@@ -184,7 +185,8 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, name }) {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function PlasmidAnalyzer() {
+export default function PlasmidAnalyzer({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [phase, setPhase] = useState('input');
   const [seqName, setSeqName] = useState('');
   const [rawInput, setRawInput] = useState('');
@@ -206,6 +208,44 @@ export default function PlasmidAnalyzer() {
   const mapRef = useRef(null);
   const fileRef = useRef(null);
   const [viewMode, setViewMode] = useState('map');
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'plasmid') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.phase !== undefined) setPhase(d.phase);
+        if (d.seqName !== undefined) setSeqName(d.seqName);
+        if (d.rawInput !== undefined) setRawInput(d.rawInput);
+        if (d.sequence !== undefined) setSequence(d.sequence);
+        if (d.isCircular !== undefined) setIsCircular(d.isCircular);
+        if (d.features !== undefined) setFeatures(d.features);
+        if (d.primers !== undefined) setPrimers(d.primers);
+        if (d.selectedEnzymes !== undefined) setSelectedEnzymes(d.selectedEnzymes);
+        if (d.enzymeFilter !== undefined) setEnzymeFilter(d.enzymeFilter);
+        if (d.activePanel !== undefined) setActivePanel(d.activePanel);
+        if (d.viewMode !== undefined) setViewMode(d.viewMode);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || (!sequence && !rawInput)) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'plasmid',
+        title: `Plasmid: ${seqName || 'Unnamed'}${sequence ? ` (${sequence.length} bp)` : ''}`,
+        data: {
+          phase, seqName, rawInput, sequence, isCircular, features, primers,
+          selectedEnzymes, enzymeFilter, activePanel, viewMode
+        }
+      });
+    }, 1500);
+    return () => clearTimeout(debounce);
+  }, [phase, seqName, rawInput, sequence, isCircular, features, primers, selectedEnzymes, enzymeFilter, activePanel, viewMode, isRestoring, addHistoryItem]);
 
   const seq = useMemo(() => sequence.toUpperCase().replace(/[^ATGCN]/g, ''), [sequence]);
 

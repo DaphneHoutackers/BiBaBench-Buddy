@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Beaker, Plus, Trash2, TrendingUp, FlaskConical, Copy, Check } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import { useHistory } from '@/context/HistoryContext';
 
 function linearRegression(points) {
   const n = points.length;
@@ -39,7 +40,8 @@ const DEFAULT_STD_CONCS = [0, 0.25, 0.5, 1, 2, 5, 10, 20, 40];
 // BSA stock = 2 mg/mL = 2000 µg/mL → µL needed per 1 mL WR = conc / 2000 * 1000
 const bsaVolForStd = (conc) => (conc / 2000 * 1000); // µL per 1 mL WR
 
-export default function ProteinConcCalculator({ externalTab, onTabChange }) {
+export default function ProteinConcCalculator({ externalTab, onTabChange, historyData }) {
+  const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState(externalTab || 'standards');
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
 
@@ -64,6 +66,50 @@ export default function ProteinConcCalculator({ externalTab, onTabChange }) {
   const [proteinLoad, setProteinLoad] = useState('15'); // µg
   const [sampleBufferX, setSampleBufferX] = useState('6'); // 6×
   const [prepTotalVol, setPrepTotalVol] = useState('40'); // µL
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'protein') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.tab) setTab(d.tab);
+        if (d.wrVolume !== undefined) setWrVolume(d.wrVolume);
+        if (d.sampleVolInWR !== undefined) setSampleVolInWR(d.sampleVolInWR);
+        if (d.standards !== undefined) setStandards(d.standards);
+        if (d.unknowns !== undefined) setUnknowns(d.unknowns);
+        if (d.proteinLoad !== undefined) setProteinLoad(d.proteinLoad);
+        if (d.sampleBufferX !== undefined) setSampleBufferX(d.sampleBufferX);
+        if (d.prepTotalVol !== undefined) setPrepTotalVol(d.prepTotalVol);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || tab === 'standards' && standards.every(s => !s.abs) && unknowns.every(u => !u.abs)) return;
+    const debounce = setTimeout(() => {
+      let title = 'Protein Conc: ';
+      
+      const numValidUnknowns = unknowns.filter(u => u.abs).length;
+      if (numValidUnknowns > 0) {
+        title += `${numValidUnknowns} samples calculated`;
+      } else {
+        const numValidStds = standards.filter(s => s.abs).length;
+        title += `Standard Curve (${numValidStds} points)`;
+      }
+
+      addHistoryItem({
+        toolId: 'protein',
+        title: title,
+        data: {
+          tab, wrVolume, sampleVolInWR, standards, unknowns, proteinLoad, sampleBufferX, prepTotalVol
+        }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [tab, wrVolume, sampleVolInWR, standards, unknowns, proteinLoad, sampleBufferX, prepTotalVol, isRestoring, addHistoryItem]);
   const wrVol = parseFloat(wrVolume) || 1;
   const sVol = parseFloat(sampleVolInWR) || 10;
 

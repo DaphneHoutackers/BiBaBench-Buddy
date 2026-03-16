@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Send, Plus, Trash2, Copy, Check, MessageSquare, Paperclip, X, FileText, Image, Loader2 } from 'lucide-react';
 
 import ReactMarkdown from 'react-markdown';
+import { useHistory } from '@/context/HistoryContext';
 
 const CHAT_KEY = 'protocol_ai_chats';
 const SYSTEM_PROMPT = `You are a molecular biology lab protocol expert. Your job is to create precise, step-by-step lab protocols.
@@ -47,7 +48,8 @@ function CopyMsgButton({ text }) {
   );
 }
 
-export default function ProtocolAIChat() {
+export default function ProtocolAIChat({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [chats, setChats] = useState(() => {
     const stored = loadChats();
     return stored.length > 0 ? stored : [newChat()];
@@ -65,6 +67,30 @@ export default function ProtocolAIChat() {
   const bottomRef = useRef(null);
 
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0];
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'protocol' && historyData.data?.activeTab === 'ai') {
+      setIsRestoring(true);
+      if (historyData.data?.activeChatId) {
+        setActiveChatId(historyData.data.activeChatId);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || !activeChat || activeChat.messages.length <= 1) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'protocol',
+        title: `Protocol AI: ${activeChat.title}`,
+        data: { activeTab: 'ai', activeChatId: activeChat.id }
+      });
+    }, 1500);
+    return () => clearTimeout(debounce);
+  }, [activeChat, isRestoring, addHistoryItem]);
 
   useEffect(() => {
     saveChats(chats);

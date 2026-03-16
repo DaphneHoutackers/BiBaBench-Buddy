@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
+import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
+import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
-
-// Comprehensive NEB enzyme list with buffer info
+import { useHistory } from '@/context/HistoryContext';
 const ENZYMES = {
   'AatII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
   'AclI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
@@ -137,7 +138,7 @@ function DnaMass({ ng }) {
   return <span className="text-rose-600 font-semibold">({ng} ng)</span>;
 }
 
-export default function DigestCalculator({ externalTab, onTabChange }) {
+export default function DigestCalculator({ externalTab, onTabChange, historyData }) {
   const [tab, setTab] = useState(externalTab || 'single');
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
   const [dnaConc, setDnaConc] = useState('');
@@ -155,6 +156,51 @@ export default function DigestCalculator({ externalTab, onTabChange }) {
   const [batchEnzymeType, setBatchEnzymeType] = useState('Standard');
   const [batchResults, setBatchResults] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  const { addHistoryItem } = useHistory();
+  const isRestoring = useRef(false);
+
+  // Restore from history
+  useEffect(() => {
+    if (historyData?.data && historyData.toolId === 'digest') {
+      isRestoring.current = true;
+      const d = historyData.data;
+      if (d.tab) setTab(d.tab);
+      if (d.dnaConc !== undefined) setDnaConc(d.dnaConc);
+      setDesiredDna(d.desiredDna || '1000');
+      setDnaRole(d.dnaRole || 'insert');
+      setSelectedEnzymes(d.selectedEnzymes || []);
+      setTotalVolume(d.totalVolume || '20');
+      setEnzymeVolume(d.enzymeVolume || '1');
+      setEnzymeType(d.enzymeType || 'Standard');
+      if (d.batchSamples) setBatchSamples(d.batchSamples);
+      if (d.batchTotalVol) setBatchTotalVol(d.batchTotalVol);
+      if (d.batchEnzymeVol) setBatchEnzymeVol(d.batchEnzymeVol);
+      if (d.batchEnzymeType) setBatchEnzymeType(d.batchEnzymeType);
+      
+      setTimeout(() => { isRestoring.current = false; }, 500);
+    }
+  }, [historyData]);
+
+  // Save history
+  useEffect(() => {
+    if (isRestoring.current) return;
+    const timeout = setTimeout(() => {
+      const hasSingle = tab === 'single' && dnaConc && desiredDna;
+      const hasBatch = tab === 'batch' && batchSamples.some(s => s.conc);
+      if (hasSingle || hasBatch) {
+        addHistoryItem({
+          toolId: 'digest',
+          tabId: tab,
+          title: tab === 'single' 
+            ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.join(', ') : 'Custom'}`
+            : `Batch Digest (${batchSamples.length} samples)`,
+          data: { tab, dnaConc, desiredDna, dnaRole, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType }
+        });
+      }
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [tab, dnaConc, desiredDna, dnaRole, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType, addHistoryItem]);
 
   // Filter enzymes based on selected enzyme type
   const getFilteredEnzymes = (type) => {

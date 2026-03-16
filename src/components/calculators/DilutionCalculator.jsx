@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Droplets, FlaskConical, Calculator, AlertCircle } from 'lucide-react';
+import { useHistory } from '@/context/HistoryContext';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -29,7 +30,8 @@ function formatConc(val) {
 }
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 
-export default function DilutionCalculator() {
+export default function DilutionCalculator({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [mode, setMode] = useState('c1v1');
 
   // Sample dilution mode
@@ -57,6 +59,61 @@ export default function DilutionCalculator() {
   const [numDilutions, setNumDilutions] = useState('8');
   const [volumePerWell, setVolumePerWell] = useState('100');
   const [serialResult, setSerialResult] = useState(null);
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'dilution') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.mode) setMode(d.mode);
+        if (d.sdStartConc !== undefined) setSdStartConc(d.sdStartConc);
+        if (d.sdMode !== undefined) setSdMode(d.sdMode);
+        if (d.sdFactor !== undefined) setSdFactor(d.sdFactor);
+        if (d.sdFinalConc !== undefined) setSdFinalConc(d.sdFinalConc);
+        if (d.sdSampleVol !== undefined) setSdSampleVol(d.sdSampleVol);
+        if (d.atvVolume !== undefined) setAtvVolume(d.atvVolume);
+        if (d.atvFactor !== undefined) setAtvFactor(d.atvFactor);
+        if (d.c1 !== undefined) setC1(d.c1);
+        if (d.v1 !== undefined) setV1(d.v1);
+        if (d.c2 !== undefined) setC2(d.c2);
+        if (d.v2 !== undefined) setV2(d.v2);
+        if (d.serialStart !== undefined) setSerialStart(d.serialStart);
+        if (d.dilutionFactor !== undefined) setDilutionFactor(d.dilutionFactor);
+        if (d.numDilutions !== undefined) setNumDilutions(d.numDilutions);
+        if (d.volumePerWell !== undefined) setVolumePerWell(d.volumePerWell);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring) return;
+    const debounce = setTimeout(() => {
+      let title = 'Dilution';
+      if (mode === 'c1v1' && c1v1Result && c1v1Result.value) {
+        title = `C1V1: solved ${labelMap[c1v1Result.solveFor]} = ${c1v1Result.value.toFixed(1)}`;
+      } else if (mode === 'sample' && sdResult) {
+        title = `Sample: ${sdStartConc} → ${sdResult.targetConc?.toFixed(1) || '?'}`;
+      } else if (mode === 'addto' && atvResult) {
+        title = `Add to Vol: ${atvVolume}µL + ${atvResult.addVol?.toFixed(1)}µL`;
+      } else if (mode === 'serial' && serialResult) {
+        title = `Serial: /${dilutionFactor}× (${numDilutions} wells)`;
+      }
+
+      addHistoryItem({
+        toolId: 'dilution',
+        title: title,
+        data: {
+          mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
+          c1, v1, c2, v2, serialStart, dilutionFactor, numDilutions, volumePerWell
+        }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
+      c1, v1, c2, v2, serialStart, dilutionFactor, numDilutions, volumePerWell, isRestoring, addHistoryItem, c1v1Result, sdResult, atvResult, serialResult]);
 
   // C1V1 calculation: always auto-detects missing field
   useEffect(() => {

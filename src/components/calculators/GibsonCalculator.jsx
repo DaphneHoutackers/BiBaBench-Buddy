@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { GitMerge, FlaskConical, Plus, Trash2, Info, Copy, Check, AlertTriangle } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useHistory } from '@/context/HistoryContext';
 
 const MAX_DNA_VOL = 5;
 const LOW_VOL_GIBSON = 0.3;
@@ -23,7 +24,8 @@ function NumInput({ value, onChange, ...props }) {
   return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
 }
 
-export default function GibsonCalculator() {
+export default function GibsonCalculator({ historyData }) {
+  const { addHistoryItem } = useHistory();
   const [fragments, setFragments] = useState([
     { id: 1, name: 'Vector', concentration: '', length: '', isVector: true },
     { id: 2, name: 'Insert 1', concentration: '', length: '', isVector: false }
@@ -33,6 +35,39 @@ export default function GibsonCalculator() {
   const [vectorNg, setVectorNg] = useState('100');
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'gibson') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.fragments !== undefined) setFragments(d.fragments);
+        if (d.totalVolume !== undefined) setTotalVolume(d.totalVolume);
+        if (d.foldExcess !== undefined) setFoldExcess(d.foldExcess);
+        if (d.vectorNg !== undefined) setVectorNg(d.vectorNg);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
+
+  useEffect(() => {
+    if (isRestoring || fragments.length === 2 && !fragments[0].length && !fragments[1].length) return;
+    const debounce = setTimeout(() => {
+      const vector = fragments.find(f => f.isVector);
+      const title = vector && vector.name && vector.name !== 'Vector' 
+        ? `Gibson: ${vector.name} + ${fragments.length - 1} inserts`
+        : `Gibson Assembly (${fragments.length} parts)`;
+
+      addHistoryItem({
+        toolId: 'gibson',
+        title: title,
+        data: { fragments, totalVolume, foldExcess, vectorNg }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [fragments, totalVolume, foldExcess, vectorNg, isRestoring, addHistoryItem]);
 
   const addFragment = () => {
     const newId = Math.max(...fragments.map(f => f.id)) + 1;
