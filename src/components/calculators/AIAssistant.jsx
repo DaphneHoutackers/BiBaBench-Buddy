@@ -150,13 +150,15 @@ export default function AIAssistant({ historyData }) {
     const fileNote = files.length > 0 ? `\n[Attached: ${files.map(f => f.name).join(', ')}]` : '';
     const displayMsg = (userMsg || '') + fileNote;
 
-    const title = c.messages.length === 1 ? (userMsg || files[0]?.name || 'Chat').slice(0, 45) : activeChat.title;
     const newMessages = [...messages, { role: 'user', content: displayMsg, file_urls: fileUrls }];
-    updateActiveChat(c => ({
-      ...c,
-      title,
-      messages: newMessages
-    }));
+    updateActiveChat(chat => {
+      const title = chat.messages.length === 1 ? (userMsg || files[0]?.name || 'Chat').slice(0, 45) : chat.title;
+      return {
+        ...chat,
+        title,
+        messages: newMessages
+      };
+    });
     setLoading(true);
 
     const contextPrompt = newMessages.length > 2

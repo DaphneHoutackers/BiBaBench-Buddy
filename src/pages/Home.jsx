@@ -60,14 +60,14 @@ const TOOL_GROUPS = [
     tools: [
       { id: 'gel',      name: 'Gel Simulator',    icon: Microscope, gradient: 'from-slate-600 to-slate-800', description: 'Visualize band patterns' },
       { id: 'plasmid',  name: 'Sequence Analyzer', icon: Dna,        gradient: 'from-teal-500 to-emerald-600', description: 'DNA maps & restriction sites' },
-      { id: 'buffer',   name: 'Buffers',           icon: Beaker,     gradient: 'from-amber-500 to-orange-500', description: 'Recipes & custom lysis buffer' },
       { id: 'image-annotator', name: 'Image Annotator', icon: ImageIcon, gradient: 'from-indigo-500 to-blue-600', description: 'Label gels, blots & lab images' },
     ],
   },
   {
     id: 'protocols',
-    label: 'Protocols & Knowledge',
+    label: 'Protocols & Lab Essentials',
     tools: [
+      { id: 'buffer',   name: 'Buffers',           icon: Beaker,     gradient: 'from-amber-500 to-orange-500', description: 'Recipes & custom lysis buffer' },
       { id: 'protocols', name: 'Protocol Library',  icon: BookOpen,  gradient: 'from-teal-500 to-emerald-500', description: 'Workflows & AI protocol generator' },
     ],
   },
@@ -312,18 +312,16 @@ export default function Home() {
     <div className="min-h-screen" style={bgStyle}>
       {/* ── Header ── */}
       <header className="border-b sticky top-0 z-40" style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-10 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {!isHome && (
-                <button
-                  onClick={() => setSidebarOpen(s => !s)}
-                  className={`p-1.5 rounded-lg transition-colors mr-0.5 ${settingsBtnColor} ${sidebarOpen ? (isDark ? 'bg-white/15' : 'bg-slate-100') : ''}`}
-                  title="Toggle sidebar"
-                >
-                  <PanelLeft className="w-4 h-4" />
-                </button>
-              )}
+              <button
+                onClick={() => setSidebarOpen(s => !s)}
+                className={`p-1.5 rounded-lg transition-colors mr-0.5 ${settingsBtnColor} ${sidebarOpen ? (isDark ? 'bg-white/15' : 'bg-slate-100') : ''}`}
+                title="Toggle sidebar"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </button>
               {!isHome && (
                 <button onClick={goHome} className={`flex items-center gap-1.5 text-sm transition-colors mr-1 ${backBtnColor}`}>
                   <ArrowLeft className="w-4 h-4" /> Back
@@ -364,8 +362,8 @@ export default function Home() {
       {/* ── Body ── */}
       <div className="max-w-[1400px] mx-auto flex" style={{ minHeight: 'calc(100vh - 57px)' }}>
 
-        {/* Sidebar (collapsible, only when a tool is open) */}
-        {!isHome && sidebarOpen && (
+        {/* Sidebar (collapsible) */}
+        {sidebarOpen && (
           <Sidebar
             active={active}
             onSelect={(id) => { setActive(id); setHistoryData(null); }}
@@ -379,12 +377,11 @@ export default function Home() {
         )}
 
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-hidden">
-
           {/* ── HOME ── */}
           {isHome && (
-            <div>
+            <div className="space-y-12">
               {/* Hero */}
-              <div className="mb-10">
+              <div className="mb-4">
                 <div className="text-center mb-3">
                   <h2 className={`text-3xl sm:text-4xl font-bold ${titleColor}`}>
                     Lab tools that{' '}
@@ -396,54 +393,61 @@ export default function Home() {
                 <ScienceJoke isDark={isDark} />
               </div>
 
-              {/* Calculators */}
-              <div className="mb-8">
-                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 px-1 ${sectionLabelColor}`}>Calculators</h3>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                  {CALCULATORS.map(calc => {
-                    const Icon = calc.icon;
-                    return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Left Column: Calculators (3 columns, 2 rows) */}
+                <div className="space-y-6">
+                  <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Calculators</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    {CALCULATORS.map(calc => (
                       <button key={calc.id} onClick={() => { setActive(calc.id); setHistoryData(null); }}
                         className={`group rounded-2xl p-4 text-center border shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 ${cardBg}`}>
-                        <div
-                          className={`inline-flex p-2.5 rounded-xl shadow-md mb-2.5 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`}
-                          style={iconStyle || {}}
-                        >
-                          <Icon className="w-5 h-5 text-white" />
+                        <div className={`inline-flex p-2.5 rounded-xl shadow-md mb-2.5 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
+                          <calc.icon className="w-5 h-5 text-white" />
                         </div>
                         <p className={`text-xs font-semibold leading-tight ${cardTextPrimary}`}>{calc.name}</p>
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Tool groups */}
-              {TOOL_GROUPS.map(group => (
-                <div key={group.id} className="mb-6">
-                  <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 px-1 ${sectionLabelColor}`}>{group.label}</h3>
-                  <div className={`grid gap-3 ${group.id === 'lab' ? 'grid-cols-2 sm:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 gap-4'}`}>
-                    {group.tools.map(tool => {
-                      const Icon = tool.icon;
-                      const isSmall = group.id === 'lab';
-                      return (
-                        <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
-                          className={`group relative rounded-2xl text-left border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${cardBg} ${isSmall ? 'p-3.5' : 'p-5'}`}>
-                          <div
-                            className={`inline-flex rounded-xl shadow-lg mb-2 ${isSmall ? 'p-2' : 'p-3 mb-3'} ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`}
-                            style={iconStyle || {}}
-                          >
-                            <Icon className={`text-white ${isSmall ? 'w-4 h-4' : 'w-6 h-6'}`} />
-                          </div>
-                          <p className={`font-semibold transition-colors ${cardTextPrimary} ${isSmall ? 'text-sm' : 'text-base'}`}>{tool.name}</p>
-                          <p className={`mt-0.5 ${cardTextSecondary} ${isSmall ? 'text-xs leading-tight' : 'text-xs'}`}>{tool.description}</p>
-                          <ChevronRight className={`absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 group-hover:translate-x-1 transition-all ${isDark ? 'text-white/30 group-hover:text-white/70' : 'text-slate-300 group-hover:text-teal-500'}`} />
-                        </button>
-                      );
-                    })}
+                    ))}
                   </div>
                 </div>
-              ))}
+
+                {/* Right Column: Lab & Protocols */}
+                <div className="space-y-10">
+                  {/* Lab & Visualization (3 columns, 1 row) */}
+                  <div className="space-y-6">
+                    <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Lab & Visualization</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {TOOL_GROUPS.find(g => g.id === 'lab').tools.map(tool => (
+                        <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
+                          className={`group relative rounded-2xl p-3.5 text-left border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${cardBg}`}>
+                          <div className={`inline-flex rounded-xl shadow-lg mb-2 p-2 ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
+                            <tool.icon className="text-white w-4 h-4" />
+                          </div>
+                          <p className={`font-semibold text-sm transition-colors ${cardTextPrimary}`}>{tool.name}</p>
+                          <ChevronRight className={`absolute right-2 top-4 w-3.5 h-3.5 group-hover:translate-x-1 transition-all ${isDark ? 'text-white/30 group-hover:text-white/70' : 'text-slate-300 group-hover:text-teal-500'}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Protocols & Lab Essentials (2 columns) */}
+                  <div className="space-y-6">
+                    <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Protocols & Lab Essentials</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {TOOL_GROUPS.find(g => g.id === 'protocols').tools.map(tool => (
+                        <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
+                          className={`group relative rounded-2xl p-5 text-left border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${cardBg}`}>
+                          <div className={`inline-flex rounded-xl shadow-lg mb-3 p-3 ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
+                            <tool.icon className="text-white w-6 h-6" />
+                          </div>
+                          <p className={`font-semibold text-base transition-colors ${cardTextPrimary}`}>{tool.name}</p>
+                          <p className={`mt-0.5 ${cardTextSecondary} text-xs pr-6`}>{tool.description}</p>
+                          <ChevronRight className={`absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 group-hover:translate-x-1 transition-all ${isDark ? 'text-white/30 group-hover:text-white/70' : 'text-slate-300 group-hover:text-teal-500'}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

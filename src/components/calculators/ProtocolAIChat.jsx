@@ -123,10 +123,10 @@ export default function ProtocolAIChat({ historyData }) {
     const fileNote = files.length > 0 ? `\n[Attached: ${files.map(f => f.name).join(', ')}]` : '';
     const displayMsg = (text || '') + fileNote;
     const newMessages = [...activeChat.messages, { role: 'user', content: displayMsg, file_urls: files.map(f => f.url) }];
-    updateActiveChat(c => ({
-      ...c,
+    updateActiveChat(chat => ({
+      ...chat,
       messages: newMessages,
-      title: c.title === 'New Protocol Chat' ? (text || files[0]?.name || 'Chat').slice(0, 40) : c.title,
+      title: chat.title === 'New Protocol Chat' ? (text || files[0]?.name || 'Chat').slice(0, 40) : chat.title,
     }));
     setInput('');
     setLoading(true);

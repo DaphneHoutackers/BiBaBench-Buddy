@@ -9,7 +9,7 @@
 
 const getApiKey = () => {
   try {
-    const settings = JSON.parse(localStorage.getItem('app_settings_v1') || '{}');
+    const settings = JSON.parse(localStorage.getItem('labcalc_settings') || '{}');
     return settings.groqApiKey || import.meta.env.VITE_AI_API_KEY;
   } catch {
     return import.meta.env.VITE_AI_API_KEY;
