@@ -8,8 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
-import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
-import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import { useHistory } from '@/context/HistoryContext';
 const ENZYMES = {
