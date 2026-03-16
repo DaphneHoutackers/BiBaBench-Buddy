@@ -75,6 +75,39 @@ function drawShape(ctx, ann) {
   ctx.restore();
 }
 
+function drawFloatItem(ctx, item) {
+  const { x, y, w, h, label, type, color='#111827', fontSize=14, labelColor='#111827', labelFontSize=11 } = item;
+  ctx.save();
+  if (type === 'lane-label') {
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#111827';
+    ctx.font = `bold ${Math.max(11, h * 0.55)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + w / 2, y + h / 2);
+  } else if (type === 'ladder-band') {
+    ctx.fillStyle = labelColor;
+    ctx.font = `bold ${labelFontSize}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + 2, y + h / 2);
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = labelColor;
+    ctx.moveTo(x + Math.max(40, label.length * 7) + 4, y + h / 2);
+    ctx.lineTo(x + w, y + h / 2);
+    ctx.stroke();
+  } else if (type === 'free-text') {
+    ctx.fillStyle = color;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(label, x + 2, y + 2);
+  }
+  ctx.restore();
+}
+
 function getAnnBBox(ann) {
   if (ann.type==='text'||ann.type==='number') {
     const fs = ann.fontSize||14;
@@ -368,11 +401,27 @@ export default function ImageAnnotator({ historyData }) {
       }
       const dx=(e.clientX-dragState.startX)/canvasScale, dy=(e.clientY-dragState.startY)/canvasScale;
       setFloatItems(prev => prev.map(it => {
-        if (it.id!==dragState.id) return it;
-        if (dragState.type==='move') return { ...it, x:dragState.origItem.x+dx, y:dragState.origItem.y+dy };
-        if (dragState.type==='resize') return { ...it, w:Math.max(50,dragState.origItem.w+dx), h:Math.max(20,dragState.origItem.h+dy) };
+        if (!selectedFloatIds.has(it.id) && it.id !== dragState.id) return it;
+        if (dragState.type==='move') {
+          return { ...it, x:it.x + dx, y:it.y + dy };
+        }
+        if (dragState.type==='resize') {
+          // If multiple items, scale proportionally
+          if (selectedFloatIds.size > 1) {
+            const scaleFactor = Math.max(0.1, 1 + dx / Math.max(50, dragState.origItem.w));
+            return {
+              ...it,
+              w: Math.max(20, it.w * scaleFactor),
+              h: Math.max(10, it.h * scaleFactor),
+              fontSize: it.fontSize ? Math.max(6, it.fontSize * scaleFactor) : it.fontSize
+            };
+          }
+          return { ...it, w:Math.max(50,dragState.origItem.w+dx), h:Math.max(20,dragState.origItem.h+dy) };
+        }
         return it;
       }));
+      // Reset drag start for continuous movement
+      setDragState(prev => ({ ...prev, startX: e.clientX, startY: e.clientY }));
     };
     const onUp = () => { setDragState(null); setMultiDragState(null); };
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
@@ -384,33 +433,62 @@ export default function ImageAnnotator({ historyData }) {
     if (editingText) { commitText(); return; }
     const pos = getCanvasPos(e);
 
+    // Always-Active Selection: Check if we hit an existing annotation or float item first
+    // unless we are in crop mode or text mode (text tool usually needs precise placement)
+    const isDrawingTool = ['line','arrow','rect','rect-outline','ellipse','star','check','cross','number'].includes(activeTool);
+    
+    if (isDrawingTool || activeTool === 'select') {
+      let found = null;
+      // 1. Check annotations (drawn on canvas)
+      for (let i = annotations.length - 1; i >= 0; i--) {
+        const ann = annotations[i];
+        const bb = getAnnBBox(ann);
+        if (pos.x >= bb.x - 8 && pos.x <= bb.x + bb.w + 8 && pos.y >= bb.y - 8 && pos.y <= bb.y + bb.h + 8) {
+          found = ann;
+          break;
+        }
+      }
+
+      // 2. Check float items (DOM overlays)
+      // Note: Float items usually handle their own onMouseDown, but if we're clicking on a canvas area
+      // that is "transparent" but within a float item's bbox, we might want to select it here.
+      // However, FloatItem already handles its own drag handle. 
+      // Let's focus on allowing selection of canvas annotations while a tool is active.
+      
+      if (found) {
+        if (selectedAnnIds.length > 1 && selectedAnnIds.includes(found.id)) {
+           setAnnDrag({ type: 'move', isMulti: true, ids: selectedAnnIds, startX: pos.x, startY: pos.y, origs: annotations.filter(a => selectedAnnIds.includes(a.id)).map(a => ({...a})) });
+        } else {
+          setSelectedId(found.id);
+          setSelectedFloatIds(new Set());
+          setSelectedAnnIds([found.id]);
+          setAnnDrag({ type: 'move', id: found.id, startX: pos.x, startY: pos.y, orig: { ...found } });
+        }
+        return; 
+      }
+    }
+
     if (activeTool==='select') {
       if (selectedId) {
         const ann = annotations.find(a => a.id===selectedId);
         if (ann) {
           const bb = getAnnBBox(ann);
           if (Math.abs(pos.x-(bb.x+bb.w+6)) < 10 && Math.abs(pos.y-(bb.y+bb.h+6)) < 10) {
-            setAnnDrag({ type:'resize', id:selectedId, startX:pos.x, startY:pos.y, orig:{...ann} });
+            if (selectedAnnIds.length > 1) {
+              setAnnDrag({ type: 'resize', isMulti: true, ids: selectedAnnIds, startX: pos.x, startY: pos.y, origs: annotations.filter(a => selectedAnnIds.includes(a.id)).map(a => ({...a})) });
+            } else {
+              setAnnDrag({ type:'resize', id:selectedId, startX:pos.x, startY:pos.y, orig:{...ann} });
+            }
             return;
           }
         }
       }
-      let found = null;
-      for (let i=annotations.length-1;i>=0;i--) {
-        const ann=annotations[i]; const bb=getAnnBBox(ann);
-        if (pos.x>=bb.x-8&&pos.x<=bb.x+bb.w+8&&pos.y>=bb.y-8&&pos.y<=bb.y+bb.h+8) { found=ann; break; }
-      }
-      if (found) {
-        setSelectedId(found.id);
-        setSelectedFloatIds(new Set());
-        setAnnDrag({ type:'move', id:found.id, startX:pos.x, startY:pos.y, orig:{...found} });
-      } else {
-        setSelectedId(null);
-        setSelectedFloatIds(new Set());
-        // Start selection box
-        setSelectionStart(pos);
-        setSelectionBox({ x:pos.x, y:pos.y, w:0, h:0 });
-      }
+      // If we got here, no object was clicked in 'select' mode
+      setSelectedId(null);
+      setSelectedFloatIds(new Set());
+      setSelectedAnnIds([]);
+      setSelectionStart(pos);
+      setSelectionBox({ x:pos.x, y:pos.y, w:0, h:0 });
       return;
     }
 
@@ -421,8 +499,7 @@ export default function ImageAnnotator({ historyData }) {
 
     if (activeTool==='text') {
       const id = uid();
-      // pos is already in image-pixel space (getCanvasPos maps to canvas.width/height = image dims)
-      // We store image coords; the overlay position is then pos * (canvasWidth/canvasSize.w) = display coords
+      // Adjust y so the text starts exactly where clicked
       setEditingText({ id, x:pos.x, y:pos.y });
       setTextVal('');
       return;
@@ -447,6 +524,22 @@ export default function ImageAnnotator({ historyData }) {
     if (annDrag && e.buttons===1) {
       const dx=pos.x-annDrag.startX, dy=pos.y-annDrag.startY;
       setAnnotations(prev => prev.map(a => {
+        if (annDrag.isMulti) {
+          if (!annDrag.ids.includes(a.id)) return a;
+          const orig = annDrag.origs.find(o => o.id === a.id);
+          if (annDrag.type === 'move') {
+            if (['text','number','star','check','cross'].includes(a.type)) return { ...a, x: orig.x + dx, y: orig.y + dy };
+            const dx2 = (orig.x2 ?? orig.x) - orig.x, dy2 = (orig.y2 ?? orig.y) - orig.y;
+            return { ...a, x: orig.x + dx, y: orig.y + dy, x2: orig.x + dx + dx2, y2: orig.y + dy + dy2 };
+          } else {
+            const scaleFactor = Math.max(0.1, 1 + dx / 100);
+            if (['text','number','star','check','cross'].includes(a.type)) {
+              return { ...a, fontSize: Math.max(6, Math.round((orig.fontSize||14)*scaleFactor)) };
+            }
+            const dx_scaled = (orig.x2 - orig.x) * scaleFactor, dy_scaled = (orig.y2 - orig.y) * scaleFactor;
+            return { ...a, x2: orig.x + dx_scaled, y2: orig.y + dy_scaled };
+          }
+        }
         if (a.id!==annDrag.id) return a;
         if (annDrag.type==='move') {
           if (['text','number','star','check','cross'].includes(a.type)) {
@@ -530,12 +623,11 @@ export default function ImageAnnotator({ historyData }) {
   };
 
   const commitText = useCallback(() => {
-    if (editingText && textVal.trim()) {
-      // editingText.x/y are in image-pixel space
-      // FloatItem uses image-pixel coords; w/h in image pixels too
+    if (!editingText) return; // Prevent double commit from Enter + Blur
+    if (textVal.trim()) {
       const minW = Math.max(80, textVal.length * fontSize * 0.65 + 20);
       const minH = Math.max(24, fontSize + 14);
-      setFloatItems(prev => [...prev, {
+      setFloatItemsWithHistory(prev => [...prev, {
         id: editingText.id, type: 'free-text', label: textVal,
         x: editingText.x,
         y: editingText.y,
@@ -546,7 +638,7 @@ export default function ImageAnnotator({ historyData }) {
     }
     setEditingText(null);
     setTextVal('');
-  }, [editingText, textVal, color, fontSize, canvasScale]);
+  }, [editingText, textVal, color, fontSize, setFloatItemsWithHistory]);
 
   const applyCrop = () => {
     if (!cropRect||!image||cropRect.w<5||cropRect.h<5) { setCropMode(false); setCropRect(null); return; }
@@ -569,7 +661,17 @@ export default function ImageAnnotator({ historyData }) {
   };
 
   const applyStyleToSelected = (field, val) => {
-    if (selectedId) setAnnotations(prev => prev.map(a => a.id===selectedId ? {...a,[field]:val} : a));
+    // 1. Batch annotations
+    if (selectedAnnIds.length > 0) {
+      setAnnotations(prev => prev.map(a => selectedAnnIds.includes(a.id) ? { ...a, [field]: val } : a));
+    } else if (selectedId) {
+      setAnnotations(prev => prev.map(a => a.id === selectedId ? { ...a, [field]: val } : a));
+    }
+
+    // 2. Batch float items
+    if (selectedFloatIds.size > 0) {
+      setFloatItems(prev => prev.map(it => selectedFloatIds.has(it.id) ? { ...it, [field]: val } : it));
+    }
   };
   const handleColorChange = (c) => { setColor(c); applyStyleToSelected('color',c); };
   const handleLineWidthChange = (v) => { setLineWidth(v); applyStyleToSelected('lineWidth',v); };
@@ -626,6 +728,7 @@ export default function ImageAnnotator({ historyData }) {
     const ctx=tmp.getContext('2d');
     if (image) ctx.drawImage(image,0,0,canvas.width,canvas.height);
     annotations.forEach(ann => drawShape(ctx,ann));
+    floatItems.forEach(it => drawFloatItem(ctx, it));
     const a=document.createElement('a'); a.download='annotated-image.png'; a.href=tmp.toDataURL('image/png'); a.click();
   };
 
@@ -835,11 +938,10 @@ export default function ImageAnnotator({ historyData }) {
               />
             ))}
 
-            {/* Text input overlay — convert image coords → display coords */}
             {editingText && (
               <div style={{position:'absolute',
                 left: editingText.x * canvasScale,
-                top: Math.max(0, editingText.y * canvasScale - fontSize * canvasScale - 4),
+                top: editingText.y * canvasScale,
                 zIndex:50, pointerEvents:'all'}}>
                 <input
                   autoFocus
@@ -901,17 +1003,19 @@ function FloatItem({ item, canvasScale, onChange, onDelete, onStartDrag, isSelec
       }}
     >
       {/* ── Drag handle on the left ── */}
-      <div
-        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onStartDrag(e, 'move'); }}
-        style={{
-          width: 12, flexShrink: 0, cursor: 'move', background: isSelected ? '#e0e7ff' : 'rgba(100,116,139,0.15)',
-          borderRadius: '3px 0 0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          userSelect: 'none',
-        }}
-        title="Drag to move"
-      >
-        <span style={{ color: '#94a3b8', fontSize: 8, lineHeight: 1, letterSpacing: -1 }}>⋮⋮</span>
-      </div>
+      {isSelected && (
+        <div
+          onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onStartDrag(e, 'move'); }}
+          style={{
+            width: 12, flexShrink: 0, cursor: 'move', background: '#e0e7ff',
+            borderRadius: '3px 0 0 3px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            userSelect: 'none',
+          }}
+          title="Drag to move"
+        >
+          <span style={{ color: '#94a3b8', fontSize: 8, lineHeight: 1, letterSpacing: -1 }}>⋮⋮</span>
+        </div>
+      )}
 
       {/* ── Content area ── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', minWidth: 0 }}>
@@ -957,17 +1061,19 @@ function FloatItem({ item, canvasScale, onChange, onDelete, onStartDrag, isSelec
       </div>
 
       {/* ── Delete button ── */}
-      <button
-        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onDelete(); }}
-        style={{
-          position: 'absolute', top: -8, right: -8, width: 14, height: 14, borderRadius: '50%',
-          background: '#ef4444', color: 'white', border: 'none', cursor: 'pointer', fontSize: 9,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5,
-        }}
-      >×</button>
+      {isSelected && (
+        <button
+          onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onDelete(); }}
+          style={{
+            position: 'absolute', top: -8, right: -8, width: 14, height: 14, borderRadius: '50%',
+            background: '#ef4444', color: 'white', border: 'none', cursor: 'pointer', fontSize: 9,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5,
+          }}
+        >×</button>
+      )}
 
       {/* ── Ladder style edit button ── */}
-      {isLadder && (
+      {isLadder && isSelected && (
         <button
           onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onEditBand(); }}
           title="Edit label style"
@@ -980,13 +1086,15 @@ function FloatItem({ item, canvasScale, onChange, onDelete, onStartDrag, isSelec
       )}
 
       {/* ── Resize handle (bottom-right) ── */}
-      <div
-        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onStartDrag(e, 'resize'); }}
-        style={{
-          position: 'absolute', bottom: -4, right: -4, width: 10, height: 10,
-          background: '#2563eb', borderRadius: 2, cursor: 'se-resize', zIndex: 5,
-        }}
-      />
+      {isSelected && (
+        <div
+          onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onStartDrag(e, 'resize'); }}
+          style={{
+            position: 'absolute', bottom: -4, right: -4, width: 10, height: 10,
+            background: '#2563eb', borderRadius: 2, cursor: 'se-resize', zIndex: 5,
+          }}
+        />
+      )}
     </div>
   );
 }

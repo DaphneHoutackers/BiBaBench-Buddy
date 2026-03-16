@@ -1,193 +1,123 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
-
 import React, { useState, useEffect } from 'react';
-import { X, Globe, Palette, User, LogOut, Mail, ChevronRight, Cpu, LogIn, Github, Lock, Clock } from 'lucide-react';
+import {
+  Settings,
+  User,
+  Cpu,
+  Moon,
+  Sun,
+  Palette,
+  Check,
+  X,
+  LogOut,
+  Cloud,
+  Info,
+  Lock,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  ShieldAlert,
+  Globe,
+  Mail,
+  Clock,
+  ChevronRight,
+  Github
+} from 'lucide-react';
+import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
+import { db } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 
-const FONT_SIZES = [
-  { label: 'Small', value: '14px' },
-  { label: 'Medium', value: '16px' },
-  { label: 'Large', value: '18px' },
-  { label: 'XL', value: '20px' },
-];
+import { FONT_SIZES, APP_THEMES } from '@/styles/themes';
 
-// ── Theme groups ──────────────────────────────────────────────────────────────
-// iconStyle: inline style object applied to icon wrappers (overrides per-tool gradient)
-// iconStyle: null means keep per-tool gradient colours
-export const APP_THEMES = {
-  // ── Curated ──
-  default: {
-    label: 'Lab Default',
-    emoji: '🧪',
-    group: 'special',
-    bg: 'linear-gradient(135deg, #f0f4f8 0%, #e8edf5 40%, #eef2f7 100%)',
-    cardBg: 'bg-white/80 backdrop-blur',
-    cardBorder: 'border-slate-200/60',
-    textPrimary: 'text-slate-800',
-    textSecondary: 'text-slate-500',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: null, // keep original colours
-  },
-  notes: {
-    label: 'Notes / Paper',
-    emoji: '📓',
-    group: 'special',
-    bg: '#faf8f3',
-    cardBg: 'bg-[#fffef7]',
-    cardBorder: 'border-amber-200/80',
-    textPrimary: 'text-stone-800',
-    textSecondary: 'text-stone-500',
-    headerClass: 'notes-theme',
-    bodyClass: 'notes-theme',
-    iconStyle: { background: 'linear-gradient(135deg, #b5a07a 0%, #8c7a5e 100%)' },
-  },
-  monochrome: {
-    label: 'Monochrome',
-    emoji: '⬛',
-    group: 'special',
-    bg: '#f2f2f2',
-    cardBg: 'bg-white',
-    cardBorder: 'border-neutral-300',
-    textPrimary: 'text-neutral-900',
-    textSecondary: 'text-neutral-500',
-    headerClass: 'mono-theme',
-    bodyClass: 'mono-theme',
-    iconStyle: { background: 'linear-gradient(135deg, #555 0%, #222 100%)' },
-  },
-  minimal: {
-    label: 'Minimal White',
-    emoji: '◻️',
-    group: 'special',
-    bg: '#ffffff',
-    cardBg: 'bg-gray-50',
-    cardBorder: 'border-gray-200',
-    textPrimary: 'text-gray-900',
-    textSecondary: 'text-gray-500',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)' },
-  },
-  modern: {
-    label: 'Modern Dark',
-    emoji: '⚡',
-    group: 'special',
-    bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-    cardBg: 'bg-white/5 backdrop-blur-xl',
-    cardBorder: 'border-white/10',
-    textPrimary: 'text-white',
-    textSecondary: 'text-blue-300',
-    headerClass: 'dark-theme',
-    bodyClass: 'dark-theme',
-    iconStyle: { background: 'linear-gradient(135deg, #3b5bdb 0%, #1e40af 100%)' },
-  },
-  // ── Muted tones ──
-  steel: {
-    label: 'Steel Blue',
-    emoji: '🩵',
-    group: 'muted',
-    bg: '#e8f0f3',
-    cardBg: 'bg-[#f4f8fa]',
-    cardBorder: 'border-[#aec8d2]',
-    textPrimary: 'text-[#2c4a54]',
-    textSecondary: 'text-[#5a8294]',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #79a2b0 0%, #4e7f90 100%)' },
-  },
-  ash: {
-    label: 'Ash Gray',
-    emoji: '🌫️',
-    group: 'muted',
-    bg: '#e9ebea',
-    cardBg: 'bg-[#f5f6f5]',
-    cardBorder: 'border-[#b2beb5]',
-    textPrimary: 'text-[#2e3330]',
-    textSecondary: 'text-[#848884]',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #848884 0%, #5a5f5c 100%)' },
-  },
-  charcoal: {
-    label: 'Charcoal',
-    emoji: '🪨',
-    group: 'muted',
-    bg: '#d8dfe2',
-    cardBg: 'bg-[#edf0f1]',
-    cardBorder: 'border-[#9aacb4]',
-    textPrimary: 'text-[#36454f]',
-    textSecondary: 'text-[#5c7480]',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #36454f 0%, #1e2d35 100%)' },
-  },
-  sage: {
-    label: 'Sage',
-    emoji: '🌿',
-    group: 'muted',
-    bg: '#e4ebe6',
-    cardBg: 'bg-[#f2f6f3]',
-    cardBorder: 'border-[#a8bfac]',
-    textPrimary: 'text-[#2d3d30]',
-    textSecondary: 'text-[#5a7a5e]',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #6b8f71 0%, #4a6b50 100%)' },
-  },
-  dusk: {
-    label: 'Dusk',
-    emoji: '🌆',
-    group: 'muted',
-    bg: '#e5e3ee',
-    cardBg: 'bg-[#f3f2f8]',
-    cardBorder: 'border-[#b4afd0]',
-    textPrimary: 'text-[#2e2b42]',
-    textSecondary: 'text-[#6b6590]',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #7b75a8 0%, #4e4878 100%)' },
-  },
-  sand: {
-    label: 'Sand',
-    emoji: '🏜️',
-    group: 'muted',
-    bg: '#ede8de',
-    cardBg: 'bg-[#f7f4ee]',
-    cardBorder: 'border-[#c9bfa8]',
-    textPrimary: 'text-[#3d3628]',
-    textSecondary: 'text-[#7a6e58]',
-    headerClass: '',
-    bodyClass: '',
-    iconStyle: { background: 'linear-gradient(135deg, #9c8c70 0%, #6e6050 100%)' },
-  },
-  dark: {
-    label: 'Dark',
-    emoji: '🌑',
-    group: 'muted',
-    bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-    cardBg: 'bg-slate-800/80 backdrop-blur',
-    cardBorder: 'border-slate-700/60',
-    textPrimary: 'text-slate-100',
-    textSecondary: 'text-slate-400',
-    headerClass: 'dark-theme',
-    bodyClass: 'dark-theme',
-    iconStyle: { background: 'linear-gradient(135deg, #475569 0%, #334155 100%)' },
-  },
-};
+
+// Theme groups and font sizes moved to src/styles/themes.js
+
 
 const THEME_GROUPS = [
   { key: 'special', label: 'Curated' },
   { key: 'muted', label: 'Muted Tones' },
 ];
 
+const AI_PROVIDERS = {
+  groq: {
+    label: 'Groq',
+    models: [
+      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Fastest)' },
+      { id: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B' },
+      { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+      { id: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+    ]
+  },
+  openai: {
+    label: 'OpenAI',
+    models: [
+      { id: 'gpt-4o', label: 'GPT-4o (Best)' },
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+      { id: 'o1-preview', label: 'o1 Preview' },
+      { id: 'o1-mini', label: 'o1 Mini' },
+    ]
+  },
+  gemini: {
+    label: 'Google Gemini',
+    models: [
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+      { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+    ]
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    models: [
+      { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+      { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+      { id: 'openai/gpt-4o', label: 'OpenAI GPT-4o' },
+      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
+    ]
+  }
+};
+
 
 export default function SettingsPanel({ settings, onChange, onClose }) {
+  const [valStatus, setValStatus] = React.useState({}); // { [provider]: 'loading' | 'success' | 'error' }
+  const [orModels, setOrModels] = React.useState([]);
+  const [isFetchingOr, setIsFetchingOr] = React.useState(false);
+
+  // Fetch OpenRouter models if provider is openrouter
+  React.useEffect(() => {
+    if (settings.aiProvider === 'openrouter' && orModels.length === 0) {
+      handleFetchOR();
+    }
+  }, [settings.aiProvider]);
+
+  const handleFetchOR = async () => {
+    setIsFetchingOr(true);
+    const models = await FetchOpenRouterModels();
+    if (models) setOrModels(models);
+    setIsFetchingOr(false);
+  };
+
+  const handleValidate = async (provider) => {
+    const apiKey = settings[`${provider}ApiKey`];
+    if (!apiKey) return;
+
+    setValStatus(prev => ({ ...prev, [provider]: 'loading' }));
+    const result = await ValidateApiKey({ provider, apiKey });
+    setValStatus(prev => ({ ...prev, [provider]: result.success ? 'success' : 'error' }));
+
+    // Reset status after 3 seconds
+    setTimeout(() => {
+      setValStatus(prev => {
+        const next = { ...prev };
+        delete next[provider];
+        return next;
+      });
+    }, 3000);
+  };
   const currentTheme = settings.appTheme || 'default';
   const [tab, setTab] = useState('appearance');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Auth Form State
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
@@ -200,15 +130,11 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     if (isSyncEnabled()) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null);
-        if (session?.user) syncSettingsFromRemote(session.user.id);
         setLoading(false);
       });
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         setUser(session?.user ?? null);
-        if (event === 'SIGNED_IN' && session?.user) {
-          syncSettingsFromRemote(session.user.id);
-        }
       });
 
       return () => subscription.unsubscribe();
@@ -217,17 +143,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     }
   }, []);
 
-  const syncSettingsFromRemote = async (userId) => {
-    const { data, error } = await supabase
-      .from('user_settings')
-      .select('settings')
-      .eq('user_id', userId)
-      .single();
-    
-    if (!error && data?.settings) {
-      onChange({ ...settings, ...data.settings });
-    }
-  };
+
 
   // Persist settings to remote when they change
   useEffect(() => {
@@ -267,7 +183,13 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     if (!isSyncEnabled()) return;
     try {
       const { error } = await supabase.auth.signInWithOAuth({ provider });
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('provider is not enabled')) {
+          setAuthError(`Go to Supabase Dashboard > Authentication > Providers to enable ${provider.charAt(0).toUpperCase() + provider.slice(1)}.`);
+        } else {
+          throw error;
+        }
+      }
     } catch (err) {
       setAuthError(err.message);
     }
@@ -327,25 +249,52 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 <div className="space-y-4">
                   {THEME_GROUPS.map(group => {
                     const groupThemes = Object.entries(APP_THEMES).filter(([, t]) => t.group === group.key);
+                    const isMuted = group.key === 'muted';
+                    
                     return (
                       <div key={group.key}>
-                        <p className="text-xs text-slate-400 mb-1.5 font-medium">{group.label}</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {groupThemes.map(([key, theme]) => (
-                            <button
-                              key={key}
-                              onClick={() => onChange({ ...settings, appTheme: key })}
-                              className={`flex items-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all text-left ${
-                                currentTheme === key
-                                  ? 'border-teal-500 bg-teal-50 text-teal-700'
-                                  : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                              }`}
-                            >
-                              <span className="text-base leading-none">{theme.emoji}</span>
-                              <span>{theme.label}</span>
-                            </button>
-                          ))}
-                        </div>
+                        <p className="text-xs text-slate-400 mb-2 font-medium">{group.label}</p>
+                        {isMuted ? (
+                          <div className="flex flex-wrap gap-2.5 px-1 py-1">
+                            {groupThemes.map(([key, theme]) => (
+                              <button
+                                key={key}
+                                onClick={() => onChange({ ...settings, appTheme: key })}
+                                title={theme.label}
+                                className={`w-8 h-8 rounded-full border-2 transition-all p-0.5 relative group ${
+                                  currentTheme === key ? 'border-teal-500 scale-110 shadow-sm' : 'border-white shadow-sm hover:border-slate-200'
+                                }`}
+                              >
+                                <div 
+                                  className="w-full h-full rounded-full" 
+                                  style={{ background: theme.bg.includes('gradient') ? theme.bg : theme.bg }}
+                                />
+                                {currentTheme === key && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2">
+                            {groupThemes.map(([key, theme]) => (
+                              <button
+                                key={key}
+                                onClick={() => onChange({ ...settings, appTheme: key })}
+                                className={`flex items-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all text-left ${
+                                  currentTheme === key
+                                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                                    : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                                }`}
+                              >
+                                <span className="text-base leading-none">{theme.emoji}</span>
+                                <span>{theme.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -390,30 +339,114 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
           {/* ── AI SETTINGS ── */}
           {tab === 'ai' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Provider Selection */}
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5" /> Groq API Configuration
+                  <Cpu className="w-3.5 h-3.5" /> AI Provider
                 </p>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Personalise your experience by using your own Groq API key. This avoids rate limits and uses your own account quota.
-                  </p>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Groq API Key</label>
-                    <input
-                      type="password"
-                      value={settings.groqApiKey || ''}
-                      onChange={(e) => onChange({ ...settings, groqApiKey: e.target.value })}
-                      placeholder="gsk_..."
-                      className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                    <div className="w-1 h-1 rounded-full bg-slate-300" />
-                    <span>Get a free key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">console.groq.com</a></span>
-                  </div>
+                <select
+                  value={settings.aiProvider || 'groq'}
+                  onChange={(e) => {
+                    const newProvider = e.target.value;
+                    onChange({
+                      ...settings,
+                      aiProvider: newProvider,
+                      aiModel: AI_PROVIDERS[newProvider].models[0].id
+                    });
+                  }}
+                  className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                >
+                  {Object.entries(AI_PROVIDERS).map(([id, p]) => (
+                    <option key={id} value={id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Model Selection */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Model Selection</p>
+                  {settings.aiProvider === 'openrouter' && (
+                    <button 
+                      onClick={handleFetchOR}
+                      disabled={isFetchingOr}
+                      className="text-[10px] text-teal-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+                    >
+                      {isFetchingOr ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                      Sync Models
+                    </button>
+                  )}
                 </div>
+                <select
+                  value={settings.aiModel || (settings.aiProvider === 'openrouter' && orModels.length > 0 ? orModels[0].id : AI_PROVIDERS[settings.aiProvider || 'groq'].models[0].id)}
+                  onChange={(e) => onChange({ ...settings, aiModel: e.target.value })}
+                  className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                >
+                  {settings.aiProvider === 'openrouter' && orModels.length > 0 
+                    ? orModels.map(m => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))
+                    : AI_PROVIDERS[settings.aiProvider || 'groq'].models.map(m => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))
+                  }
+                </select>
+                {settings.aiProvider === 'openrouter' && orModels.length === 0 && !isFetchingOr && (
+                  <p className="text-[10px] text-amber-500 mt-1">Failed to load models. Using default list.</p>
+                )}
+              </div>
+
+              {/* API Keys */}
+              <div className="space-y-4 pt-2 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" /> API Keys
+                </p>
+                
+                  {[
+                    { prov: 'groq', key: 'groqApiKey', label: 'Groq API Key', ph: 'gsk_...', link: 'https://console.groq.com' },
+                    { prov: 'openai', key: 'openaiApiKey', label: 'OpenAI API Key', ph: 'sk-...', link: 'https://platform.openai.com' },
+                    { prov: 'gemini', key: 'geminiApiKey', label: 'Gemini API Key', ph: 'AIza...', link: 'https://aistudio.google.com' },
+                    { prov: 'openrouter', key: 'openrouterApiKey', label: 'OpenRouter API Key', ph: 'sk-or-...', link: 'https://openrouter.ai' },
+                  ].map(item => (
+                    <div key={item.key} className="space-y-1">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</label>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => handleValidate(item.prov)}
+                            disabled={!settings[item.key] || valStatus[item.prov] === 'loading'}
+                            className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                              valStatus[item.prov] === 'success' ? 'text-green-500' :
+                              valStatus[item.prov] === 'error' ? 'text-red-500' :
+                              'text-teal-600 hover:text-teal-700 disabled:text-slate-300'
+                            }`}
+                          >
+                            {valStatus[item.prov] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                            {valStatus[item.prov] === 'success' && <ShieldCheck className="w-2.5 h-2.5" />}
+                            {valStatus[item.prov] === 'error' && <ShieldAlert className="w-2.5 h-2.5" />}
+                            {valStatus[item.prov] === 'success' ? 'Verbonden' : 
+                             valStatus[item.prov] === 'error' ? 'Fout' : 
+                             valStatus[item.prov] === 'loading' ? 'Checken...' : 'Check Verbinding'}
+                          </button>
+                          <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-400 hover:text-teal-600 transition-colors">Get Key</a>
+                        </div>
+                      </div>
+                      <input
+                        type="password"
+                        value={settings[item.key] || ''}
+                        onChange={(e) => onChange({ ...settings, [item.key]: e.target.value })}
+                        placeholder={item.ph}
+                        className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                  * Je API-keys worden veilig lokaal opgeslagen in je browser (of gesynchroniseerd met je account als je bent ingelogd).
+                </p>
               </div>
             </div>
           )}
@@ -526,6 +559,15 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.11.8 1.12-.16 2.26-.9 3.77-.73 2.01.2 3.5 1.06 4.29 2.52-4.01 2.4-3.37 7.73.65 9.38-.45 1.02-1 .92-1.77 2zm-3.41-13.3c-.02-2.31 1.9-4.22 4.14-4.25.21 2.57-2.19 4.49-4.14 4.25z"/></svg>
                       Apple
                     </button>
+                  </div>
+
+                  <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                    <p className="text-[10px] text-blue-600 leading-relaxed font-medium">
+                      <Info className="w-3 h-3 inline mr-1 mb-0.5" /> 
+                      <strong>Admin Tip:</strong> Enable Google & Apple logins in your 
+                      <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline ml-1">Supabase Dashboard</a> 
+                      under Authentication {' > '} Providers.
+                    </p>
                   </div>
 
                   <p className="text-center text-xs text-slate-400">

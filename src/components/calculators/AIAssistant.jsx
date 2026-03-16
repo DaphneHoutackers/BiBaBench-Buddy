@@ -149,16 +149,14 @@ export default function AIAssistant({ historyData }) {
     const fileUrls = files.map(f => f.url);
     const fileNote = files.length > 0 ? `\n[Attached: ${files.map(f => f.name).join(', ')}]` : '';
     const displayMsg = (userMsg || '') + fileNote;
+    const title = activeChat.messages.length === 1 ? (userMsg || files[0]?.name || 'Chat').slice(0, 45) : activeChat.title;
 
     const newMessages = [...messages, { role: 'user', content: displayMsg, file_urls: fileUrls }];
-    updateActiveChat(chat => {
-      const title = chat.messages.length === 1 ? (userMsg || files[0]?.name || 'Chat').slice(0, 45) : chat.title;
-      return {
-        ...chat,
-        title,
-        messages: newMessages
-      };
-    });
+    updateActiveChat(chat => ({
+      ...chat,
+      title,
+      messages: newMessages
+    }));
     setLoading(true);
 
     const contextPrompt = newMessages.length > 2
@@ -341,6 +339,20 @@ export default function AIAssistant({ historyData }) {
                 <div ref={bottomRef} />
               </div>
               <div className="border-t border-slate-100 p-4 space-y-2">
+                {/* Active Model Indicator */}
+                <div className="flex items-center gap-1.5 px-1 mb-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tight">
+                    Using <span className="text-slate-500">{(() => {
+                      try {
+                        const s = JSON.parse(localStorage.getItem('labcalc_settings') || '{}');
+                        const p = s.aiProvider || 'groq';
+                        const m = s.aiModel || (p === 'groq' ? 'llama-3.3-70b-versatile' : p === 'openai' ? 'gpt-4o' : p === 'gemini' ? 'gemini-2.0-flash' : 'google/gemini-2.0-flash-001');
+                        return `${m} via ${p.toUpperCase()}`;
+                      } catch { return 'Default via Groq'; }
+                    })()}</span>
+                  </span>
+                </div>
                 {/* Attached files preview */}
                 {attachedFiles.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">

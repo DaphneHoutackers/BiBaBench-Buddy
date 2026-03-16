@@ -30,3 +30,5 @@ release
 *.sw?
 
 .env
+.vercel
+.env*.local

@@ -22,6 +22,7 @@ const createWindow = () => {
       contextIsolation: false, // For simplicity in this local app
     },
     titleBarStyle: 'hiddenInset', // Makes it look native on Mac
+    icon: path.join(__dirname, '..', 'public', 'assets', 'logo.png'),
   });
 
   // Load the VITE dev server path or the local file path

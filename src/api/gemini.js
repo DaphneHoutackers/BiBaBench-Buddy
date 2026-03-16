@@ -1,47 +1,64 @@
 /**
- * AI integration via Groq — replaces Base44's InvokeLLM.
- *
- * Uses the Groq REST API with Llama 3 (free tier: 30 req/min).
- * API key is read from VITE_AI_API_KEY in .env.
- * 
- * To switch provider, change PROVIDER below to 'gemini' or 'groq'.
+ * AI integration supporting multiple providers: Groq, Gemini, OpenAI, OpenRouter.
  */
 
-const getApiKey = () => {
+const getSettings = () => {
   try {
-    const settings = JSON.parse(localStorage.getItem('labcalc_settings') || '{}');
-    return settings.groqApiKey || import.meta.env.VITE_AI_API_KEY;
+    return JSON.parse(localStorage.getItem('labcalc_settings') || '{}');
   } catch {
-    return import.meta.env.VITE_AI_API_KEY;
+    return {};
   }
 };
 
-const PROVIDER = 'groq'; // 'groq' or 'gemini'
-
-// ── Groq config ──
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const PROVIDER_CONFIGS = {
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    defaultModel: 'llama-3.3-70b-versatile'
+  },
+  openai: {
+    url: 'https://api.openai.com/v1/chat/completions',
+    defaultModel: 'gpt-4o'
+  },
+  gemini: {
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/',
+    defaultModel: 'gemini-2.0-flash'
+  },
+  openrouter: {
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    defaultModel: 'google/gemini-2.0-flash-001'
+  }
+};
 
 /**
- * InvokeLLM — drop-in replacement for Base44's db.integrations.Core.InvokeLLM
+ * InvokeLLM — Routes requests to the selected AI provider.
  */
-export async function InvokeLLM({ prompt, response_json_schema, file_urls } = {}) {
-  const apiKey = getApiKey();
+export async function InvokeLLM(args = {}) {
+  const { prompt, response_json_schema, file_urls } = args;
+  const settings = getSettings();
+  const provider = settings.aiProvider || 'groq';
+  const model = settings.aiModel || PROVIDER_CONFIGS[provider]?.defaultModel;
+  
+  const apiKey = 
+    settings[`${provider}ApiKey`] || 
+    (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env[`VITE_${provider.toUpperCase()}_API_KEY`] : undefined);
+
   if (!apiKey) {
-    console.warn('[AI] No API key set. Add your key in Settings > AI Settings.');
-    return response_json_schema ? {} : 'AI is not configured. Please add your Groq API key in the Settings.';
+    console.warn(`[AI] No API key set for ${provider}. Add your key in Settings > AI Settings.`);
+    return response_json_schema ? {} : `AI is not configured for ${provider.toUpperCase()}. Please add your API key in the Settings.`;
   }
 
-  if (PROVIDER === 'groq') {
-    return invokeGroq({ prompt, response_json_schema, apiKey });
+  if (provider === 'gemini') {
+    return invokeGemini({ prompt, response_json_schema, apiKey, model });
   } else {
-    // Gemini backup logic - currently also requires a key
-    return invokeGemini({ prompt, response_json_schema, apiKey });
+    // OpenAI, Groq, and OpenRouter share a similar schema
+    return invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, provider });
   }
 }
 
-// Update helper functions to accept apiKey parameter
-async function invokeGroq({ prompt, response_json_schema, apiKey }) {
+async function invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, provider }) {
+  const config = PROVIDER_CONFIGS[provider];
+  const url = config.url;
+
   const messages = [
     {
       role: 'system',
@@ -52,20 +69,26 @@ async function invokeGroq({ prompt, response_json_schema, apiKey }) {
     { role: 'user', content: prompt }
   ];
 
-  // If JSON is expected, add schema hint
   if (response_json_schema) {
     messages[1].content += `\n\nRespond with valid JSON matching this schema: ${JSON.stringify(response_json_schema)}. Return ONLY the JSON object.`;
   }
 
   try {
-    const res = await fetch(GROQ_URL, {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    };
+
+    if (provider === 'openrouter') {
+      headers['HTTP-Referer'] = window.location.origin;
+      headers['X-Title'] = 'LabCalc';
+    }
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: model,
         messages,
         temperature: 0.7,
         max_tokens: 4096,
@@ -75,7 +98,7 @@ async function invokeGroq({ prompt, response_json_schema, apiKey }) {
 
     if (!res.ok) {
       const err = await res.text();
-      console.error('[Groq] API error:', res.status, err);
+      console.error(`[${provider.toUpperCase()}] API error:`, res.status, err);
       return response_json_schema ? {} : `AI error (${res.status}). Check your API key.`;
     }
 
@@ -87,22 +110,20 @@ async function invokeGroq({ prompt, response_json_schema, apiKey }) {
         const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
         return JSON.parse(cleaned);
       } catch (e) {
-        console.warn('[Groq] Failed to parse JSON:', e, '\nRaw:', text);
+        console.warn(`[${provider.toUpperCase()}] Failed to parse JSON:`, e, '\nRaw:', text);
         return {};
       }
     }
 
     return text;
   } catch (err) {
-    console.error('[Groq] Request failed:', err);
+    console.error(`[${provider.toUpperCase()}] Request failed:`, err);
     return response_json_schema ? {} : 'AI request failed. Check your internet connection.';
   }
 }
 
-// ── Gemini (backup) ───────────────────────────────────────────────────────
-async function invokeGemini({ prompt, response_json_schema, apiKey }) {
-  const GEMINI_MODEL = 'gemini-2.0-flash';
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+async function invokeGemini({ prompt, response_json_schema, apiKey, model }) {
+  const url = `${PROVIDER_CONFIGS.gemini.url}${model}:generateContent?key=${apiKey}`;
 
   const systemInstruction = response_json_schema
     ? 'You are a helpful AI assistant. Respond with valid JSON only.'
@@ -114,7 +135,7 @@ async function invokeGemini({ prompt, response_json_schema, apiKey }) {
   }
 
   try {
-    const res = await fetch(GEMINI_URL, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -151,5 +172,66 @@ async function invokeGemini({ prompt, response_json_schema, apiKey }) {
   } catch (err) {
     console.error('[Gemini] Request failed:', err);
     return response_json_schema ? {} : 'AI request failed.';
+  }
+}
+
+/**
+ * ValidateApiKey — Checks if an API key is valid by sending a test request.
+ */
+export async function ValidateApiKey({ provider, apiKey }) {
+  const model = PROVIDER_CONFIGS[provider]?.defaultModel;
+  
+  if (provider === 'gemini') {
+    const url = `${PROVIDER_CONFIGS.gemini.url}${model}:generateContent?key=${apiKey}`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Say "ok"' }] }],
+          generationConfig: { maxOutputTokens: 5 }
+        }),
+      });
+      return { success: res.ok, status: res.status };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  } else {
+    const url = PROVIDER_CONFIGS[provider].url;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: 'Say "ok"' }],
+          max_tokens: 5,
+        }),
+      });
+      return { success: res.ok, status: res.status };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+}
+
+/**
+ * FetchOpenRouterModels — Gets the current list of available models from OpenRouter.
+ */
+export async function FetchOpenRouterModels() {
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.data.map(m => ({
+      id: m.id,
+      label: m.name || m.id
+    })).sort((a, b) => a.label.localeCompare(b.label));
+  } catch (err) {
+    console.error('[OpenRouter] Failed to fetch models:', err);
+    return null;
   }
 }

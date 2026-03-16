@@ -781,117 +781,116 @@ function WesternBlotTab() {
 // ════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════
-export default function GelSimulator({ historyData }) {
+export default function GelAndWBSimulator({ historyData }) {
   const { addHistoryItem } = useHistory();
-  const [tab, setTab] = useState('manual');
+  const [tab, setTab] = useState('dna');
   const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb Plus');
-  const [lanes, setLanes] = useState([{ id: 1, label: '1', fragments: '500, 2000' }]);
   const [agarose, setAgarose] = useState('1');
-  const [excisedBands, setExcisedBands] = useState({});
-  const [laneColors, setLaneColors] = useState({});
-  const [digestLaneColors, setDigestLaneColors] = useState({});
   const [voltage, setVoltage] = useState(100);
   const [runtime, setRuntime] = useState(35);
-
-  const [digestSamples, setDigestSamples] = useState([
-    { id: 1, label: '1', seq: '', enzymes: [], circular: false }
+  
+  // Unified DNA lanes state
+  const [dnaLanes, setDnaLanes] = useState([
+    { id: 1, label: 'Lane 1', type: 'manual', manualFragments: '500, 2000', sequence: '', enzymes: [], circular: false }
   ]);
-  const [digestLoading, setDigestLoading] = useState(false);
-  const [digestResults, setDigestResults] = useState(null);
-  const [digestExcisedBands, setDigestExcisedBands] = useState({});
-
+  
+  const [excisedBands, setExcisedBands] = useState({});
+  const [laneColors, setLaneColors] = useState({});
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // Digest calculation results cache
+  const [digestCache, setDigestCache] = useState({});
 
   useEffect(() => {
     if (historyData && historyData.toolId === 'gel') {
       setIsRestoring(true);
       const d = historyData.data;
       if (d) {
-        if (d.tab !== undefined) setTab(d.tab);
+        if (d.tab !== undefined) setTab(d.tab === 'manual' || d.tab === 'digest' ? 'dna' : d.tab);
         if (d.selectedLadder !== undefined) setSelectedLadder(d.selectedLadder);
-        if (d.lanes !== undefined) setLanes(d.lanes);
         if (d.agarose !== undefined) setAgarose(d.agarose);
-        if (d.excisedBands !== undefined) setExcisedBands(d.excisedBands);
-        if (d.laneColors !== undefined) setLaneColors(d.laneColors);
-        if (d.digestLaneColors !== undefined) setDigestLaneColors(d.digestLaneColors);
         if (d.voltage !== undefined) setVoltage(d.voltage);
         if (d.runtime !== undefined) setRuntime(d.runtime);
-        if (d.digestSamples !== undefined) setDigestSamples(d.digestSamples);
-        if (d.digestResults !== undefined) setDigestResults(d.digestResults);
-        if (d.digestExcisedBands !== undefined) setDigestExcisedBands(d.digestExcisedBands);
+        if (d.dnaLanes !== undefined) setDnaLanes(d.dnaLanes);
+        else if (d.lanes !== undefined) {
+          // Migration from old manual lanes
+          setDnaLanes(d.lanes.map(l => ({
+            id: l.id,
+            label: l.label,
+            type: 'manual',
+            manualFragments: l.fragments,
+            sequence: '',
+            enzymes: [],
+            circular: false
+          })));
+        }
+        if (d.excisedBands !== undefined) setExcisedBands(d.excisedBands);
+        if (d.laneColors !== undefined) setLaneColors(d.laneColors);
       }
       setTimeout(() => setIsRestoring(false), 50);
     }
   }, [historyData]);
 
+  // Recalculate digest for any 'sequence' lanes
   useEffect(() => {
-    if (isRestoring || tab === 'manual' && lanes.length === 1 && lanes[0].fragments === '500, 2000' && !digestResults) return;
-    const debounce = setTimeout(() => {
-      let title = 'Gel Simulator';
-      if (tab === 'manual') title = `Manual Gel (${lanes.length} lanes)`;
-      if (tab === 'digest' && digestResults) title = `Digest Gel (${digestResults.length} samples)`;
-      if (tab === 'wb') title = `Western Blot`;
+    const newCache = { ...digestCache };
+    let changed = false;
 
+    dnaLanes.forEach(lane => {
+      if (lane.type === 'sequence') {
+        const cacheKey = `${lane.sequence}-${lane.enzymes.join(',')}-${lane.circular}`;
+        if (!newCache[lane.id] || newCache[lane.id].key !== cacheKey) {
+          const seq = lane.sequence.replace(/[\s\n\r]/g, '').toUpperCase().replace(/[^ATGC]/g, '');
+          if (!seq.length) {
+            newCache[lane.id] = { key: cacheKey, fragments: [] };
+          } else {
+            const enzymeSites = lane.enzymes.map(enz => {
+              const recognition = RECOGNITION_SEQS[enz];
+              const sites = lane.circular ? findCutSitesCircular(seq, recognition) : findCutSitesInSeq(seq, recognition);
+              return { enzyme: enz, recognition, sites };
+            });
+            newCache[lane.id] = { 
+              key: cacheKey, 
+              fragments: computeDigestFragments(seq.length, enzymeSites, lane.circular),
+              enzymeSites 
+            };
+          }
+          changed = true;
+        }
+      }
+    });
+
+    if (changed) setDigestCache(newCache);
+  }, [dnaLanes]);
+
+  useEffect(() => {
+    if (isRestoring) return;
+    const debounce = setTimeout(() => {
       addHistoryItem({
         toolId: 'gel',
-        title: title,
-        data: {
-          tab, selectedLadder, lanes, agarose, excisedBands, laneColors,
-          digestLaneColors, voltage, runtime, digestSamples, digestResults,
-          digestExcisedBands
-        }
+        title: tab === 'dna' ? `DNA Gel (${dnaLanes.length} lanes)` : 'Western Blot',
+        data: { tab, selectedLadder, agarose, voltage, runtime, dnaLanes, excisedBands, laneColors }
       });
     }, 1000);
     return () => clearTimeout(debounce);
-  }, [tab, selectedLadder, lanes, agarose, excisedBands, laneColors, digestLaneColors, voltage, runtime, digestSamples, digestResults, digestExcisedBands, isRestoring, addHistoryItem]);
+  }, [tab, selectedLadder, agarose, voltage, runtime, dnaLanes, excisedBands, laneColors, isRestoring, addHistoryItem]);
 
-  const parsedLanes = lanes.map(l => ({
-    ...l,
-    bpList: l.fragments.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0),
-  }));
+  const parsedLanes = dnaLanes.map(lane => {
+    let bpList = [];
+    if (lane.type === 'manual') {
+      bpList = lane.manualFragments.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
+    } else {
+      bpList = digestCache[lane.id]?.fragments || [];
+    }
+    return { ...lane, bpList };
+  });
 
   const addLane = () => {
-    const id = Math.max(...lanes.map(l => l.id)) + 1;
-    setLanes([...lanes, { id, label: String(id), fragments: '' }]);
+    const id = dnaLanes.length > 0 ? Math.max(...dnaLanes.map(l => l.id)) + 1 : 1;
+    setDnaLanes([...dnaLanes, { id, label: `Lane ${id}`, type: 'manual', manualFragments: '', sequence: '', enzymes: [], circular: false }]);
   };
-  const updateLane = (id, field, val) => setLanes(lanes.map(l => l.id === id ? { ...l, [field]: val } : l));
 
-  const addDigestSample = () => {
-    const id = Math.max(...digestSamples.map(s => s.id)) + 1;
-    setDigestSamples([...digestSamples, { id, label: String(id), seq: '', enzymes: [], circular: false }]);
-  };
-  const updateDigestSample = (id, field, val) =>
-    setDigestSamples(digestSamples.map(s => s.id === id ? { ...s, [field]: val } : s));
-
-  const digestLanes = digestResults
-    ? digestResults.map((dr, i) => ({ id: i + 1, label: dr.label, bpList: dr.fragments }))
-    : [];
-
-  const runDigest = () => {
-    const validSamples = digestSamples.filter(s => s.seq.trim() && s.enzymes.length > 0);
-    if (validSamples.length === 0) return;
-    setDigestLoading(true);
-    setDigestResults(null);
-    setDigestExcisedBands({});
-    setTimeout(() => {
-      const results = validSamples.map(sample => {
-        const seq = sample.seq.replace(/[\s\n\r]/g, '').toUpperCase().replace(/[^ATGC]/g, '');
-        if (!seq.length) return { label: sample.label, seqLength: 0, enzymeSites: [], fragments: [], circular: sample.circular };
-        const enzymeSites = sample.enzymes.map(enz => {
-          const recognition = RECOGNITION_SEQS[enz];
-          if (!recognition) return { enzyme: enz, recognition: '?', sites: [] };
-          const sites = sample.circular
-            ? findCutSitesCircular(seq, recognition)
-            : findCutSitesInSeq(seq, recognition);
-          return { enzyme: enz, recognition, sites };
-        });
-        const fragments = computeDigestFragments(seq.length, enzymeSites, sample.circular);
-        return { label: sample.label, seqLength: seq.length, circular: sample.circular, enzymeSites, fragments };
-      });
-      setDigestResults(results);
-      setDigestLoading(false);
-    }, 50);
-  };
+  const updateLane = (id, field, val) => setDnaLanes(dnaLanes.map(l => l.id === id ? { ...l, [field]: val } : l));
 
   return (
     <div className="space-y-4">
@@ -900,253 +899,159 @@ export default function GelSimulator({ historyData }) {
           <Microscope className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Gel / WB Simulator</h2>
-          <p className="text-sm text-slate-500">Visualize DNA gel and western blot band patterns</p>
+          <h2 className="text-xl font-semibold text-slate-800">Gel & WB Simulator</h2>
+          <p className="text-sm text-slate-500">Unified DNA gel and Western Blot analysis</p>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-          <TabsTrigger value="digest">Restriction Digest</TabsTrigger>
+          <TabsTrigger value="dna">DNA Gel</TabsTrigger>
           <TabsTrigger value="wb">Western Blot</TabsTrigger>
         </TabsList>
 
-        {/* ─── MANUAL ─── */}
-        <TabsContent value="manual" className="mt-4" forceMount style={{ display: tab === 'manual' ? undefined : 'none' }}>
-          <div className="grid md:grid-cols-2 gap-4">
+        <TabsContent value="dna" className="mt-4" forceMount style={{ display: tab === 'dna' ? undefined : 'none' }}>
+          <div className="grid lg:grid-cols-2 gap-4">
             <div className="space-y-3">
               <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
-                <CardHeader className="pb-2"><CardTitle className="text-base font-medium text-slate-700">Gel Settings</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700">Gel Configuration</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">DNA Ladder</Label>
+                      <Label className="text-xs text-slate-600">DNA Ladder</Label>
                       <Select value={selectedLadder} onValueChange={setSelectedLadder}>
-                        <SelectTrigger className="border-slate-200 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="border-slate-200 h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>{Object.keys(LADDERS).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">Agarose (%)</Label>
-                      <NumInput value={agarose} onChange={e => setAgarose(e.target.value)} className="border-slate-200" />
+                      <Label className="text-xs text-slate-600">Agarose (%)</Label>
+                      <NumInput value={agarose} onChange={e => setAgarose(e.target.value)} className="h-8 text-xs border-slate-200" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">Voltage (V): <span className="font-semibold text-slate-800">{voltage}</span></Label>
-                      <input type="range" min="50" max="200" step="5" value={voltage} onChange={e=>setVoltage(+e.target.value)}
-                        className="w-full accent-blue-600" />
+                      <Label className="text-[11px] text-slate-500">Voltage: <span className="font-bold">{voltage}V</span></Label>
+                      <input type="range" min="50" max="200" step="5" value={voltage} onChange={e=>setVoltage(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">Run time (min): <span className="font-semibold text-slate-800">{runtime}</span></Label>
-                      <input type="range" min="10" max="120" step="5" value={runtime} onChange={e=>setRuntime(+e.target.value)}
-                        className="w-full accent-blue-600" />
+                      <Label className="text-[11px] text-slate-500">Time: <span className="font-bold">{runtime}m</span></Label>
+                      <input type="range" min="10" max="120" step="5" value={runtime} onChange={e=>setRuntime(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400">Higher voltage or longer run time → bands migrate further down the gel.</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-medium text-slate-700">DNA Samples / Lanes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {lanes.map((lane, idx) => (
-                    <div key={lane.id} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: LANE_COLORS[idx % LANE_COLORS.length] }} />
-                        <Input value={lane.label} onChange={e => updateLane(lane.id, 'label', e.target.value)} className="h-7 text-sm border-slate-200 w-28" placeholder="Lane label" />
-                        {lanes.length > 1 && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500" onClick={() => setLanes(lanes.filter(l => l.id !== lane.id))}>
-                            <Trash2 className="w-3 h-3" />
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Lanes & Samples</h3>
+                {dnaLanes.map((lane, idx) => (
+                  <Card key={lane.id} className={`border border-slate-200 transition-all ${lane.type === 'sequence' ? 'border-l-4 border-l-rose-500' : 'border-l-4 border-l-blue-500'}`}>
+                    <CardContent className="p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded shadow-sm border border-slate-200" style={{ background: LANE_COLORS[idx % LANE_COLORS.length] }} />
+                          <Input value={lane.label} onChange={e => updateLane(lane.id, 'label', e.target.value)} 
+                            className="h-7 text-sm font-semibold border-transparent hover:border-slate-200 focus:bg-white w-32 bg-transparent" />
+                        </div>
+                        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                          <button onClick={() => updateLane(lane.id, 'type', 'manual')}
+                            className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
+                            Manual
+                          </button>
+                          <button onClick={() => updateLane(lane.id, 'type', 'sequence')}
+                            className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'sequence' ? 'bg-white shadow-sm text-rose-600' : 'text-slate-500'}`}>
+                            Digest
+                          </button>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-300 hover:text-red-500" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
+                            <X className="w-3 h-3" />
                           </Button>
-                        )}
-                      </div>
-                      <Input value={lane.fragments} onChange={e => updateLane(lane.id, 'fragments', e.target.value)}
-                        className="h-8 text-sm border-slate-200 font-mono" placeholder="Fragment sizes (bp), e.g. 500, 1200, 3000" />
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={addLane} className="gap-1 h-8 w-full mt-1"><Plus className="w-3 h-3" /> Add Lane</Button>
-                  <p className="text-xs text-slate-400">Comma-separated bp values. Click bands on gel to mark for excision.</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <DnaGelPanel
-              activeLanes={parsedLanes}
-              selectedLadder={selectedLadder}
-              agarose={agarose}
-              excisedBands={excisedBands}
-              laneColors={laneColors}
-              migFactor={Math.min(1.5, (voltage / 100) * (runtime / 35))}
-              onLaneColorChange={(id, color) => setLaneColors(prev => ({ ...prev, [id]: color }))}
-              onBandClick={(laneId, bp) => {
-                const key = `${laneId}_${bp}`;
-                setExcisedBands(prev => ({ ...prev, [key]: !prev[key] }));
-              }}
-            />
-          </div>
-        </TabsContent>
-
-        {/* ─── DIGEST ─── */}
-        <TabsContent value="digest" className="mt-4" forceMount style={{ display: tab === 'digest' ? undefined : 'none' }}>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <Card className="border-0 shadow-sm bg-white/80">
-                <CardContent className="pt-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">DNA Ladder</Label>
-                      <Select value={selectedLadder} onValueChange={setSelectedLadder}>
-                        <SelectTrigger className="border-slate-200 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>{Object.keys(LADDERS).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">Agarose (%)</Label>
-                      <NumInput value={agarose} onChange={e => setAgarose(e.target.value)} className="border-slate-200" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">Voltage (V): <span className="font-semibold text-slate-800">{voltage}</span></Label>
-                      <input type="range" min="50" max="200" step="5" value={voltage} onChange={e=>setVoltage(+e.target.value)} className="w-full accent-blue-600" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm text-slate-600">Run time (min): <span className="font-semibold text-slate-800">{runtime}</span></Label>
-                      <input type="range" min="10" max="120" step="5" value={runtime} onChange={e=>setRuntime(+e.target.value)} className="w-full accent-blue-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-sm bg-white/80">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <Scissors className="w-4 h-4 text-rose-500" />
-                    <CardTitle className="text-base font-medium text-slate-700">Digest Samples</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {digestSamples.map((sample, idx) => (
-                    <div key={sample.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: LANE_COLORS[idx % LANE_COLORS.length] }} />
-                        <Input value={sample.label} onChange={e => updateDigestSample(sample.id, 'label', e.target.value)}
-                          className="h-7 text-sm border-slate-200 w-28 bg-white" placeholder="Lane label" />
-                        {digestSamples.length > 1 && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500" onClick={() => setDigestSamples(digestSamples.filter(s => s.id !== sample.id))}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-600">DNA Sequence</Label>
-                        <textarea value={sample.seq}
-                          onChange={e => updateDigestSample(sample.id, 'seq', e.target.value)}
-                          className="w-full h-20 text-xs font-mono border border-slate-200 rounded-md p-2 resize-none bg-white mt-1"
-                          placeholder="Paste DNA sequence (ATGC)..." />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-600 mb-1 block">Restriction Enzymes</Label>
-                        <EnzymePickerInline
-                          selectedEnzymes={sample.enzymes}
-                          onAdd={e => updateDigestSample(sample.id, 'enzymes', [...sample.enzymes, e])}
-                          onRemove={e => updateDigestSample(sample.id, 'enzymes', sample.enzymes.filter(x => x !== e))}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <input type="checkbox" id={`circ-${sample.id}`} checked={!!sample.circular}
-                          onChange={e => updateDigestSample(sample.id, 'circular', e.target.checked)}
-                          className="rounded border-slate-300" />
-                        <Label htmlFor={`circ-${sample.id}`} className="text-xs text-slate-600 cursor-pointer">Circular DNA (plasmid)</Label>
-                      </div>
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={addDigestSample} className="gap-1 h-7 text-xs w-full">
-                    <Plus className="w-3 h-3" /> Add Sample
-                  </Button>
-                  <Button onClick={runDigest}
-                    disabled={digestLoading || digestSamples.every(s => !s.seq.trim() || s.enzymes.length === 0)}
-                    className="w-full bg-rose-600 hover:bg-rose-700 text-white">
-                    {digestLoading
-                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Calculating...</>
-                      : <><Scissors className="w-4 h-4 mr-2" /> Run All Digests</>}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {digestResults && (
-                <Card className="border-0 shadow-sm bg-white/80">
-                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-600">Digest Results</CardTitle></CardHeader>
-                  <CardContent className="space-y-3">
-                    {digestResults.map((dr, i) => (
-                      <div key={i} className="text-xs border-b border-slate-100 pb-2 last:border-0">
-                        <p className="font-semibold mb-1" style={{ color: LANE_COLORS[i % LANE_COLORS.length] }}>
-                          Lane: {dr.label} — {dr.seqLength} bp {dr.circular ? '(circular)' : '(linear)'}
-                        </p>
-                        {dr.enzymeSites.map((e, j) => {
-                          const nCuts = e.sites.length;
-                          // For circular DNA: n cuts → n fragments (not n+1)
-                          const nFragments = dr.circular ? nCuts : nCuts + 1;
-                          return (
-                            <div key={j} className="ml-2">
-                              <span className="font-semibold text-rose-700">{e.enzyme}</span>
-                              <span className="text-slate-400 ml-1 font-mono text-xs">({e.recognition})</span>
-                              <span className="ml-2 text-slate-600">
-                                {nCuts} cut{nCuts !== 1 ? 's' : ''}
-                                {nCuts > 0 && !dr.circular ? ` → ${nFragments} fragments` : ''}
-                                {nCuts === 0 ? ' — no sites found' : ''}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        <div className="mt-1 ml-2 flex flex-wrap gap-1">
-                          {dr.fragments.map((bp, k) => (
-                            <span key={k} className="bg-rose-50 text-rose-700 border border-rose-200 rounded px-1.5 py-0.5 font-mono">
-                              {bp}bp
-                            </span>
-                          ))}
                         </div>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+
+                      {lane.type === 'manual' ? (
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-slate-500 uppercase font-bold">DNA Fragments</Label>
+                          <Input value={lane.manualFragments} onChange={e => updateLane(lane.id, 'manualFragments', e.target.value)}
+                            className="h-8 text-sm border-slate-200 bg-white font-mono" placeholder="Fragment sizes bp (e.g. 500, 1200, 3000)" />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] text-slate-500 uppercase font-bold">DNA Sequence</Label>
+                            <textarea value={lane.sequence} onChange={e => updateLane(lane.id, 'sequence', e.target.value)}
+                              className="w-full h-16 text-[10px] font-mono border border-slate-200 rounded-md p-2 resize-none bg-white" placeholder="Paste DNA sequence..." />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] text-slate-500 uppercase font-bold">Enzymes</Label>
+                            <EnzymePickerInline selectedEnzymes={lane.enzymes} 
+                              onAdd={enz => updateLane(lane.id, 'enzymes', [...lane.enzymes, enz])}
+                              onRemove={enz => updateLane(lane.id, 'enzymes', lane.enzymes.filter(x => x !== enz))} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" id={`circ-${lane.id}`} checked={lane.circular} onChange={e => updateLane(lane.id, 'circular', e.target.checked)} className="rounded border-slate-300" />
+                            <Label htmlFor={`circ-${lane.id}`} className="text-[11px] text-slate-600 cursor-pointer">Circular (plasmid)</Label>
+                          </div>
+                          {digestCache[lane.id]?.fragments?.length > 0 && (
+                            <div className="pt-1 flex flex-wrap gap-1">
+                              {digestCache[lane.id].fragments.map((bp, k) => (
+                                <span key={k} className="bg-rose-50 text-rose-700 border border-rose-100 rounded px-1.5 py-0.5 text-[10px] font-mono">
+                                  {bp}bp
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+                <Button variant="outline" size="sm" onClick={addLane} className="w-full h-9 border-dashed border-slate-300 text-slate-500 hover:bg-slate-50 hover:border-slate-400">
+                  <Plus className="w-4 h-4 mr-2" /> Add New Lane
+                </Button>
+              </div>
             </div>
 
-            {digestResults ? (
+            <div className="space-y-4">
               <DnaGelPanel
-                activeLanes={digestLanes}
+                activeLanes={parsedLanes}
                 selectedLadder={selectedLadder}
                 agarose={agarose}
-                excisedBands={digestExcisedBands}
-                laneColors={digestLaneColors}
+                excisedBands={excisedBands}
+                laneColors={laneColors}
                 migFactor={Math.min(1.5, (voltage / 100) * (runtime / 35))}
-                onLaneColorChange={(id, color) => setDigestLaneColors(prev => ({ ...prev, [id]: color }))}
+                onLaneColorChange={(id, color) => setLaneColors(prev => ({ ...prev, [id]: color }))}
                 onBandClick={(laneId, bp) => {
                   const key = `${laneId}_${bp}`;
-                  setDigestExcisedBands(prev => ({ ...prev, [key]: !prev[key] }));
+                  setExcisedBands(prev => ({ ...prev, [key]: !prev[key] }));
                 }}
               />
-            ) : (
-              <Card className="border-0 shadow-sm bg-white">
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-center h-64 text-slate-400">
-                    <div className="text-center">
-                      <Scissors className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p className="text-sm">Enter sequences and enzymes, then run digest</p>
-                    </div>
-                  </div>
+              
+              {/* Automated Digest Legend */}
+              <Card className="border-0 shadow-sm bg-indigo-50/50">
+                <CardHeader className="pb-1 pt-3"><CardTitle className="text-[11px] font-bold uppercase text-indigo-600">Digest Summary</CardTitle></CardHeader>
+                <CardContent className="pb-3 space-y-2">
+                  {dnaLanes.filter(l => l.type === 'sequence').map(lane => {
+                    const cache = digestCache[lane.id];
+                    return (
+                      <div key={lane.id} className="text-[11px] bg-white rounded border border-indigo-100 p-2">
+                        <p className="font-bold text-slate-700">{lane.label}: {cache?.fragments?.length || 0} fragments</p>
+                        {cache?.enzymeSites?.map((e, idx) => (
+                          <p key={idx} className="text-slate-500 ml-2">
+                            <span className="text-rose-600 font-semibold">{e.enzyme}</span>: {e.sites.length} cuts
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {dnaLanes.filter(l => l.type === 'sequence').length === 0 && (
+                    <p className="text-[10px] text-slate-400 italic">No restriction digest lanes active.</p>
+                  )}
                 </CardContent>
               </Card>
-            )}
+            </div>
           </div>
         </TabsContent>
 
-        {/* ─── WESTERN BLOT ─── */}
         <TabsContent value="wb" className="mt-4" forceMount style={{ display: tab === 'wb' ? undefined : 'none' }}>
           <WesternBlotTab />
         </TabsContent>
