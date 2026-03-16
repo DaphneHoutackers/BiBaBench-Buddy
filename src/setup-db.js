@@ -1,14 +1,21 @@
-/**
- * This module MUST be imported before anything else.
- * It sets up globalThis.__B44_DB__ with the real Gemini AI integration
- * so that all components using `globalThis.__B44_DB__` pick up the real implementation.
- */
 import { InvokeLLM } from '@/api/gemini.js';
+import { supabase } from '@/lib/supabase.js';
 
 globalThis.__B44_DB__ = {
   auth: {
-    isAuthenticated: async () => true,
-    me: async () => ({ name: 'Local User' }),
+    isAuthenticated: async () => {
+      if (!supabase) return false;
+      const { data: { session } } = await supabase.auth.getSession();
+      return !!session;
+    },
+    me: async () => {
+      if (!supabase) return null;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.user ?? null;
+    },
+    logout: async () => {
+      if (supabase) await supabase.auth.signOut();
+    }
   },
   entities: new Proxy({}, {
     get: () => ({

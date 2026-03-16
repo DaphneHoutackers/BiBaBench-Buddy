@@ -1,8 +1,9 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
 
 import React, { useState, useEffect } from 'react';
-import { X, Globe, Palette, User, LogOut, Mail, ChevronRight, Cpu } from 'lucide-react';
+import { X, Globe, Palette, User, LogOut, Mail, ChevronRight, Cpu, LogIn, Github, Lock, Clock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { supabase, isSyncEnabled } from '@/lib/supabase';
 
 const FONT_SIZES = [
   { label: 'Small', value: '14px' },
@@ -180,16 +181,103 @@ const THEME_GROUPS = [
   { key: 'muted', label: 'Muted Tones' },
 ];
 
+
 export default function SettingsPanel({ settings, onChange, onClose }) {
   const currentTheme = settings.appTheme || 'default';
   const [tab, setTab] = useState('appearance');
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Auth Form State
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
-    if (tab === 'account') {
-      db.auth.me().then(setUser).catch(() => setUser(null));
+    // Check initial session
+    if (isSyncEnabled()) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        if (session?.user) syncSettingsFromRemote(session.user.id);
+        setLoading(false);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user ?? null);
+        if (event === 'SIGNED_IN' && session?.user) {
+          syncSettingsFromRemote(session.user.id);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    } else {
+      setLoading(false);
     }
-  }, [tab]);
+  }, []);
+
+  const syncSettingsFromRemote = async (userId) => {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('settings')
+      .eq('user_id', userId)
+      .single();
+    
+    if (!error && data?.settings) {
+      onChange({ ...settings, ...data.settings });
+    }
+  };
+
+  // Persist settings to remote when they change
+  useEffect(() => {
+    if (user && isSyncEnabled()) {
+      const timer = setTimeout(async () => {
+        await supabase
+          .from('user_settings')
+          .upsert({ user_id: user.id, settings, updated_at: new Date().toISOString() });
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [settings, user]);
+
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    if (!isSyncEnabled()) return;
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      if (authMode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setAuthError('Check your email for the confirmation link!');
+      }
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleOAuth = async (provider) => {
+    if (!isSyncEnabled()) return;
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider });
+      if (error) throw error;
+    } catch (err) {
+      setAuthError(err.message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (isSyncEnabled()) {
+      await supabase.auth.signOut();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -333,14 +421,23 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
           {/* ── ACCOUNT ── */}
           {tab === 'account' && (
             <div className="space-y-4">
-              {user ? (
+              {!isSyncEnabled() ? (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-xs text-amber-700 font-medium">Sync is not configured.</p>
+                  <p className="text-[10px] text-amber-600 mt-1">Add Supabase keys to your .env file to enable authentication and cross-device sync.</p>
+                </div>
+              ) : loading ? (
+                <div className="text-center py-8 text-slate-400">
+                  <p className="text-sm">Checking status...</p>
+                </div>
+              ) : user ? (
                 <>
                   <div className="flex flex-col items-center py-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white text-2xl font-bold mb-3">
-                      {(user.full_name || user.email || '?')[0].toUpperCase()}
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white text-2xl font-bold mb-3 shadow-lg">
+                      {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
                     </div>
-                    <p className="text-base font-semibold text-slate-800">{user.full_name || 'User'}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{user.role || 'user'}</p>
+                    <p className="text-base font-semibold text-slate-800">{user.user_metadata?.full_name || user.email.split('@')[0]}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Authenticated User</p>
                   </div>
 
                   <div className="space-y-2">
@@ -352,39 +449,91 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                      <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-slate-400 mb-0.5">Name</p>
-                        <p className="text-sm text-slate-700 font-medium">{user.full_name || '—'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                      <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-slate-400 mb-0.5">Role</p>
-                        <p className="text-sm text-slate-700 font-medium capitalize">{user.role || 'user'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                      <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
                       <div>
                         <p className="text-xs text-slate-400 mb-0.5">Member since</p>
-                        <p className="text-sm text-slate-700 font-medium">{user.created_date ? new Date(user.created_date).toLocaleDateString() : '—'}</p>
+                        <p className="text-sm text-slate-700 font-medium">{new Date(user.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => db.auth.logout()}
+                    onClick={handleSignOut}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors mt-2"
                   >
                     <LogOut className="w-4 h-4" /> Sign out
                   </button>
                 </>
               ) : (
-                <div className="text-center py-8 text-slate-400">
-                  <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Loading account info…</p>
+                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <User className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800">{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h3>
+                    <p className="text-xs text-slate-500 mt-1">Sync your history & settings across devices</p>
+                  </div>
+
+                  <form onSubmit={handleEmailAuth} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email</label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          required
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                          placeholder="name@university.edu"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Password</label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          required
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+
+                    {authError && <p className={`text-[11px] text-center font-medium ${authError.includes('check your email') ? 'text-teal-600' : 'text-red-500'}`}>{authError}</p>}
+
+                    <Button type="submit" disabled={authLoading} className="w-full h-10 bg-teal-600 hover:bg-teal-700 rounded-xl gap-2 shadow-md shadow-teal-500/10">
+                      {authLoading ? 'Processing...' : (authMode === 'login' ? 'Sign In' : 'Sign Up')}
+                    </Button>
+                  </form>
+
+                  <div className="relative py-1">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
+                    <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-300"><span className="bg-white px-2">Or continue with</span></div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => handleOAuth('google')} className="flex items-center justify-center gap-2 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-xs font-medium text-slate-600">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                      Google
+                    </button>
+                    <button onClick={() => handleOAuth('apple')} className="flex items-center justify-center gap-2 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-xs font-medium text-slate-600">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.11.8 1.12-.16 2.26-.9 3.77-.73 2.01.2 3.5 1.06 4.29 2.52-4.01 2.4-3.37 7.73.65 9.38-.45 1.02-1 .92-1.77 2zm-3.41-13.3c-.02-2.31 1.9-4.22 4.14-4.25.21 2.57-2.19 4.49-4.14 4.25z"/></svg>
+                      Apple
+                    </button>
+                  </div>
+
+                  <p className="text-center text-xs text-slate-400">
+                    {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}{' '}
+                    <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="text-teal-600 font-bold hover:underline">
+                      {authMode === 'login' ? 'Sign Up' : 'Sign In'}
+                    </button>
+                  </p>
                 </div>
               )}
             </div>
