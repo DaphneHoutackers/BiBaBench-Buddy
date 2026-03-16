@@ -1,7 +1,7 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
 
 import React, { useState, useEffect } from 'react';
-import { X, Globe, Palette, User, LogOut, Mail, ChevronRight } from 'lucide-react';
+import { X, Globe, Palette, User, LogOut, Mail, ChevronRight, Cpu } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const FONT_SIZES = [
@@ -209,6 +209,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
         <div className="flex border-b border-slate-100 flex-shrink-0">
           {[
             { id: 'appearance', label: 'Appearance', icon: Palette },
+            { id: 'ai', label: 'AI Settings', icon: Cpu },
             { id: 'account', label: 'Account', icon: User },
           ].map(t => {
             const Icon = t.icon;
@@ -297,6 +298,36 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 </div>
               </div>
             </>
+          )}
+
+          {/* ── AI SETTINGS ── */}
+          {tab === 'ai' && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5" /> Groq API Configuration
+                </p>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Personalise your experience by using your own Groq API key. This avoids rate limits and uses your own account quota.
+                  </p>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Groq API Key</label>
+                    <input
+                      type="password"
+                      value={settings.groqApiKey || ''}
+                      onChange={(e) => onChange({ ...settings, groqApiKey: e.target.value })}
+                      placeholder="gsk_..."
+                      className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
+                    <div className="w-1 h-1 rounded-full bg-slate-300" />
+                    <span>Get a free key at <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">console.groq.com</a></span>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* ── ACCOUNT ── */}

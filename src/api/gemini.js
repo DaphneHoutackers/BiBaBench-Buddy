@@ -7,37 +7,41 @@
  * To switch provider, change PROVIDER below to 'gemini' or 'groq'.
  */
 
-const AI_API_KEY = import.meta.env.VITE_AI_API_KEY;
+const getApiKey = () => {
+  try {
+    const settings = JSON.parse(localStorage.getItem('app_settings_v1') || '{}');
+    return settings.groqApiKey || import.meta.env.VITE_AI_API_KEY;
+  } catch {
+    return import.meta.env.VITE_AI_API_KEY;
+  }
+};
+
 const PROVIDER = 'groq'; // 'groq' or 'gemini'
 
 // ── Groq config ──
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
-// ── Gemini config (backup) ──
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${AI_API_KEY}`;
-
-console.log(`[AI] Provider: ${PROVIDER}, API key: ${AI_API_KEY ? AI_API_KEY.slice(0, 8) + '...' : 'NOT SET'}`);
-
 /**
  * InvokeLLM — drop-in replacement for Base44's db.integrations.Core.InvokeLLM
  */
 export async function InvokeLLM({ prompt, response_json_schema, file_urls } = {}) {
-  if (!AI_API_KEY) {
-    console.warn('[AI] No API key set. Add VITE_AI_API_KEY to your .env file.');
-    return response_json_schema ? {} : 'AI is not configured. Add your API key to the .env file.';
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.warn('[AI] No API key set. Add your key in Settings > AI Settings.');
+    return response_json_schema ? {} : 'AI is not configured. Please add your Groq API key in the Settings.';
   }
 
   if (PROVIDER === 'groq') {
-    return invokeGroq({ prompt, response_json_schema });
+    return invokeGroq({ prompt, response_json_schema, apiKey });
   } else {
-    return invokeGemini({ prompt, response_json_schema });
+    // Gemini backup logic - currently also requires a key
+    return invokeGemini({ prompt, response_json_schema, apiKey });
   }
 }
 
-// ── Groq (OpenAI-compatible) ──────────────────────────────────────────────
-async function invokeGroq({ prompt, response_json_schema }) {
+// Update helper functions to accept apiKey parameter
+async function invokeGroq({ prompt, response_json_schema, apiKey }) {
   const messages = [
     {
       role: 'system',
@@ -58,7 +62,7 @@ async function invokeGroq({ prompt, response_json_schema }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
@@ -96,7 +100,10 @@ async function invokeGroq({ prompt, response_json_schema }) {
 }
 
 // ── Gemini (backup) ───────────────────────────────────────────────────────
-async function invokeGemini({ prompt, response_json_schema }) {
+async function invokeGemini({ prompt, response_json_schema, apiKey }) {
+  const GEMINI_MODEL = 'gemini-2.0-flash';
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
   const systemInstruction = response_json_schema
     ? 'You are a helpful AI assistant. Respond with valid JSON only.'
     : 'You are a helpful AI assistant.';
