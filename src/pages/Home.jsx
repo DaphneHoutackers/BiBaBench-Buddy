@@ -115,22 +115,8 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, ic
       className={`fixed left-0 top-0 h-full w-52 border-r overflow-y-auto z-50 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
       style={{ minWidth: 190 }}
     >
-      <div 
-        className={`flex items-center px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}
-        style={isMacElectron ? { paddingTop: '10px' } : {}}
-      >
-        <button
-          onClick={onClose}
-          className={`p-1.5 rounded-lg transition-all duration-200 ${
-            isDark 
-              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' 
-              : 'bg-teal-50 text-teal-600 border border-teal-100'
-          }`}
-          title="Close sidebar"
-        >
-          <PanelLeft className="w-4 h-4 rotate-180 scale-110" />
-        </button>
-      </div>
+       {/* Sidebar Header Spacer (to avoid header overlap) */}
+      <div className={`${isMacElectron ? 'h-12' : 'h-16'} border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
 
       {/* Calculators */}
       <div className="px-2 pt-3 pb-1">
@@ -369,24 +355,24 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={bgStyle}>
       {/* ── Header ── */}
-      <header className={`border-b sticky top-0 z-40 transition-all ${isMacElectron ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
-        <div
-         className={`px-4 sm:px-6 h-full flex items-center ${isMacElectron ? 'max-w-[1400px] mx-auto' : 'w-full'}`}
-         style={isMacElectron ? { paddingLeft: '26px' } : {}}
-        >
+      <header className={`border-b sticky top-0 z-[60] transition-all ${isMacElectron ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
+        <div className={`px-4 h-full flex items-center ${isMacElectron ? 'max-w-none pl-20' : 'w-full'}`}>
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
-              {isMacElectron ? (
-                <div className="flex items-center pl-20 h-full">
-                  <div className="flex items-center cursor-pointer" onClick={goHome}>
-                    <img src="/icon-512.png" alt="Buddy Logo" className="w-12 h-12 object-contain" />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center cursor-pointer" onClick={goHome}>
-                  <img src="/icon-512.png" alt="Buddy Logo" className="w-12 h-12 object-contain" />
-                </div>
-              )}
+            <div className="flex items-center gap-4">
+              {/* Sidebar Toggle & Logo Group */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`p-2 rounded-xl transition-all duration-200 ${
+                  isDark ? 'hover:bg-white/10 text-white/70' : 'hover:bg-slate-100 text-slate-600'
+                }`}
+                title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                <PanelLeft className={`w-5 h-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
+              </button>
+
+              <div className="flex items-center cursor-pointer" onClick={goHome}>
+                <img src="/icon-512.png" alt="Buddy Logo" className="w-12 h-12 object-contain" />
+              </div>
 
               {!isHome && (
                 <button onClick={goHome} className={`flex items-center gap-1.5 text-sm transition-colors ml-4 ${backBtnColor}`}>
@@ -425,25 +411,7 @@ export default function Home() {
       {/* ── Body ── */}
       <div className={`flex flex-1 min-h-0 overflow-hidden w-full relative ${isMacElectron ? 'max-w-[1400px] mx-auto' : ''}`}>
         
-        {/* Floating Sidebar Toggle (When closed) */}
-        {!sidebarOpen && (
-          <div 
-            className="absolute left-4 z-40"
-            style={isMacElectron ? { top: '10px' } : { top: '20px' }}
-          >
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className={`p-2 rounded-xl transition-all duration-200 shadow-sm ${
-                isDark 
-                  ? 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/70' 
-                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100 hover:text-slate-600'
-              }`}
-              title="Open sidebar"
-            >
-              <PanelLeft className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+        {/* Floating Sidebar Toggle (REMOVED: Now in header) */}
 
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto overflow-x-hidden relative">
           {/* ── HOME ── */}
