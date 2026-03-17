@@ -110,8 +110,8 @@
     "vite-plugin-electron-renderer": "^0.14.6"
   },
   "build": {
-    "appId": "com.LabCalc.app",
-    "productName": "LabCalc",
+    "appId": "com.BiBaBenchBuddy.app",
+    "productName": "BiBaBenchBuddy",
     "directories": {
       "output": "release"
     },
@@ -119,14 +119,14 @@
       "target": [
         "dmg"
       ],
-      "icon": "public/icon.icns",
+      "icon": "build/icon.icns",
       "identity": null
     },
     "win": {
       "target": [
         "nsis"
       ],
-      "icon": "public/icon.icns"
+      "icon": "build/icon.icns"
     }
   }
 }

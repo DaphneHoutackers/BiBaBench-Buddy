@@ -430,7 +430,7 @@ export default function Home() {
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto overflow-x-hidden relative">
           {/* ── HOME ── */}
           {isHome && (
-            <div className="space-y-12">
+            <div className="space-y-6">
               {/* Hero */}
               <div className="mb-4">
                 <div className="text-center mb-3">

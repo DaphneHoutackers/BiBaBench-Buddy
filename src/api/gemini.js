@@ -81,7 +81,7 @@ async function invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, 
 
     if (provider === 'openrouter') {
       headers['HTTP-Referer'] = window.location.origin;
-      headers['X-Title'] = 'LabCalc';
+      headers['X-Title'] = 'BiBaBenchBuddy';
     }
 
     const res = await fetch(url, {

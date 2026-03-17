@@ -1,6 +1,6 @@
 {
-  "name": "LabCalc",
-  "short_name": "LabCalc",
+  "name": "BiBaBenchBuddy",
+  "short_name": "BiBaBenchBuddy",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
