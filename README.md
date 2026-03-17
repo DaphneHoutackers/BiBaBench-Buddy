@@ -1,7 +1,7 @@
 # BiBaBench-Buddy (LabCalc)
 
-<a href="https://www.buymeacoffee.com/daphnewoodpecker"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=ff40ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" /></a>
-<a href="./release/"><img src="https://img.shields.io/badge/Download-App-BD5FFF?style=for-the-badge&logo=apple&logoColor=white" height="36" /></a>
+<a href="https://www.buymeacoffee.com/daphnewoodpecker"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=ff40ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" height="30" /></a>
+<a href="./release/"><img src="https://img.shields.io/badge/Download-App-BD5FFF?style=for-the-badge&logo=apple&logoColor=white" height="30" /></a>
 
 **BiBaBench-Buddy** is an all-in-one digital assistant for the modern molecular biology lab. It streamlines complex calculations, visualizes experimental results, and uses AI to help you design protocols in seconds, allowing you to focus on the science rather than the paperwork.
 
@@ -9,10 +9,10 @@
 
 ## 🚀 Use & Installation
 
-### 🌐 Web Application
+### 🌐 Web Application [Open app ↗](https://bi-ba-bench-buddy.vercel.app/)
 
-The latest version is always active and accessible from any browser:
-**[bi-ba-bench-buddy.vercel.app](https://bi-ba-bench-buddy.vercel.app/)**
+The latest version is always active and accessible from any browser via this link:
+**[https://bi-ba-bench-buddy.app](https://bi-ba-bench-buddy.vercel.app/)**
 
 ### 💻 Desktop Application (MacOS)
 
