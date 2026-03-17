@@ -115,10 +115,17 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, ic
       className={`flex flex-col h-full w-52 border-r overflow-y-auto flex-shrink-0 z-30 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
       style={{ minWidth: 190 }}
     >
-      <div className={`flex items-center justify-between px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-white/40' : 'text-slate-400'}`}>Tools</span>
-        <button onClick={onClose} className={`${isDark ? 'text-white/40 hover:text-white/80' : 'text-slate-400 hover:text-slate-600'}`}>
-          <X className="w-3.5 h-3.5" />
+      <div className={`flex items-center px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+        <button
+          onClick={onClose}
+          className={`p-1.5 rounded-lg transition-all duration-200 ${
+            isDark 
+              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' 
+              : 'bg-teal-50 text-teal-600 border border-teal-100'
+          }`}
+          title="Close sidebar"
+        >
+          <PanelLeft className="w-4 h-4 rotate-180 scale-110" />
         </button>
       </div>
 
@@ -369,12 +376,12 @@ export default function Home() {
               {isMacElectron ? (
                 <div className="flex items-center pl-20 h-full">
                   <div className="flex items-center cursor-pointer" onClick={goHome}>
-                    <img src="/icon-512.png" alt="Buddy Logo" className="w-8 h-8 object-contain" />
+                    <img src="/icon-512.png" alt="Buddy Logo" className="w-12 h-12 object-contain" />
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center cursor-pointer" onClick={goHome}>
-                  <img src="/icon-512.png" alt="Buddy Logo" className="w-8 h-8 object-contain" />
+                  <img src="/icon-512.png" alt="Buddy Logo" className="w-12 h-12 object-contain" />
                 </div>
               )}
 
@@ -413,25 +420,27 @@ export default function Home() {
       </header>
 
       {/* ── Body ── */}
-      <div className="max-w-[1400px] mx-auto flex flex-1 min-h-0 overflow-hidden w-full">
+      <div className="max-w-[1400px] mx-auto flex flex-1 min-h-0 overflow-hidden w-full relative">
         
-        {/* Left Action Rail (Sidebar Toggle) */}
-        <div 
-          className={`flex flex-col items-center py-4 w-12 border-r flex-shrink-0 z-40 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
-          style={isMacElectron ? { paddingTop: '10px' } : {}}
-        >
-          <button
-            onClick={() => setSidebarOpen(s => !s)}
-            className={`p-2 rounded-xl transition-all duration-200 shadow-sm ${
-              sidebarOpen 
-                ? (isDark ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'bg-teal-50 text-teal-600 border border-teal-100') 
-                : (isDark ? 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/70' : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100 hover:text-slate-600')
-            }`}
-            title="Toggle sidebar"
+        {/* Floating Sidebar Toggle (When closed) */}
+        {!sidebarOpen && (
+          <div 
+            className="absolute left-4 z-40"
+            style={isMacElectron ? { top: '10px' } : { top: '20px' }}
           >
-            <PanelLeft className={`w-4 h-4 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
-          </button>
-        </div>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className={`p-2 rounded-xl transition-all duration-200 shadow-sm ${
+                isDark 
+                  ? 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/70' 
+                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100 hover:text-slate-600'
+              }`}
+              title="Open sidebar"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Sidebar (collapsible) */}
         {sidebarOpen && (
