@@ -85,7 +85,7 @@ const ALL_IDS = [
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle, iconTextColor, onRestoreHistory }) {
+function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
@@ -115,7 +115,10 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, ic
       className={`fixed left-0 top-0 h-full w-52 border-r overflow-y-auto z-50 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
       style={{ minWidth: 190 }}
     >
-      <div className={`flex items-center px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+      <div 
+        className={`flex items-center px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}
+        style={isMacElectron ? { paddingTop: '10px' } : {}}
+      >
         <button
           onClick={onClose}
           className={`p-1.5 rounded-lg transition-all duration-200 ${
@@ -557,6 +560,7 @@ export default function Home() {
             iconStyle={iconStyle}
             iconTextColor={theme.iconTextColor}
             onRestoreHistory={handleRestoreHistory}
+            isMacElectron={isMacElectron}
           />
         </>
       )}
