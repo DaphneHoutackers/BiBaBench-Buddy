@@ -10,6 +10,11 @@ if (process.platform === 'win32' && process.argv.includes('--squirrel-firstrun')
 }
 
 const createWindow = () => {
+  const iconPath = path.join(__dirname, "..", "public", "icon-512.png");
+
+  if (process.platform === "darwin") {
+    app.dock.setIcon(iconPath);
+  }
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -22,7 +27,7 @@ const createWindow = () => {
       contextIsolation: false, // For simplicity in this local app
     },
     titleBarStyle: 'hiddenInset', // Makes it look native on Mac
-    icon: path.join(__dirname, '..', 'public', 'assets', 'logo.png'),
+    icon: iconPath,
   });
 
   // Load the VITE dev server path or the local file path
