@@ -112,7 +112,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, ic
 
   return (
     <aside
-      className={`flex flex-col h-full w-52 border-r overflow-y-auto flex-shrink-0 z-30 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
+      className={`fixed left-0 top-0 h-full w-52 border-r overflow-y-auto z-50 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
       style={{ minWidth: 190 }}
     >
       <div className={`flex items-center px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
@@ -368,7 +368,7 @@ export default function Home() {
       {/* ── Header ── */}
       <header className={`border-b sticky top-0 z-40 transition-all ${isMacElectron ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
         <div
-         className="max-w-[1400px] mx-auto px-4 sm:px-6 h-full flex items-center"
+         className={`px-4 sm:px-6 h-full flex items-center ${isMacElectron ? 'max-w-[1400px] mx-auto' : 'w-full'}`}
          style={isMacElectron ? { paddingLeft: '26px' } : {}}
         >
           <div className="flex items-center justify-between w-full">
@@ -420,7 +420,7 @@ export default function Home() {
       </header>
 
       {/* ── Body ── */}
-      <div className="max-w-[1400px] mx-auto flex flex-1 min-h-0 overflow-hidden w-full relative">
+      <div className={`flex flex-1 min-h-0 overflow-hidden w-full relative ${isMacElectron ? 'max-w-[1400px] mx-auto' : ''}`}>
         
         {/* Floating Sidebar Toggle (When closed) */}
         {!sidebarOpen && (
@@ -440,21 +440,6 @@ export default function Home() {
               <PanelLeft className="w-4 h-4" />
             </button>
           </div>
-        )}
-
-        {/* Sidebar (collapsible) */}
-        {sidebarOpen && (
-          <Sidebar
-            active={active}
-            onSelect={(id) => { setActive(id); setHistoryData(null); }}
-            onSelectTab={handleSelectTab}
-            activeTab={activeTab}
-            onClose={() => setSidebarOpen(false)}
-            isDark={isDark}
-            iconStyle={iconStyle}
-            iconTextColor={theme.iconTextColor}
-            onRestoreHistory={handleRestoreHistory}
-          />
         )}
 
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto overflow-x-hidden relative">
@@ -554,7 +539,27 @@ export default function Home() {
         />
       )}
 
-
+      {/* ── Sidebar (Floating Overlay) ── */}
+      {sidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[45] transition-opacity duration-300"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <Sidebar
+            active={active}
+            onSelect={(id) => { setActive(id); setHistoryData(null); }}
+            onSelectTab={handleSelectTab}
+            activeTab={activeTab}
+            onClose={() => setSidebarOpen(false)}
+            isDark={isDark}
+            iconStyle={iconStyle}
+            iconTextColor={theme.iconTextColor}
+            onRestoreHistory={handleRestoreHistory}
+          />
+        </>
+      )}
     </div>
   );
 }
