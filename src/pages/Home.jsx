@@ -356,7 +356,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen" style={bgStyle}>
+    <div className="h-screen flex flex-col overflow-hidden" style={bgStyle}>
       {/* ── Header ── */}
       <header className={`border-b sticky top-0 z-40 transition-all ${isDesktop ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-full flex items-center">
@@ -410,7 +410,7 @@ export default function Home() {
       </header>
 
       {/* ── Body ── */}
-      <div className="max-w-[1400px] mx-auto flex" style={{ minHeight: 'calc(100vh - 57px)' }}>
+      <div className="max-w-[1400px] mx-auto flex flex-1 min-h-0 overflow-hidden w-full">
 
         {/* Sidebar (collapsible) */}
         {sidebarOpen && (
@@ -427,7 +427,7 @@ export default function Home() {
           />
         )}
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-hidden">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto overflow-x-hidden relative">
           {/* ── HOME ── */}
           {isHome && (
             <div className="space-y-12">
@@ -495,12 +495,12 @@ export default function Home() {
         </main>
       </div>
 
-<footer className={`relative border-t mt-0 py-8 text-center text-xs flex flex-col items-center gap-4 ${isDark ? 'border-white/10 text-white/30' : 'border-slate-200/40 text-slate-400'}`}>
+<footer className={`relative border-t mt-0 py-4 text-center text-xs flex flex-col items-center gap-2 ${isDark ? 'border-white/10 text-white/30' : 'border-slate-200/40 text-slate-400'}`}>
   <p>
     {settings.language === 'nl' ? 'Controleer altijd berekeningen voor gebruik in experimenten' : 'Always verify calculations before use in experiments'}
   </p>
 
-  <div className="md:absolute right-8 bottom-8 mt-4 md:mt-0">
+  <div className="md:absolute right-4 bottom-4 mt-2 md:mt-0">
     <a 
       href="https://www.buymeacoffee.com/daphnewoodpecker" 
       target="_blank" 
@@ -510,7 +510,7 @@ export default function Home() {
       <img 
         src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" 
         alt="Buy me a cookie"
-        className="h-8"
+        className="h-7"
       />
     </a>
   </div>

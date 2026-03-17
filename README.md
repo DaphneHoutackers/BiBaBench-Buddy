@@ -9,7 +9,7 @@
 
 ## 🚀 Use & Installation
 
-### 🌐 Web Application [Open app ↗](https://bi-ba-bench-buddy.vercel.app/)
+### 🌐 Web Application [Open webapp ↗](https://bi-ba-bench-buddy.vercel.app/)
 
 The latest version is always active and accessible from any browser via this link:
 **[https://bi-ba-bench-buddy.app](https://bi-ba-bench-buddy.vercel.app/)**
@@ -29,9 +29,9 @@ For a standalone experience with native performance:
 
 Before starting your experiments, click the **Settings** icon in the top right:
 
+- **Sync:** Log in with **Email** or **GitHub** to keep your sessions and settings synced across your laptop and web browser.
 - **AI Settings:** Paste your API keys (e.g., Google Gemini, OpenAI, or Groq) to unlock the AI Buffer Assistant and smarter protocol generation.
 - **Appearance:** Choose from various themes, including _Modern Dark_, _Glass MacOS_, and curated styles like _pretty pink💕_.
-- **Sync:** Log in with **Email** or **GitHub** to keep your sessions and settings synced across your laptop and web browser.
 
 ### 2. Navigation & History
 
