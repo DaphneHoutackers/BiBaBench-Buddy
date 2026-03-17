@@ -495,9 +495,11 @@ export default function Home() {
         </main>
       </div>
 
-      <footer className={`border-t mt-0 py-5 text-center text-xs ${isDark ? 'border-white/10 text-white/30' : 'border-slate-200/40 text-slate-400'}`}>
-        {settings.language === 'nl' ? 'Controleer altijd berekeningen voor gebruik in experimenten' : 'Always verify calculations before use in experiments'}
-      </footer>
+<footer className={`border-t mt-0 py-8 text-center text-xs flex flex-col items-center gap-4 ${isDark ? 'border-white/10 text-white/30' : 'border-slate-200/40 text-slate-400'}`}>
+  <p>
+    {settings.language === 'nl' ? 'Controleer altijd berekeningen voor gebruik in experimenten' : 'Always verify calculations before use in experiments'}
+  </p>
+</footer>
 
       {showSettings && (
         <SettingsPanel
@@ -506,6 +508,22 @@ export default function Home() {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {/* Floating Buy Me A Coffee Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <a 
+          href="https://www.buymeacoffee.com/daphnewoodpecker" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="block transition-transform hover:scale-105 active:scale-95 shadow-lg rounded-xl overflow-hidden"
+        >
+          <img 
+            src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=ff40ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" 
+            alt="Buy me a cookie"
+            className="h-10 md:h-12"
+          />
+        </a>
+      </div>
     </div>
   );
 }
