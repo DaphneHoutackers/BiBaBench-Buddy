@@ -261,7 +261,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState({});
   const [historyData, setHistoryData] = useState(null);
 
-  const [isDesktop] = useState(() => navigator.userAgent.toLowerCase().includes('electron') || window.innerWidth > 1024);
+  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+  const isMacElectron = isElectron && navigator.platform.toUpperCase().includes('MAC');
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -358,22 +359,24 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={bgStyle}>
       {/* ── Header ── */}
-      <header className={`border-b sticky top-0 z-40 transition-all ${isDesktop ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-full flex items-center">
+      <header className={`border-b sticky top-0 z-40 transition-all ${isMacElectron ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
+        <div
+         className="max-w-[1400px] mx-auto px-4 sm:px-6 h-full flex items-center"
+         style={isMacElectron ? { paddingLeft: '26px' } : {}}
+        >
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
-              <div className="flex items-center cursor-pointer" onClick={goHome}>
-                <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-[22.5%] shadow-sm border border-black/5">
-                  <img src="/assets/logo.png" alt="Buddy Logo" className="w-full h-full object-cover" />
+              {isMacElectron ? (
+                <div className="flex items-center pl-20 h-full">
+                  <div className="flex items-center cursor-pointer" onClick={goHome}>
+                    <img src="/icon-512.png" alt="Buddy Logo" className="w-8 h-8 object-contain" />
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => setSidebarOpen(s => !s)}
-                className={`p-1.5 rounded-lg transition-colors ${settingsBtnColor} ${sidebarOpen ? (isDark ? 'bg-white/15' : 'bg-slate-100') : ''}`}
-                title="Toggle sidebar"
-              >
-                <PanelLeft className="w-4 h-4" />
-              </button>
+              ) : (
+                <div className="flex items-center cursor-pointer" onClick={goHome}>
+                  <img src="/icon-512.png" alt="Buddy Logo" className="w-8 h-8 object-contain" />
+                </div>
+              )}
 
               {!isHome && (
                 <button onClick={goHome} className={`flex items-center gap-1.5 text-sm transition-colors ml-4 ${backBtnColor}`}>
@@ -411,6 +414,24 @@ export default function Home() {
 
       {/* ── Body ── */}
       <div className="max-w-[1400px] mx-auto flex flex-1 min-h-0 overflow-hidden w-full">
+        
+        {/* Left Action Rail (Sidebar Toggle) */}
+        <div 
+          className={`flex flex-col items-center py-4 w-12 border-r flex-shrink-0 z-40 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
+          style={isMacElectron ? { paddingTop: '10px' } : {}}
+        >
+          <button
+            onClick={() => setSidebarOpen(s => !s)}
+            className={`p-2 rounded-xl transition-all duration-200 shadow-sm ${
+              sidebarOpen 
+                ? (isDark ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'bg-teal-50 text-teal-600 border border-teal-100') 
+                : (isDark ? 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/70' : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100 hover:text-slate-600')
+            }`}
+            title="Toggle sidebar"
+          >
+            <PanelLeft className={`w-4 h-4 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
+          </button>
+        </div>
 
         {/* Sidebar (collapsible) */}
         {sidebarOpen && (
