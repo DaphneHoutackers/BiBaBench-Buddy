@@ -28,6 +28,26 @@ function formatConc(val) {
   // return as element string — we'll render with dangerouslySetInnerHTML
   return `${mantissa} × 10<sup>${exp}</sup>`;
 }
+
+const CONC_UNITS = {
+  'M': { factor: 1, type: 'molar' },
+  'mM': { factor: 1e-3, type: 'molar' },
+  'µM': { factor: 1e-6, type: 'molar' },
+  'nM': { factor: 1e-9, type: 'molar' },
+  'g/L': { factor: 1, type: 'massvol' },
+  'mg/mL': { factor: 1, type: 'massvol' },
+  'µg/mL': { factor: 1e-3, type: 'massvol' },
+  'ng/µL': { factor: 1e-3, type: 'massvol' },
+  'pg/µL': { factor: 1e-6, type: 'massvol' },
+  'g/mL': { factor: 1000, type: 'massvol' },
+};
+
+const VOL_UNITS = {
+  'L': 1,
+  'mL': 1e-3,
+  'µL': 1e-6,
+  'nL': 1e-9,
+};
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 
@@ -53,6 +73,11 @@ export default function DilutionCalculator({ historyData }) {
   const [v1, setV1] = useState('');
   const [c2, setC2] = useState('');
   const [v2, setV2] = useState('');
+  const [c1Unit, setC1Unit] = useState('mM');
+  const [v1Unit, setV1Unit] = useState('µL');
+  const [c2Unit, setC2Unit] = useState('mM');
+  const [v2Unit, setV2Unit] = useState('µL');
+  const [mw, setMw] = useState('');
   const [c1v1Result, setC1v1Result] = useState(null);
 
   // Serial dilution
@@ -81,6 +106,11 @@ export default function DilutionCalculator({ historyData }) {
         if (d.v1 !== undefined) setV1(d.v1);
         if (d.c2 !== undefined) setC2(d.c2);
         if (d.v2 !== undefined) setV2(d.v2);
+        if (d.c1Unit !== undefined) setC1Unit(d.c1Unit);
+        if (d.v1Unit !== undefined) setV1Unit(d.v1Unit);
+        if (d.c2Unit !== undefined) setC2Unit(d.c2Unit);
+        if (d.v2Unit !== undefined) setV2Unit(d.v2Unit);
+        if (d.mw !== undefined) setMw(d.mw);
         if (d.serialStart !== undefined) setSerialStart(d.serialStart);
         if (d.dilutionFactor !== undefined) setDilutionFactor(d.dilutionFactor);
         if (d.numDilutions !== undefined) setNumDilutions(d.numDilutions);
@@ -109,7 +139,7 @@ export default function DilutionCalculator({ historyData }) {
         title: title,
         data: {
           mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
-          c1, v1, c2, v2, serialStart, dilutionFactor, numDilutions, volumePerWell
+          c1, v1, c2, v2, c1Unit, v1Unit, c2Unit, v2Unit, mw, serialStart, dilutionFactor, numDilutions, volumePerWell
         }
       });
     }, 1000);
@@ -120,36 +150,95 @@ export default function DilutionCalculator({ historyData }) {
   // C1V1 calculation: always auto-detects missing field
   useEffect(() => {
     if (mode !== 'c1v1') return;
-    const vals = { c1: parseFloat(c1), v1: parseFloat(v1), c2: parseFloat(c2), v2: parseFloat(v2) };
-    const empty = Object.entries(vals).filter(([, v]) => isNaN(v) || v <= 0).map(([k]) => k);
+
+    const c1U = CONC_UNITS[c1Unit];
+    const c2U = CONC_UNITS[c2Unit];
+    const isMixed = c1U.type !== c2U.type;
+    const molWeight = parseFloat(mw);
+
+    if (isMixed && (isNaN(molWeight) || molWeight <= 0)) {
+      setC1v1Result({ error: 'mw_required' });
+      return;
+    }
+
+    // Helper to normalize concentration to a base (M or g/L)
+    const normalizeConc = (valStr, unitObj) => {
+      let val = parseFloat(valStr);
+      if (isNaN(val)) return NaN;
+      return val * unitObj.factor;
+    };
+
+    // Normalize everything logic
+    let c1Base = normalizeConc(c1, c1U);
+    let v1Base = parseFloat(v1) * VOL_UNITS[v1Unit];
+    let c2Base = normalizeConc(c2, c2U);
+    let v2Base = parseFloat(v2) * VOL_UNITS[v2Unit];
+
+    // If mixed, convert massvol to molar base (M) for unified calculation
+    // Conc(M) = Conc(g/L) / MW(g/mol)
+    if (isMixed) {
+      if (c1U.type === 'massvol') c1Base = c1Base / molWeight; // Convert g/L to M
+      if (c2U.type === 'massvol') c2Base = c2Base / molWeight; // Convert g/L to M
+    }
+
+    const empty = [];
+    if (isNaN(parseFloat(c1)) || parseFloat(c1) <= 0) empty.push('c1');
+    if (isNaN(parseFloat(v1)) || parseFloat(v1) <= 0) empty.push('v1');
+    if (isNaN(parseFloat(c2)) || parseFloat(c2) <= 0) empty.push('c2');
+    if (isNaN(parseFloat(v2)) || parseFloat(v2) <= 0) empty.push('v2');
 
     if (empty.length !== 1) { setC1v1Result(null); return; }
     const solveFor = empty[0];
 
-    let value;
-    if (solveFor === 'c1') value = (vals.c2 * vals.v2) / vals.v1;
-    else if (solveFor === 'v1') value = (vals.c2 * vals.v2) / vals.c1;
-    else if (solveFor === 'c2') value = (vals.c1 * vals.v1) / vals.v2;
-    else if (solveFor === 'v2') value = (vals.c1 * vals.v1) / vals.c2;
+    let baseValue; // This will be in M or L
+    if (solveFor === 'c1') baseValue = (c2Base * v2Base) / v1Base;
+    else if (solveFor === 'v1') baseValue = (c2Base * v2Base) / c1Base;
+    else if (solveFor === 'c2') baseValue = (c1Base * v1Base) / v2Base;
+    else if (solveFor === 'v2') baseValue = (c1Base * v1Base) / c2Base;
 
-    if (!value || !isFinite(value) || value <= 0) { setC1v1Result(null); return; }
+    if (!baseValue || !isFinite(baseValue) || baseValue <= 0) { setC1v1Result(null); return; }
+
+    // Convert back from base units to selected unit
+    let value;
+    let unit;
+    if (solveFor.startsWith('c')) {
+      unit = solveFor === 'c1' ? c1Unit : c2Unit;
+      const targetU = CONC_UNITS[unit];
+      
+      // baseValue is in M. If target unit is massvol, convert M -> g/L first.
+      let displayBase = baseValue;
+      if (targetU.type === 'massvol') displayBase = baseValue * molWeight;
+      
+      value = displayBase / targetU.factor;
+    } else {
+      unit = solveFor === 'v1' ? v1Unit : v2Unit;
+      value = baseValue / VOL_UNITS[unit];
+    }
 
     // Helper text
     let instruction = '';
-    if (solveFor === 'v1') {
-      const diluent = vals.v2 - value;
-      instruction = `Take ${value.toFixed(2)} µL of stock and add to ${diluent.toFixed(2)} µL of diluent.`;
-    } else if (solveFor === 'v2') {
-      const diluent = value - vals.v1;
-      instruction = `Dilute ${vals.v1} µL of stock to a total of ${value.toFixed(2)} µL (add ${diluent.toFixed(2)} µL diluent).`;
-    } else if (solveFor === 'c2') {
-      instruction = `Final concentration after dilution.`;
+    if (solveFor === 'v1' || solveFor === 'v2' || solveFor === 'c2') {
+      const v1L = solveFor === 'v1' ? baseValue : v1Base;
+      const v2L = solveFor === 'v2' ? baseValue : v2Base;
+      const diluentL = v2L - v1L;
+      
+      const v1Display = (v1L / VOL_UNITS[v1Unit]).toFixed(2);
+      const diluentDisplay = (diluentL / VOL_UNITS[v1Unit]).toFixed(2);
+      const v2Display = (v2L / VOL_UNITS[v2Unit]).toFixed(2);
+
+      if (solveFor === 'v1') {
+        instruction = `Take ${value.toFixed(2)} ${v1Unit} of stock and add to ${diluentDisplay} ${v1Unit} of diluent.`;
+      } else if (solveFor === 'v2') {
+        instruction = `Dilute ${v1Display} ${v1Unit} of stock to a total of ${value.toFixed(2)} ${v2Unit} (add ${diluentDisplay} ${v1Unit} diluent).`;
+      } else {
+        instruction = `Final concentration after dilution.`;
+      }
     } else {
       instruction = `Required stock concentration.`;
     }
 
-    setC1v1Result({ solveFor, value, instruction });
-  }, [mode, c1, v1, c2, v2]);
+    setC1v1Result({ solveFor, value, unit, instruction });
+  }, [mode, c1, v1, c2, v2, c1Unit, v1Unit, c2Unit, v2Unit, mw]);
 
   // Add-to-volume mode
   useEffect(() => {
@@ -251,23 +340,72 @@ export default function DilutionCalculator({ historyData }) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { key: 'c1', val: c1, set: setC1, hint: 'e.g., 100' },
-                    { key: 'v1', val: v1, set: setV1, hint: 'e.g., 10' },
-                    { key: 'c2', val: c2, set: setC2, hint: 'e.g., 10' },
-                    { key: 'v2', val: v2, set: setV2, hint: 'e.g., 100' },
-                  ].map(({ key, val, set, hint }) => (
+                    { key: 'c1', val: c1, set: setC1, unit: c1Unit, setUnit: setC1Unit, units: CONC_UNITS, hint: 'e.g., 100' },
+                    { key: 'v1', val: v1, set: setV1, unit: v1Unit, setUnit: setV1Unit, units: VOL_UNITS, hint: 'e.g., 10' },
+                    { key: 'c2', val: c2, set: setC2, unit: c2Unit, setUnit: setC2Unit, units: CONC_UNITS, hint: 'e.g., 10' },
+                    { key: 'v2', val: v2, set: setV2, unit: v2Unit, setUnit: setV2Unit, units: VOL_UNITS, hint: 'e.g., 100' },
+                  ].map(({ key, val, set, unit, setUnit, units, hint }) => (
                     <div key={key} className="space-y-2">
                       <Label className="text-sm text-slate-600">{labelMap[key]}</Label>
-                      <Input
-                        type="number"
-                        placeholder={hint}
-                        value={val}
-                        onChange={e => set(e.target.value)}
-                        className={`border-slate-200 focus:border-cyan-500 ${c1v1Result?.solveFor === key ? 'bg-cyan-50 border-cyan-300 ring-1 ring-cyan-300' : ''}`}
-                      />
+                      <div className="flex gap-1.5">
+                        <Input
+                          type="number"
+                          placeholder={hint}
+                          value={val}
+                          onChange={e => set(e.target.value)}
+                          className={`flex-1 border-slate-200 focus:border-cyan-500 ${c1v1Result?.solveFor === key ? 'bg-cyan-50 border-cyan-300 ring-1 ring-cyan-300' : ''}`}
+                        />
+                        <Select value={unit} onValueChange={setUnit}>
+                          <SelectTrigger className="w-24 border-slate-200 text-[11px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {units === VOL_UNITS ? (
+                              Object.keys(units).map(u => (
+                                <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <div className="px-2 py-1.5 text-[10px] uppercase font-bold text-slate-400 bg-slate-50/50">Molar</div>
+                                {Object.entries(units).filter(([, u]) => u.type === 'molar').map(([u]) => (
+                                  <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                                ))}
+                                <div className="px-2 py-1.5 text-[10px] uppercase font-bold text-slate-400 bg-slate-50/50 mt-1">Mass / Vol</div>
+                                {Object.entries(units).filter(([, u]) => u.type === 'massvol').map(([u]) => (
+                                  <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Molecular Weight Field - Only shown for mixed molar/massvol units */}
+                {CONC_UNITS[c1Unit].type !== CONC_UNITS[c2Unit].type && (
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 text-amber-800">
+                      <AlertCircle className="w-4 h-4" />
+                      <Label className="text-xs font-semibold">Molecular Weight Required</Label>
+                    </div>
+                    <p className="text-[11px] text-amber-700 leading-tight">
+                      To convert between molarity and mass/volume, please provide the molecular weight of the solute.
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        placeholder="e.g. 180.16"
+                        value={mw}
+                        onChange={e => setMw(e.target.value)}
+                        className="h-8 border-amber-300 bg-white/50 focus:border-amber-500 focus:ring-amber-500"
+                      />
+                      <span className="text-xs text-amber-600 whitespace-nowrap font-medium">g/mol</span>
+                    </div>
+                  </div>
+                 )}
+
                 <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-500">
                   <strong>C₁ × V₁ = C₂ × V₂</strong> — leave the unknown field empty
                 </div>
@@ -281,12 +419,18 @@ export default function DilutionCalculator({ historyData }) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {c1v1Result ? (
+                {c1v1Result?.error === 'mw_required' ? (
+                  <div className="text-center py-8 px-4">
+                    <AlertCircle className="w-12 h-12 mx-auto mb-3 text-amber-500 opacity-50" />
+                    <p className="text-amber-800 font-medium text-sm">Molecular Weight Required</p>
+                    <p className="text-slate-500 text-xs mt-1">Please enter the MW to calculate across different unit types.</p>
+                  </div>
+                ) : c1v1Result ? (
                   <div className="space-y-4">
                     <div className="p-5 bg-white rounded-xl border border-cyan-200">
                       <p className="text-sm text-slate-500 mb-1">{labelMap[c1v1Result.solveFor]}</p>
                       <p className="text-4xl font-bold text-cyan-700">{c1v1Result.value.toFixed(3)}</p>
-                      <p className="text-xs text-slate-400 mt-1">{c1v1Result.solveFor.startsWith('v') ? 'µL' : '(same unit as input)'}</p>
+                      <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">{c1v1Result.unit}</p>
                     </div>
                     <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
                       <p className="text-sm text-blue-700">{c1v1Result.instruction}</p>
