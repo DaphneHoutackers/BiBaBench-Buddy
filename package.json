@@ -110,7 +110,7 @@
     "vite-plugin-electron-renderer": "^0.14.6"
   },
   "build": {
-    "appId": "com.BiBaBenchBuddy.app",
+    "appId": "com.bibabenchbuddy.app",
     "productName": "BiBaBenchBuddy",
     "directories": {
       "output": "release"
@@ -120,18 +120,22 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.icns",
+        "to": "icon.icns"
+      }
+    ],
     "mac": {
-      "target": [
-        "dmg"
-      ],
+      "target": ["dmg"],
       "icon": "build/icon.icns",
-      "identity": null
+      "identity": null,
+      "artifactName": "BiBaBenchBuddy-mac-${arch}.${ext}"
     },
     "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "build/icon.icns"
+      "target": ["nsis"],
+      "icon": "build/icon.ico",
+      "artifactName": "BiBaBenchBuddy-Setup.${ext}"
     }
   }
 }

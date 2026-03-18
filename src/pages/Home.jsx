@@ -21,6 +21,7 @@ import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
+import buddyLogo from '@/assets/icon-512.png';
 
 const SETTINGS_KEY = 'bibabenchbuddy_settings';
 
@@ -432,12 +433,12 @@ export default function Home() {
               {isMacElectron ? (
                 <div className="flex items-center pl-20 h-full">
                   <div className="flex items-center cursor-pointer" onClick={goHome}>
-                    <img src="/icon-512.png" alt="Buddy Logo" className="w-10 h-10 object-contain" />
+                    <img src={buddyLogo} alt="Buddy Logo" className="w-10 h-10 object-contain" />
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center cursor-pointer" onClick={goHome}>
-                  <img src="/icon-512.png" alt="Buddy Logo" className="w-10 h-10 object-contain" />
+                  <img src={buddyLogo} alt="Buddy Logo" className="w-10 h-10 object-contain" />
                 </div>
               )}
 
