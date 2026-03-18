@@ -1,13 +1,31 @@
 # BiBaBenchBuddy (Lab Assistant)
 
-<a href="https://bi-ba-bench-buddy.vercel.app/"><img src="https://img.shields.io/badge/Open-Webapp-BF5FFF?style=for-the-badge&logo=vercel&logoColor=white&labelColor=000000&color=BF5FFF&link=https%3A%2F%2Fbi-ba-bench-buddy.vercel.app" height="20" /></a>
-[![Download for macOS](https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-blue?logo=apple)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-arm64.dmg)
-[![Download for Windows](https://img.shields.io/badge/Download-Windows-green?logo=windows)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup-.exe)
-<a href="https://buymeacoffee.com/daphnewoodpecker" target="_blank">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="20">
+![Latest Release](https://img.shields.io/github/v/release/DaphneHoutackers/BiBaBench-Buddy?style=for-the-badge)
+![Downloads](https://img.shields.io/github/downloads/DaphneHoutackers/BiBaBench-Buddy/total?style=for-the-badge&logo=github&label=downloads)
+
+<a href="https://bi-ba-bench-buddy.vercel.app/">
+  <img src="https://img.shields.io/badge/Open-Webapp-BF5FFF?style=for-the-badge&logo=vercel&logoColor=white" height="28" />
+</a>
+<a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-mac-arm64.dmg">
+  <img src="https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple&logoColor=white" height="28" />
+</a>
+<a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup.exe">
+  <img src="https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows&logoColor=white" height="28" />
+</a>
+<a href="https://buymeacoffee.com/daphnewoodpecker">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="28">
 </a>
 
-**BiBaBench-Buddy** is an all-in-one digital assistant for the modern molecular biology lab. It streamlines complex calculations, visualizes experimental results, and uses AI to help you design protocols in seconds, allowing you to focus on the science rather than the paperwork.
+---
+
+## 🧬 Overview
+
+**BiBaBenchBuddy** is a desktop and web application designed for molecular biology workflows.  
+It provides practical tools for calculations, visualization, and protocol support, helping streamline routine lab work and reduce manual errors.
+
+---
+
+<img width="1312" height="912" alt="Scherm­afbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
 
 ---
 
@@ -18,7 +36,7 @@
 The latest version is always active and accessible from any browser via this link:
 **[https://bi-ba-bench-buddy.app](https://bi-ba-bench-buddy.vercel.app/)**
 
-### 💻 Desktop Application [![🏷️](https://img.shields.io/github/v/release/DaphneHoutackers/BiBaBench-Buddy)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
+### 💻 Desktop Application [![release](https://img.shields.io/github/v/release/DaphneHoutackers/BiBaBench-Buddy)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
 
 For a standalone experience with native performance:
 
