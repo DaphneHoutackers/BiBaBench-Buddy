@@ -43,15 +43,15 @@ Before starting your experiments, click the **Settings** icon in the top right:
 
 #### 🧬 Calculators (Lab Math)
 
+- **Digestion, Ligation & Gibson**:
+  - **Digestion**: Batch process restriction digests with a vast library of NEB and Thermo enzymes.
+  - **Ligation**: Calculate optimal vector-to-insert molar ratios for standard ligations.
+  - **Gibson Assembly**: Multi-fragment assembly planning with molarity and volume calculations.
 - **PCR Calculator**:
   - **PCR Mix**: Calculate mastermixes for multiple samples with different template concentrations. Includes _Gradient Mode_ for annealing temperature optimization and volume suggestions for low-concentration templates.
   - **Ta Calculator**: Advanced annealing temperature prediction using the nearest-neighbor model. Provides Tm, MW, and GC content analysis.
   - **OE-PCR**: Plan Overlap Extension PCRs for site-directed mutagenesis or fragment joining.
   - **Product Sequence**: Automatically generate the final DNA sequence based on your primers and template.
-- **Digestion, Ligation & Gibson**:
-  - **Digestion**: Batch process restriction digests with a vast library of NEB and Thermo enzymes.
-  - **Ligation**: Calculate optimal vector-to-insert molar ratios for standard ligations.
-  - **Gibson Assembly**: Multi-fragment assembly planning with molarity and volume calculations.
 - **Dilution & Protein Concentration**:
   - **Dilution**: Simple or serial dilution calculations with molarity or percentage support.
   - **Protein Concentration**: Accurately determine protein concentration using A280 readings, MW, and extinction coefficients.
