@@ -2,11 +2,8 @@ name: Build and Release Desktop Apps
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - 'README.md'
-      - '.gitignore'
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -30,7 +27,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Build and Publish Electron App
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run app:build -- --publish always
+      - name: Build Electron App
+        run: npm run app:build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-build-${{ matrix.os }}
+          path: release/*
