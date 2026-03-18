@@ -12,6 +12,7 @@ jobs:
   build_release:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
 
@@ -23,18 +24,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install Dependencies
         run: npm install
 
       - name: Build Electron App
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run app:build
 
-      - name: Upload build artifacts
+      - name: Upload macOS artifact
+        if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-build-${{ matrix.os }}
-          path: release/*
+          name: desktop-build-macos
+          path: release/*.dmg
+
+      - name: Upload Windows artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-build-windows
+          path: release/*.exe
 
   create_release:
     needs: build_release
@@ -44,18 +56,20 @@ jobs:
       - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
-          name: desktop-build-macos-latest
+          name: desktop-build-macos
           path: release/macos
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: desktop-build-windows-latest
+          name: desktop-build-windows
           path: release/windows
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
           files: |
-            release/macos/*
-            release/windows/*
+            release/macos/*.dmg
+            release/windows/*.exe
