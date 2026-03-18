@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Beaker, Plus, Trash2, TrendingUp, FlaskConical, Copy, Check } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 
 function linearRegression(points) {
@@ -42,6 +43,10 @@ const bsaVolForStd = (conc) => (conc / 2000 * 1000); // µL per 1 mL WR
 
 export default function ProteinConcCalculator({ externalTab, onTabChange, historyData }) {
   const { addHistoryItem } = useHistory();
+  const standardsTableRef = useRef(null);
+  const samplesTableRef = useRef(null);
+  const prepTableRef = useRef(null);
+  
   const [tab, setTab] = useState(externalTab || 'standards');
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
 
@@ -287,13 +292,17 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-medium text-slate-700">a) Standards Table</CardTitle>
-                <button onClick={copyStandards} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
-                  {copiedStd ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  {copiedStd ? 'Copied!' : 'Copy'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={copyStandards} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
+                    {copiedStd ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    {copiedStd ? 'Copied!' : 'Copy'}
+                  </button>
+                  <CopyImageButton targetRef={standardsTableRef} />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div ref={standardsTableRef} className="space-y-3 bg-white p-2 rounded-xl">
               {/* Batch paste */}
               <div className="grid sm:grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg">
                 <div className="space-y-1">
@@ -352,6 +361,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                   })}
                 </tbody>
                 </table>
+                </div>
                 <button onClick={addStandard} className="flex items-center gap-1 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1.5 rounded-lg w-full justify-center mt-1">
                 <Plus className="w-3 h-3" /> Add Standard
                 </button>
@@ -393,13 +403,17 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-medium text-slate-700">b) Samples Table</CardTitle>
-                <button onClick={copySamples} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg">
-                  {copiedSamples ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  {copiedSamples ? 'Copied!' : 'Copy'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={copySamples} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg">
+                    {copiedSamples ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    {copiedSamples ? 'Copied!' : 'Copy'}
+                  </button>
+                  <CopyImageButton targetRef={samplesTableRef} />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div ref={samplesTableRef} className="space-y-3 bg-white p-2 rounded-xl">
               {/* Batch paste for samples */}
               <div className="p-3 bg-slate-50 rounded-lg">
                 <Label className="text-xs text-slate-500">Paste sample absorbances (newline/comma separated)</Label>
@@ -457,6 +471,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                   })}
                 </tbody>
               </table>
+              </div>
               <button onClick={() => {
                 const id = Math.max(...unknowns.map(u => u.id)) + 1;
                 setUnknowns([...unknowns, { id, name: `Sample ${id}`, abs: '' }]);
@@ -500,13 +515,17 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                   <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
                     <FlaskConical className="w-4 h-4 text-pink-600" /> Sample preparaten mix ({prepCalcs.length} samples)
                   </CardTitle>
-                  <button onClick={copyPrep} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg">
-                    {copiedPrep ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    {copiedPrep ? 'Copied!' : 'Copy Table'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={copyPrep} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg">
+                      {copiedPrep ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      {copiedPrep ? 'Copied!' : 'Copy Table'}
+                    </button>
+                    <CopyImageButton targetRef={prepTableRef} />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
+                <div ref={prepTableRef} className="space-y-4 bg-white p-2 rounded-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -568,6 +587,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                 ))}
                 <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
                   <p className="text-xs text-blue-700">Heat at 95°C for 5-10 min before loading. Keep on ice until loading.</p>
+                </div>
                 </div>
               </CardContent>
             </Card>

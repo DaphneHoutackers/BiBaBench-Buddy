@@ -11,6 +11,7 @@ import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2 } from 'lucide-reac
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 
 const POLYMERASES = {
@@ -143,6 +144,7 @@ function calcTemplateDilution(rawVol, totalVol) {
 }
 
 export default function PCRCalculator({ externalTab, onTabChange, historyData }) {
+  const pcrMixTableRef = useRef(null);
   const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState(externalTab || 'mix');
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
@@ -503,38 +505,41 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                     <FlaskConical className="w-4 h-4 text-blue-600" />
                     PCR Mix{gradientMode ? ` (Gradient ×${gradientNNum}, MM ×${mmMultiplier})` : hasMultiple ? ` (${n} samples, MM ×${nMM})` : ''}
                     </CardTitle>
-                    <CopyTableButton getData={() => {
-                      if (!hasMultiple) {
-                        const rows = [['Component', 'Volume (µL)']];
-                        const sc = sampleCalcs[0];
-                        rows.push(['MQ', sc.mqVol.toFixed(2)]);
-                        rows.push([`Template DNA (${samples[0].desiredNg} ng)`, sc.templateVol.toFixed(2)]);
-                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, bufferVol.toFixed(2)]);
-                        if (useBetaine) rows.push(['Betaine', betaineActualVol.toFixed(2)]);
-                        rows.push(['10mM dNTPs', dntpVol.toFixed(2)]);
-                        rows.push([polymerase, polyVol.toFixed(2)]);
-                        rows.push([`Forward Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
-                        rows.push([`Reverse Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
-                        rows.push(['Total', vol]);
+                    <div className="flex gap-2">
+                      <CopyTableButton getData={() => {
+                        if (!hasMultiple) {
+                          const rows = [['Component', 'Volume (µL)']];
+                          const sc = sampleCalcs[0];
+                          rows.push(['MQ', sc.mqVol.toFixed(2)]);
+                          rows.push([`Template DNA (${samples[0].desiredNg} ng)`, sc.templateVol.toFixed(2)]);
+                          rows.push([`${poly.buffer} (${poly.bufferX}×)`, bufferVol.toFixed(2)]);
+                          if (useBetaine) rows.push(['Betaine', betaineActualVol.toFixed(2)]);
+                          rows.push(['10mM dNTPs', dntpVol.toFixed(2)]);
+                          rows.push([polymerase, polyVol.toFixed(2)]);
+                          rows.push([`Forward Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
+                          rows.push([`Reverse Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
+                          rows.push(['Total', vol]);
+                          return rows;
+                        }
+                        const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
+                        const rows = [header];
+                        rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
+                        rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
+                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
+                        if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
+                        rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
+                        rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
+                        rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                        rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                        rows.push(['Total', ...samples.map(() => vol), '']);
                         return rows;
-                      }
-                      const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
-                      const rows = [header];
-                      rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
-                      rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
-                      rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
-                      if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
-                      rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
-                      rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
-                      rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                      rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                      rows.push(['Total', ...samples.map(() => vol), '']);
-                      return rows;
-                    }} />
+                      }} />
+                      <CopyImageButton targetRef={pcrMixTableRef} />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={pcrMixTableRef}>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-blue-50">

@@ -560,14 +560,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     </button>
                   </div>
 
-                  <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-                    <p className="text-[10px] text-blue-600 leading-relaxed font-medium">
-                      <Info className="w-3 h-3 inline mr-1 mb-0.5" /> 
-                      <strong>GitHub Setup:</strong> To enable GitHub login, create an OAuth app in GitHub Settings and add the Client ID/Secret to 
-                      <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline ml-1 font-bold">Supabase Dashboard</a> 
-                      under Authentication {' > '} Providers {' > '} GitHub.
-                    </p>
-                  </div>
+
 
                   <p className="text-center text-xs text-slate-400">
                     {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}{' '}

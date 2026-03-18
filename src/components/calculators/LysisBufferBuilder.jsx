@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FlaskConical, Info, Plus, Check, Copy } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 
 // conc is the DEFAULT value; unit is the unit string; concType: 'mM'|'M'|'percent'|'x'|'ugmL'
@@ -112,6 +113,8 @@ function calcVolume(conc, unit, totalMl) {
 
 export default function LysisBufferBuilder({ historyData }) {
   const { addHistoryItem } = useHistory();
+  const tableRef = React.useRef(null);
+  
   const [totalVol, setTotalVol] = useState('10'); // mL
   const [selections, setSelections] = useState({});
   // editable concentrations: { "Category__optName": { conc, pH } }
@@ -303,16 +306,20 @@ export default function LysisBufferBuilder({ historyData }) {
               <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-amber-600" /> Lysis Buffer Recipe — {totalVol} mL
               </CardTitle>
-              <button
-                onClick={copyTable}
-                className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1 rounded-lg transition-colors"
-              >
-                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyTable}
+                  className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1 rounded-lg transition-colors"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <CopyImageButton targetRef={tableRef} />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
+            <div ref={tableRef} className="space-y-2 bg-white p-2 rounded-xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-blue-50">
@@ -363,6 +370,7 @@ export default function LysisBufferBuilder({ historyData }) {
                 ☠ Toxic components present (marked above) — wear gloves throughout preparation.
               </p>
             )}
+            </div>
           </CardContent>
         </Card>
       )}

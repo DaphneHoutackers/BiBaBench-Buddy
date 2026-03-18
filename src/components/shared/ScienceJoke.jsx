@@ -18,44 +18,46 @@ const FALLBACK_JOKES = [
   "Helium walks into a bar. Bartender: \"We don't serve noble gases.\" He doesn't react.",
 ];
 
-const CACHE_KEY = 'labcalc_science_jokes';
-const CACHE_TS_KEY = 'labcalc_science_jokes_ts';
-const INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
+const CACHE_KEY = 'labcalc_science_jokes_pool';
 
-function getSeedIndex() {
-  // Returns a stable index that changes every 3 hours
-  const epoch = Math.floor(Date.now() / INTERVAL_MS);
-  return epoch % FALLBACK_JOKES.length;
+function shuffle(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 export default function ScienceJoke({ isDark = false }) {
-  const [joke, setJoke] = useState(() => FALLBACK_JOKES[getSeedIndex()]);
+  const [joke, setJoke] = useState('');
 
   useEffect(() => {
-    const cacheTs = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0', 10);
-    const cachedJokes = (() => {
-      try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch { return null; }
-    })();
+    let pool;
+    try {
+      pool = JSON.parse(localStorage.getItem(CACHE_KEY));
+    } catch { }
 
-    // If cache is still fresh, pick from cached jokes
-    if (cachedJokes && cachedJokes.length && Date.now() - cacheTs < INTERVAL_MS) {
-      const idx = getSeedIndex() % cachedJokes.length;
-      setJoke(cachedJokes[idx]);
-      return;
+    if (!pool || !Array.isArray(pool) || pool.length === 0) {
+      pool = shuffle(FALLBACK_JOKES);
     }
+    
+    const nextJoke = pool.pop();
+    setJoke(nextJoke);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(pool));
 
-    // Fetch new jokes from AI
-    db.integrations.Core.InvokeLLM({
-      prompt: `Generate 15 funny, clever science jokes or quotes for a molecular biology lab app. Mix short one-liners with quotes. Make them genuinely funny and varied — about biology, chemistry, physics, lab life. Return ONLY a JSON array of 15 strings. Examples: "What did the asteroid say when the reporter asked him a question? No comet.", "THINK LIKE A PROTON. ALWAYS POSITIVE.", "Why can't you trust atoms? They make up everything."`,
-      response_json_schema: { type: 'object', properties: { jokes: { type: 'array', items: { type: 'string' } } } }
-    }).then(result => {
-      if (result?.jokes?.length) {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(result.jokes));
-        localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
-        const idx = getSeedIndex() % result.jokes.length;
-        setJoke(result.jokes[idx]);
-      }
-    }).catch(() => {});
+    if (pool.length < 5) {
+      db.integrations.Core.InvokeLLM({
+        prompt: `Generate 15 funny, clever science jokes or quotes for a molecular biology lab app. Mix short one-liners with quotes. Make them genuinely funny and varied — about biology, chemistry, physics, lab life. Return ONLY a JSON array of 15 strings. Examples: "What did the asteroid say when the reporter asked him a question? No comet.", "THINK LIKE A PROTON. ALWAYS POSITIVE.", "Why can't you trust atoms? They make up everything."`,
+        response_json_schema: { type: 'object', properties: { jokes: { type: 'array', items: { type: 'string' } } } }
+      }).then(result => {
+        if (result?.jokes?.length) {
+          const currentPool = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]');
+          const newPool = currentPool.concat(result.jokes);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(newPool));
+        }
+      }).catch(() => {});
+    }
   }, []);
 
   return (

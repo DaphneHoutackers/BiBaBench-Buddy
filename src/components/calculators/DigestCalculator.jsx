@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 const ENZYMES = {
   'AatII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
@@ -137,6 +138,8 @@ function DnaMass({ ng }) {
 }
 
 export default function DigestCalculator({ externalTab, onTabChange, historyData }) {
+  const singleTableRef = useRef(null);
+  const batchTableRef = useRef(null);
   const [tab, setTab] = useState(externalTab || 'single');
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
   const [dnaConc, setDnaConc] = useState('');
@@ -391,7 +394,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
             <div className="space-y-4">
               {dilutionSuggestion && (
-                <Card className="border-0 shadow-sm bg-amber-50 border border-amber-200">
+                <Card className="shadow-sm bg-amber-50 border border-amber-200">
                   <CardContent className="p-4 text-sm text-amber-800">
                     <div className="font-medium mb-1">⚠ DNA volume too low (&lt;0.5 µL)</div>
                     <div className="mt-2 bg-white/70 rounded-lg p-2 text-xs space-y-0.5">
@@ -410,22 +413,25 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       <FlaskConical className="w-4 h-4 text-rose-600" /> Digest Mix
                     </CardTitle>
                     {results?.isValid && (
-                      <CopyTableButton getData={() => {
-                        const rows = [['Component', 'Volume (µL)']];
-                        rows.push(['MQ', Math.max(0, results.waterVol).toFixed(2)]);
-                        rows.push([`DNA (${desiredDna} ng)`, results.dnaVolume.toFixed(2)]);
-                        rows.push([bufferLabel, results.bufferVol.toFixed(2)]);
-                        selectedEnzymes.forEach(e => rows.push([e, enzymeVolume]));
-                        if (selectedEnzymes.length === 0) rows.push(['Restriction Enzyme', enzymeVolume]);
-                        rows.push(['Total', totalVolume]);
-                        return rows;
-                      }} />
+                      <div className="flex gap-2">
+                        <CopyTableButton getData={() => {
+                          const rows = [['Component', 'Volume (µL)']];
+                          rows.push(['MQ', Math.max(0, results.waterVol).toFixed(2)]);
+                          rows.push([`DNA (${desiredDna} ng)`, results.dnaVolume.toFixed(2)]);
+                          rows.push([bufferLabel, results.bufferVol.toFixed(2)]);
+                          selectedEnzymes.forEach(e => rows.push([e, enzymeVolume]));
+                          if (selectedEnzymes.length === 0) rows.push(['Restriction Enzyme', enzymeVolume]);
+                          rows.push(['Total', totalVolume]);
+                          return rows;
+                        }} />
+                        <CopyImageButton targetRef={singleTableRef} />
+                      </div>
                     )}
                   </div>
                 </CardHeader>
                 <CardContent>
                   {results ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1 bg-white p-4 rounded-lg" ref={singleTableRef}>
                       {!results.isValid && (
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm mb-2">
                           ⚠ Volumes exceed total. Reduce DNA amount or increase total volume.
@@ -564,14 +570,17 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
                       <Table className="w-4 h-4 text-rose-600" /> Batch Digest Table
                     </CardTitle>
-                    <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
-                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                      {copied ? 'Copied!' : 'Copy Table'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? 'Copied!' : 'Copy Table'}
+                      </button>
+                      <CopyImageButton targetRef={batchTableRef} />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={batchTableRef}>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-blue-50">

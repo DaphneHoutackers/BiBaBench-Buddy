@@ -85,7 +85,7 @@ const ALL_IDS = [
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron }) {
+function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle, iconTextColor, onRestoreHistory }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
@@ -112,11 +112,22 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, ic
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full w-52 border-r overflow-y-auto z-50 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
+      className={`flex flex-col h-full w-52 border-r overflow-y-auto flex-shrink-0 z-30 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
       style={{ minWidth: 190 }}
     >
-       {/* Sidebar Header Spacer (to avoid header overlap) */}
-      <div className={`${isMacElectron ? 'h-12' : 'h-16'} border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
+      <div className={`flex items-center px-3 py-3 border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+        <button
+          onClick={onClose}
+          className={`p-1.5 rounded-lg transition-all duration-200 ${
+            isDark 
+              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' 
+              : 'bg-teal-50 text-teal-600 border border-teal-100'
+          }`}
+          title="Close sidebar"
+        >
+          <PanelLeft className="w-4 h-4 rotate-180 scale-110" />
+        </button>
+      </div>
 
       {/* Calculators */}
       <div className="px-2 pt-3 pb-1">
@@ -355,24 +366,24 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={bgStyle}>
       {/* ── Header ── */}
-      <header className={`border-b sticky top-0 z-[60] transition-all ${isMacElectron ? 'h-12' : 'h-16'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
-        <div className={`px-4 h-full flex items-center ${isMacElectron ? 'max-w-none pl-20' : 'w-full'}`}>
+      <header className={`border-b sticky top-0 z-40 transition-all ${isMacElectron ? 'h-12' : 'h-12'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
+        <div
+         className={`px-4 sm:px-4 h-full flex items-center ${isMacElectron ? 'max-w-[1400px] mx-auto' : 'w-full'}`}
+         style={isMacElectron ? { paddingLeft: '5px' } : {}}
+        >
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4">
-              {/* Sidebar Toggle & Logo Group */}
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`p-2 rounded-xl transition-all duration-200 ${
-                  isDark ? 'hover:bg-white/10 text-white/70' : 'hover:bg-slate-100 text-slate-600'
-                }`}
-                title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-              >
-                <PanelLeft className={`w-5 h-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
-              </button>
-
-              <div className="flex items-center cursor-pointer" onClick={goHome}>
-                <img src="/icon-512.png" alt="Buddy Logo" className="w-12 h-12 object-contain" />
-              </div>
+            <div className="flex items-center gap-3">
+              {isMacElectron ? (
+                <div className="flex items-center pl-20 h-full">
+                  <div className="flex items-center cursor-pointer" onClick={goHome}>
+                    <img src="/icon-512.png" alt="Buddy Logo" className="w-10 h-10 object-contain" />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center cursor-pointer" onClick={goHome}>
+                  <img src="/icon-512.png" alt="Buddy Logo" className="w-10 h-10 object-contain" />
+                </div>
+              )}
 
               {!isHome && (
                 <button onClick={goHome} className={`flex items-center gap-1.5 text-sm transition-colors ml-4 ${backBtnColor}`}>
@@ -394,12 +405,7 @@ export default function Home() {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span className="text-xs font-bold uppercase tracking-wider">AI Assistent</span>
               </button>
-              
-              {activeName && (
-                <span className={`text-sm mr-4 ${isDark ? 'text-white/30' : 'text-slate-300'}`}>
-                   <span className={isDark ? 'text-white/70 font-medium' : 'text-slate-600 font-medium'}>{activeName}</span>
-                </span>
-              )}
+
               <button onClick={() => setShowSettings(true)} className={`p-2 rounded-xl transition-colors ${settingsBtnColor}`} title="Settings">
                 <Settings className="w-4 h-4" />
               </button>
@@ -411,12 +417,45 @@ export default function Home() {
       {/* ── Body ── */}
       <div className={`flex flex-1 min-h-0 overflow-hidden w-full relative ${isMacElectron ? 'max-w-[1400px] mx-auto' : ''}`}>
         
-        {/* Floating Sidebar Toggle (REMOVED: Now in header) */}
+        {/* Floating Sidebar Toggle (When closed) */}
+        {!sidebarOpen && (
+          <div 
+            className="absolute left-2 z-40"
+            style={isMacElectron ? { top: '5px' } : { top: '5px' }}
+          >
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className={`p-2 rounded-xl transition-all duration-200 shadow-sm ${
+                isDark 
+                  ? 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/70' 
+                  : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100 hover:text-slate-600'
+              }`}
+              title="Open sidebar"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Sidebar (collapsible) */}
+        {sidebarOpen && (
+          <Sidebar
+            active={active}
+            onSelect={(id) => { setActive(id); setHistoryData(null); }}
+            onSelectTab={handleSelectTab}
+            activeTab={activeTab}
+            onClose={() => setSidebarOpen(false)}
+            isDark={isDark}
+            iconStyle={iconStyle}
+            iconTextColor={theme.iconTextColor}
+            onRestoreHistory={handleRestoreHistory}
+          />
+        )}
 
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto overflow-x-hidden relative">
           {/* ── HOME ── */}
           {isHome && (
-            <div className="space-y-6">
+            <div className="space-y-10">
               {/* Hero */}
               <div className="mb-4">
                 <div className="text-center mb-3">
@@ -432,7 +471,7 @@ export default function Home() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 {/* Left Column: Calculators (3 columns, 2 rows) */}
-                <div className="flex flex-col space-y-6">
+                <div className="flex flex-col space-y-4">
                   <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Calculators</h3>
                   <div className="grid grid-cols-3 grid-rows-2 gap-3 h-full">
                     {CALCULATORS.map(calc => (
@@ -441,8 +480,10 @@ export default function Home() {
                         <div className={`inline-flex p-2.5 rounded-xl shadow-md mb-2 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
                           <calc.icon className={`w-5 h-5 ${theme?.iconTextColor || 'text-white'}`} />
                         </div>
-                        <p className={`text-xs sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
-                        <p className={`text-[10px] leading-tight ${cardTextSecondary} line-clamp-2`}>{calc.description}</p>
+                        <p className={`text-xs sm:text-sm font-semibold leading-tight transition-all duration-300 ${cardTextPrimary}`}>{calc.name}</p>
+                        <div className="overflow-hidden transition-all duration-300 max-h-0 opacity-0 group-hover:max-h-12 group-hover:opacity-100 group-hover:mt-1 flex justify-center">
+                          <p className={`text-[10px] leading-tight ${cardTextSecondary} line-clamp-2`}>{calc.description}</p>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -460,8 +501,10 @@ export default function Home() {
                             <div className={`inline-flex rounded-xl shadow-lg mb-2 p-2.5 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
                               <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-4 h-4 sm:w-5 sm:h-5`} />
                             </div>
-                            <p className={`font-semibold text-xs sm:text-sm transition-colors ${cardTextPrimary}`}>{tool.name}</p>
-                            <p className={`mt-1 ${cardTextSecondary} text-[10px] leading-tight pr-4 line-clamp-2`}>{tool.description}</p>
+                            <p className={`font-semibold text-xs sm:text-sm transition-all duration-300 ${cardTextPrimary}`}>{tool.name}</p>
+                            <div className="overflow-hidden transition-all duration-300 max-h-0 opacity-0 group-hover:max-h-12 group-hover:opacity-100 group-hover:mt-1">
+                              <p className={`${cardTextSecondary} text-[10px] leading-tight pr-4 line-clamp-2`}>{tool.description}</p>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -474,7 +517,11 @@ export default function Home() {
 
           {/* ── Tool panels (kept mounted) ── */}
           {ALL_IDS.map(id => (
-            <div key={id} style={{ display: active === id ? 'block' : 'none' }}>
+            <div 
+              key={id} 
+              style={{ display: active === id ? 'block' : 'none' }}
+              className={`transition-all duration-300 w-full ${!sidebarOpen ? 'pl-11 sm:pl-10 lg:pl-6 pt-2' : ''}`}
+            >
               {getComponent(id)}
             </div>
           ))}
@@ -510,28 +557,7 @@ export default function Home() {
         />
       )}
 
-      {/* ── Sidebar (Floating Overlay) ── */}
-      {sidebarOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[45] transition-opacity duration-300"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <Sidebar
-            active={active}
-            onSelect={(id) => { setActive(id); setHistoryData(null); }}
-            onSelectTab={handleSelectTab}
-            activeTab={activeTab}
-            onClose={() => setSidebarOpen(false)}
-            isDark={isDark}
-            iconStyle={iconStyle}
-            iconTextColor={theme.iconTextColor}
-            onRestoreHistory={handleRestoreHistory}
-            isMacElectron={isMacElectron}
-          />
-        </>
-      )}
+
     </div>
   );
 }

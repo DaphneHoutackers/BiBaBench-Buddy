@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GitMerge, FlaskConical, Plus, Trash2, Info, Copy, Check, AlertTriangle } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHistory } from '@/context/HistoryContext';
 
@@ -26,6 +27,7 @@ function NumInput({ value, onChange, ...props }) {
 
 export default function GibsonCalculator({ historyData }) {
   const { addHistoryItem } = useHistory();
+  const tableRef = useRef(null);
   const [fragments, setFragments] = useState([
     { id: 1, name: 'Vector', concentration: '', length: '', isVector: true },
     { id: 2, name: 'Insert 1', concentration: '', length: '', isVector: false }
@@ -266,19 +268,22 @@ export default function GibsonCalculator({ historyData }) {
                 <FlaskConical className="w-4 h-4 text-emerald-600" /> Gibson Assembly Mix
               </CardTitle>
               {results?.isValid && (
-                <button
-                  onClick={copyTable}
-                  className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  {copied ? 'Copied!' : 'Copy Table'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyTable}
+                    className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Copied!' : 'Copy Table'}
+                  </button>
+                  <CopyImageButton targetRef={tableRef} />
+                </div>
               )}
             </div>
           </CardHeader>
           <CardContent>
             {results ? (
-              <div className="space-y-4">
+              <div ref={tableRef} className="space-y-4 bg-white p-2 rounded-xl">
                 {results.volumeAdjusted && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
                     <AlertTriangle className="w-4 h-4 inline mr-1" />

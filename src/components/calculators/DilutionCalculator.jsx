@@ -29,9 +29,11 @@ function formatConc(val) {
   return `${mantissa} × 10<sup>${exp}</sup>`;
 }
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 
 export default function DilutionCalculator({ historyData }) {
   const { addHistoryItem } = useHistory();
+  const tableRef = useRef(null);
   const [mode, setMode] = useState('c1v1');
 
   // Sample dilution mode
@@ -482,26 +484,29 @@ export default function DilutionCalculator({ historyData }) {
                     <FlaskConical className="w-4 h-4 text-cyan-600" /> Dilution Series
                   </CardTitle>
                   {serialResult && (
-                    <CopyTableButton getData={() => {
-                     const rows = [['Well', 'Concentration', 'Transfer (µL)', 'Diluent (µL)']];
-                     serialResult.dilutions.forEach(d => {
-                       const exp = Math.floor(Math.log10(Math.abs(d.conc)));
-                       const mantissa = (d.conc / Math.pow(10, exp)).toFixed(2);
-                       const concStr = Math.abs(exp) < 4 ? d.conc.toPrecision(4) : `${mantissa}×10^${exp}`;
-                       rows.push([`Well ${d.well}`, concStr, serialResult.transferVol, serialResult.diluentVol]);
-                     });
-                     return rows;
-                    }} />
+                    <div className="flex items-center gap-2">
+                      <CopyTableButton getData={() => {
+                        const rows = [['Well', 'Concentration', 'Transfer (µL)', 'Diluent (µL)']];
+                        serialResult.dilutions.forEach(d => {
+                          const exp = Math.floor(Math.log10(Math.abs(d.conc)));
+                          const mantissa = (d.conc / Math.pow(10, exp)).toFixed(2);
+                          const concStr = Math.abs(exp) < 4 ? d.conc.toPrecision(4) : `${mantissa}×10^${exp}`;
+                          rows.push([`Well ${d.well}`, concStr, serialResult.transferVol, serialResult.diluentVol]);
+                        });
+                        return rows;
+                      }} />
+                      <CopyImageButton targetRef={tableRef} />
+                    </div>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
                 {serialResult ? (
-                  <div className="space-y-3">
+                  <div ref={tableRef} className="space-y-3 bg-white p-2 rounded-xl">
                     <div className="p-3 bg-white rounded-lg border border-cyan-200 text-sm text-slate-600">
                       Add <strong>{serialResult.diluentVol} µL MQ</strong> to each well. Transfer <strong>{serialResult.transferVol} µL</strong> well-to-well.
                     </div>
-                    <div className="max-h-64 overflow-y-auto space-y-1">
+                    <div className="max-h-64 overflow-y-auto space-y-1 pr-2">
                       {serialResult.dilutions.map((d, i) => (
                        <div key={i} className="flex justify-between items-center py-1.5 px-3 bg-white rounded-lg border border-slate-100 text-sm">
                          <span className="font-medium text-slate-700">Well {d.well}</span>

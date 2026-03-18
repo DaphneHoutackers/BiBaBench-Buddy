@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link2, FlaskConical, Plus, Trash2, Copy, Check, Info, AlertTriangle, Table } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 
 function NumInput({ value, onChange, ...props }) {
@@ -123,6 +124,7 @@ function MixTable({ rows, totalVolume }) {
 
 // ─── Single Ligation Tab ───────────────────────────────────────────
 function SingleLigation({ historyData }) {
+  const tableRef = useRef(null);
   const [vectorConc, setVectorConc] = useState('');
   const [vectorLength, setVectorLength] = useState('');
   const [vectorAmount, setVectorAmount] = useState('50');
@@ -305,7 +307,7 @@ function SingleLigation({ historyData }) {
 
       <div className="space-y-3">
         {results?.insertResults?.some(i => i.needsDilution) && (
-          <Card className="border-0 shadow-sm bg-amber-50 border border-amber-200">
+          <Card className="shadow-sm bg-amber-50 border border-amber-200">
             <CardContent className="p-3 space-y-2">
               <div className="flex items-center gap-2 text-amber-700 font-medium text-xs"><AlertTriangle className="w-3.5 h-3.5" /> Dilution suggested</div>
               {results.insertResults.filter(i => i.needsDilution).map(ins => (
@@ -324,16 +326,28 @@ function SingleLigation({ historyData }) {
                 <FlaskConical className="w-4 h-4 text-violet-600" /> Ligation Mix
               </CardTitle>
               {results?.isValid && (
-                <button onClick={copyTable} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-lg transition-colors">
-                  {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={copyTable} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-lg transition-colors">
+                    {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <CopyImageButton
+                        targetRef={tableRef}
+                        className="h-8 shadow-sm transition-all text-xs border"
+                        disabled={copied} // Assuming 'copied' is used for disabling, as 'copying' is not defined.
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>Tabel kopiëren als Image</TooltipContent>
+                  </Tooltip>
+                </div>
               )}
             </div>
           </CardHeader>
           <CardContent className="pt-0 pb-3">
             {results ? (
-              <div className="space-y-2">
+              <div className="space-y-2 bg-white p-4 rounded-lg" ref={tableRef}>
                 {!results.isValid && <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">⚠ Volumes exceed total. Adjust parameters.</div>}
                 <table className="w-full text-sm">
                   <thead>
@@ -419,6 +433,7 @@ function defaultLigation(id) {
 }
 
 function MultiLigation({ historyData }) {
+  const tableRef = useRef(null);
   const [ligations, setLigations] = useState([defaultLigation(1), defaultLigation(2)]);
   const [totalVolume, setTotalVolume] = useState('20');
   const [ligase, setLigase] = useState('T4 DNA Ligase');
@@ -680,14 +695,17 @@ function MultiLigation({ historyData }) {
             <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
               <Table className="w-4 h-4 text-violet-600" /> Combined Ligation Table
             </CardTitle>
-            <button onClick={copyMultiTable} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-lg transition-colors">
-              {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              {copied ? 'Copied!' : 'Copy Table'}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={copyMultiTable} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-lg transition-colors">
+                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? 'Copied!' : 'Copy Table'}
+              </button>
+              <CopyImageButton targetRef={tableRef} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pb-3">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={tableRef}>
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr>

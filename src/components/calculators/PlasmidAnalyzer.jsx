@@ -76,48 +76,82 @@ function parseFasta(text) {
 
 function parseGenBank(text) {
   const lines = text.split('\n'); let name = 'Sequence', isCircular = true, sequence = '', features = [], inFeatures = false, inOrigin = false, cur = null;
+
+  const finishCur = () => {
+    if (cur) {
+      if (cur.tags) {
+        cur.label = cur.tags.label || cur.tags.gene || cur.tags.name || cur.tags.locus_tag || cur.tags.product || cur.tags.note || cur.type;
+      }
+      features.push(cur);
+    }
+  };
+
   for (const line of lines) {
     if (line.startsWith('LOCUS')) { const p = line.split(/\s+/); name = p[1] || 'Sequence'; isCircular = line.toLowerCase().includes('circular'); }
     if (line.startsWith('FEATURES')) { inFeatures = true; inOrigin = false; continue; }
-    if (line.startsWith('ORIGIN')) { inFeatures = false; inOrigin = true; if (cur) { features.push(cur); cur = null; } continue; }
-    if (line.startsWith('//')) { if (cur) features.push(cur); break; }
+    if (line.startsWith('ORIGIN')) { inFeatures = false; inOrigin = true; finishCur(); cur = null; continue; }
+    if (line.startsWith('//')) { finishCur(); cur = null; break; }
     if (inOrigin) { sequence += line.replace(/[^ATGCatgcNn]/g, ''); }
     if (inFeatures) {
       if (line.match(/^     \w/) && !line.match(/^     \//)) {
-        if (cur) features.push(cur);
+        finishCur();
         const parts = line.trim().split(/\s+/), type = parts[0], loc = parts[1] || '';
         let start = 0, end = 0, strand = 1;
         const cm = loc.match(/complement\(<?(\d+)\.\.>?(\d+)\)/), fm = loc.match(/<?(\d+)\.\.>?(\d+)/);
         if (cm) { start = parseInt(cm[1]) - 1; end = parseInt(cm[2]); strand = -1; } else if (fm) { start = parseInt(fm[1]) - 1; end = parseInt(fm[2]); strand = 1; }
-        cur = { type, start, end, strand, label: type, color: FEATURE_DEFAULTS[type] || '#6366f1' };
+        cur = { type, start, end, strand, label: type, color: FEATURE_DEFAULTS[type] || '#6366f1', tags: {} };
       }
       if (line.match(/^\s+\//) && cur) {
         const q = line.trim();
-        const lm = q.match(/\/(?:label|gene|product|note)="([^"]+)"/), cm = q.match(/\/ApEinfo_fwdcolor="([^"]+)"/);
-        if (lm) cur.label = lm[1]; if (cm) cur.color = cm[1];
+        const match = q.match(/\/([a-zA-Z0-9_]+)=?(?:"([^"]*)"|([^\s]*))/);
+        if (match) {
+           const key = match[1];
+           const val = match[2] !== undefined ? match[2] : match[3];
+           cur.tags[key] = val;
+           if (key === 'ApEinfo_fwdcolor') cur.color = val;
+        }
       }
     }
   }
-  if (cur) features.push(cur);
+  finishCur();
   return { name, sequence: sequence.toUpperCase().replace(/[^ATGCN]/g, ''), features, isCircular };
 }
 
 // ── Circular Map ──────────────────────────────────────────────────────────────
-function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, name, isCircular }) {
+function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHover, onFeatureLeave, onFeatureClick, name, isCircular }) {
   const totalLen = seq.length;
   if (!totalLen) return null;
-  const cx = 250, cy = 250, R = 160, FW = 16;
+  const cx = 350, cy = 350, R = 180, FW = 16;
   const ang = pos => (pos / totalLen) * 2 * Math.PI - Math.PI / 2;
-  const arcPath = (sa, ea, ri, ro) => {
+  const arcShapePath = (sa, ea, ri, ro, strand) => {
     let span = ea - sa; while (span < 0) span += 2 * Math.PI;
     if (span < 0.004) return '';
     const la = span > Math.PI ? 1 : 0, ae = sa + span;
-    const x1 = cx + ro * Math.cos(sa), y1 = cy + ro * Math.sin(sa), x2 = cx + ro * Math.cos(ae), y2 = cy + ro * Math.sin(ae);
-    const x3 = cx + ri * Math.cos(ae), y3 = cy + ri * Math.sin(ae), x4 = cx + ri * Math.cos(sa), y4 = cy + ri * Math.sin(sa);
-    return `M${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
+    const midR = (ri + ro) / 2;
+    const arrA = 0.04;
+    
+    if (strand === 1 && span > arrA) {
+      const x1 = cx + ro * Math.cos(sa), y1 = cy + ro * Math.sin(sa);
+      const x2 = cx + ro * Math.cos(ae - arrA), y2 = cy + ro * Math.sin(ae - arrA);
+      const xTip = cx + midR * Math.cos(ae), yTip = cy + midR * Math.sin(ae);
+      const x3 = cx + ri * Math.cos(ae - arrA), y3 = cy + ri * Math.sin(ae - arrA);
+      const x4 = cx + ri * Math.cos(sa), y4 = cy + ri * Math.sin(sa);
+      return `M${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${xTip} ${yTip} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
+    } else if (strand === -1 && span > arrA) {
+      const xTip = cx + midR * Math.cos(sa), yTip = cy + midR * Math.sin(sa);
+      const x1 = cx + ro * Math.cos(sa + arrA), y1 = cy + ro * Math.sin(sa + arrA);
+      const x2 = cx + ro * Math.cos(ae), y2 = cy + ro * Math.sin(ae);
+      const x3 = cx + ri * Math.cos(ae), y3 = cy + ri * Math.sin(ae);
+      const x4 = cx + ri * Math.cos(sa + arrA), y4 = cy + ri * Math.sin(sa + arrA);
+      return `M${xTip} ${yTip} L${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
+    } else {
+      const x1 = cx + ro * Math.cos(sa), y1 = cy + ro * Math.sin(sa), x2 = cx + ro * Math.cos(ae), y2 = cy + ro * Math.sin(ae);
+      const x3 = cx + ri * Math.cos(ae), y3 = cy + ri * Math.sin(ae), x4 = cx + ri * Math.cos(sa), y4 = cy + Math.sin(sa) * ri;
+      return `M${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
+    }
   };
   return (
-    <svg viewBox="0 0 500 500" style={{ width: '100%', maxWidth: 520, height: 'auto' }}>
+    <svg viewBox="0 0 700 700" style={{ width: '100%', maxWidth: 700, height: 'auto' }}>
       <circle cx={cx} cy={cy} r={R} fill="none" stroke="#cbd5e1" strokeWidth="3" />
       {[0, 0.25, 0.5, 0.75].map(frac => {
         const a = frac * 2 * Math.PI - Math.PI / 2, pos = Math.round(frac * totalLen);
@@ -129,17 +163,51 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, name, isC
       {features.map((feat, i) => {
         const sa = ang(feat.start), ea = ang(Math.min(feat.end, totalLen));
         const ri = feat.strand === -1 ? R - FW : R, ro = feat.strand === -1 ? R : R + FW;
-        const d = arcPath(sa, ea, ri, ro); if (!d) return null;
+        const d = arcShapePath(sa, ea, ri, ro, feat.strand); if (!d) return null;
         const isSel = i === selectedIdx;
-        return <path key={i} d={d} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.82} stroke={isSel ? '#1e293b' : 'white'} strokeWidth={isSel ? 1.5 : 0.5} cursor="pointer" onClick={() => onSelect(i === selectedIdx ? null : i)} />;
+        return <path key={i} d={d} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.82} stroke={isSel ? '#1e293b' : 'white'} strokeWidth={isSel ? 1.5 : 0.5} cursor="pointer" onClick={(e) => { e.stopPropagation(); onFeatureClick ? onFeatureClick(e, feat, i) : onSelect(i === selectedIdx ? null : i); }} />;
       })}
-      {features.map((feat, i) => {
-        const span = (feat.end - feat.start) / totalLen; if (span < 0.04 && totalLen > 500) return null;
-        const ma = ang((feat.start + feat.end) / 2), lr = feat.strand === -1 ? R - FW - 13 : R + FW + 13;
-        const lx = cx + lr * Math.cos(ma), ly = cy + lr * Math.sin(ma);
-        const anchor = Math.cos(ma) > 0.15 ? 'start' : Math.cos(ma) < -0.15 ? 'end' : 'middle';
-        return <text key={`l${i}`} x={lx} y={ly} textAnchor={anchor} dominantBaseline="middle" fill={feat.color || '#374151'} fontSize="10" fontWeight="600" style={{ pointerEvents: 'none' }}>{feat.label}</text>;
-      })}
+      {(() => {
+        const labelR = R + 45;
+        const sortedFeatures = features.map((feat, i) => ({ ...feat, index: i, ma: ang((feat.start + feat.end) / 2) })).sort((a, b) => a.ma - b.ma);
+        const rightLabels = sortedFeatures.filter(f => Math.cos(f.ma) >= 0);
+        const leftLabels = sortedFeatures.filter(f => Math.cos(f.ma) < 0);
+        
+        const resolve = (labels, isRight) => {
+           let lastY = -Infinity;
+           labels.forEach(l => {
+             let ty = cy + labelR * Math.sin(l.ma);
+             if (ty < lastY + 16) ty = lastY + 16;
+             l.ly = ty;
+             l.lx = isRight ? cx + labelR + 10 : cx - labelR - 10;
+             lastY = ty;
+           });
+           if (labels.length > 0) {
+             const overflow = labels[labels.length - 1].ly - (cy + labelR + 70);
+             if (overflow > 0) {
+                const shift = overflow / labels.length;
+                labels.forEach((l, i) => l.ly -= shift * i);
+             }
+           }
+        };
+        resolve(rightLabels, true);
+        resolve(leftLabels, false);
+        
+        return [...rightLabels, ...leftLabels].sort((a,b) => a.index - b.index).map((l, idx) => {
+          const ma = l.ma, fx = cx + (l.strand === -1 ? R - 8 : R + 8) * Math.cos(ma), fy = cy + (l.strand === -1 ? R - 8 : R + 8) * Math.sin(ma);
+          const ox = cx + (R + 25) * Math.cos(ma), oy = cy + (R + 25) * Math.sin(ma);
+          const isRight = Math.cos(ma) >= 0;
+          const textW = l.label.length * 5.5 + 10;
+          const rectX = isRight ? l.lx : l.lx - textW;
+          return (
+             <g key={`l${l.index}`} style={{ pointerEvents: 'none' }}>
+                <polyline points={`${fx},${fy} ${ox},${oy} ${isRight ? l.lx - 5 : l.lx + 5},${l.ly} ${l.lx},${l.ly}`} fill="none" stroke="#94a3b8" strokeWidth="1" />
+                <rect x={rectX} y={l.ly - 7} width={textW} height={14} rx={3} fill={l.color || '#e2e8f0'} fillOpacity={0.15} stroke={l.color || '#94a3b8'} strokeWidth="0.5" />
+                <text x={isRight ? l.lx + 5 : l.lx - 5} y={l.ly + 1} textAnchor={isRight ? 'start' : 'end'} dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{l.label}</text>
+             </g>
+          );
+        });
+      })()}
       {cutSites.map((site, i) => {
         const a = ang(site.pos);
         return (<g key={`cs${i}`}>
@@ -155,9 +223,9 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, name, isC
 }
 
 // ── Linear Map ────────────────────────────────────────────────────────────────
-function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, name }) {
+function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHover, onFeatureLeave, onFeatureClick, name }) {
   const totalLen = seq.length; if (!totalLen) return null;
-  const W = 800, H = 180, trackY = 90, FW = 16, ml = 30, mr = 770, mw = 740;
+  const W = 800, H = 220, trackY = 110, FW = 16, ml = 30, mr = 770, mw = 740;
   const xOf = pos => ml + (pos / totalLen) * mw;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
@@ -170,11 +238,37 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, name }) {
         const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
         const y = feat.strand === -1 ? trackY : trackY - FW;
         const isSel = i === selectedIdx;
-        return (<g key={i} cursor="pointer" onClick={() => onSelect(i === selectedIdx ? null : i)}>
-          <rect x={x1} y={y} width={w} height={FW} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.82} rx="2" stroke={isSel ? '#1e293b' : 'none'} />
-          {w > 40 && <text x={x1 + w / 2} y={y + FW / 2} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="9" fontWeight="600" style={{ pointerEvents: 'none' }}>{feat.label}</text>}
+        const aw = Math.min(w, 10);
+        let points = "";
+        if (feat.strand === 1 && w > aw) points = `${x1},${y} ${x2-aw},${y} ${x2},${y+FW/2} ${x2-aw},${y+FW} ${x1},${y+FW}`;
+        else if (feat.strand === -1 && w > aw) points = `${x1+aw},${y} ${x2},${y} ${x2},${y+FW} ${x1+aw},${y+FW} ${x1},${y+FW/2}`;
+        else points = `${x1},${y} ${x2},${y} ${x2},${y+FW} ${x1},${y+FW}`;
+        return (<g key={i} cursor="pointer" onClick={(e) => { e.stopPropagation(); onFeatureClick ? onFeatureClick(e, feat, i) : onSelect(i === selectedIdx ? null : i); }}>
+          <polygon points={points} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.82} stroke={isSel ? '#1e293b' : 'none'} strokeWidth={isSel ? 1.5 : 0} strokeLinejoin="round" />
         </g>);
       })}
+      {(() => {
+        return features.map((feat, i) => {
+          const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
+          const midX = x1 + w / 2;
+          const isTop = feat.strand === -1;
+          const yBase = isTop ? trackY - 5 : trackY + FW + 5;
+          const offset = ((i % 3) + 1) * 16;
+          const lineY2 = isTop ? yBase - offset : yBase + offset;
+          const textW = feat.label.length * 5.5 + 10;
+          const rectX = midX - textW / 2;
+          const rectY = isTop ? lineY2 - 14 : lineY2;
+          const textY = isTop ? lineY2 - 7 : lineY2 + 7;
+
+          return (
+            <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
+               <line x1={midX} y1={yBase} x2={midX} y2={lineY2} stroke="#94a3b8" strokeWidth="1" />
+               <rect x={rectX} y={rectY} width={textW} height={14} rx={3} fill={feat.color || '#e2e8f0'} fillOpacity={0.15} stroke={feat.color || '#94a3b8'} strokeWidth="0.5" />
+               <text x={midX} y={textY} textAnchor="middle" dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{feat.label}</text>
+            </g>
+          );
+        });
+      })()}
       {cutSites.map((site, i) => {
         const x = xOf(site.pos);
         return (<g key={i}><line x1={x} y1={trackY - FW - 5} x2={x} y2={trackY + FW + 5} stroke={site.color} strokeWidth="1.5" strokeDasharray="3,2" /><text x={x} y={trackY - FW - 12} textAnchor="middle" fill={site.color} fontSize="9" fontStyle="italic">{site.name}</text></g>);
@@ -202,9 +296,10 @@ export default function PlasmidAnalyzer({ historyData }) {
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState(null);
   const [editingFeatureIdx, setEditingFeatureIdx] = useState(null);
   const [showAddFeature, setShowAddFeature] = useState(false);
-  const [newFeature, setNewFeature] = useState({ label: 'New Feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
+  const [newFeature, setNewFeature] = useState({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   const [showAddPrimer, setShowAddPrimer] = useState(false);
   const [newPrimer, setNewPrimer] = useState({ name: '', seq: '', color: '#f59e0b' });
+  const [popupData, setPopupData] = useState(null);
   const mapRef = useRef(null);
   const fileRef = useRef(null);
   const [viewMode, setViewMode] = useState('map');
@@ -352,10 +447,10 @@ export default function PlasmidAnalyzer({ historyData }) {
   };
 
   const addFeature = () => {
-    const f = { ...newFeature, id: `f_${Date.now()}`, start: parseInt(newFeature.start) - 1, end: parseInt(newFeature.end), strand: parseInt(newFeature.strand), type: 'misc_feature', visible: true };
+    const f = { ...newFeature, id: `f_${Date.now()}`, start: parseInt(newFeature.start) - 1, end: parseInt(newFeature.end), strand: parseInt(newFeature.strand), type: newFeature.type || 'misc_feature', visible: true };
     setFeatures(prev => [...prev, f]);
     setShowAddFeature(false);
-    setNewFeature({ label: 'New Feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
+    setNewFeature({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   };
 
   const updateFeature = (idx, updates) => setFeatures(prev => prev.map((f, i) => i === idx ? { ...f, ...updates } : f));
@@ -406,8 +501,34 @@ export default function PlasmidAnalyzer({ historyData }) {
     { id: 'primers', icon: Dna, label: 'Primers', badge: primers.length },
   ];
 
+  const handleFeatureClick = (e, feature, idx) => {
+    e.stopPropagation();
+    setPopupData({ x: e.clientX, y: e.clientY, feature, idx });
+    setSelectedFeatureIdx(idx);
+    setActivePanel('features');
+  };
+
+  const handleMapClick = () => {
+    setPopupData(null);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative" onClick={handleMapClick}>
+      {popupData && (
+        <div className="fixed z-[100] bg-slate-900 text-white p-3 rounded-lg shadow-2xl text-xs w-60 pointer-events-none" style={{ left: popupData.x, top: popupData.y, transform: 'translate(-50%, -100%)', marginTop: '-15px' }}>
+          <div className="font-bold text-sm mb-1">{popupData.feature.label}</div>
+          {popupData.feature.type && popupData.feature.type !== 'misc_feature' && <div className="text-slate-400 mb-2 truncate text-[10px] uppercase font-bold tracking-wider">{popupData.feature.type}</div>}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-400">
+            <div>Start: <span className="text-white">{popupData.feature.start + 1}</span></div>
+            <div>Einde: <span className="text-white">{popupData.feature.end}</span></div>
+            <div>Lengte: <span className="text-white">{popupData.feature.end - popupData.feature.start} bp</span></div>
+            <div>Richt: <span className="text-white text-sm leading-none">{popupData.feature.strand === 1 ? '→' : popupData.feature.strand === -1 ? '←' : '↔︎'}</span></div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-slate-700 text-[10px] text-teal-400 font-medium">Klik om te bewerken</div>
+          {/* Arrow pointing down */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-slate-900"></div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow">
@@ -535,8 +656,8 @@ export default function PlasmidAnalyzer({ historyData }) {
             {viewMode === 'map' && (
               <div className="flex items-center justify-center h-full">
                 {isCircular
-                  ? <CircularMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} name={seqName} isCircular={isCircular} />
-                  : <LinearMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} name={seqName} />
+                  ? <CircularMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} isCircular={isCircular} />
+                  : <LinearMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} />
                 }
               </div>
             )}
@@ -567,19 +688,22 @@ export default function PlasmidAnalyzer({ historyData }) {
                   </div>
                   {showAddFeature && (
                     <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
-                      <Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Naam" className="h-7 text-xs border-slate-200" />
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Naam" className="h-7 text-xs border-slate-200" />
+                        <Input value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} placeholder="Type (CDS, ori, etc)" className="h-7 text-xs border-slate-200" />
+                      </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         <Input value={newFeature.start} onChange={e => setNewFeature(f => ({ ...f, start: e.target.value }))} placeholder="Start (bp)" className="h-7 text-xs border-slate-200" type="number" />
                         <Input value={newFeature.end} onChange={e => setNewFeature(f => ({ ...f, end: e.target.value }))} placeholder="Einde (bp)" className="h-7 text-xs border-slate-200" type="number" />
                       </div>
-                      <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: e.target.value }))} className="w-full h-7 text-xs border border-slate-200 rounded-md px-1 bg-white">
+                      <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: parseInt(e.target.value) }))} className="w-full h-7 text-xs border border-slate-200 rounded-md px-1 bg-white">
                         <option value="1">Forward (+)</option>
                         <option value="-1">Reverse (−)</option>
+                        <option value="0">Geen / ↔︎</option>
                       </select>
-                      <div className="flex gap-1 flex-wrap">
-                        {COLOR_PALETTE.slice(0, 10).map(c => (
-                          <button key={c} onClick={() => setNewFeature(f => ({ ...f, color: c }))} style={{ background: c }} className={`w-4 h-4 rounded-full border-2 ${newFeature.color === c ? 'border-slate-700' : 'border-transparent'}`} />
-                        ))}
+                      <div className="flex items-center gap-2 py-0.5">
+                        <label className="text-xs text-slate-500 font-medium ml-1">Kleur:</label>
+                        <input type="color" value={newFeature.color || '#3b82f6'} onChange={e => setNewFeature(f => ({ ...f, color: e.target.value }))} className="w-8 h-8 p-0 border-0 rounded cursor-pointer" />
                       </div>
                       <div className="flex gap-1.5">
                         <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addFeature}>Toevoegen</Button>
@@ -594,19 +718,28 @@ export default function PlasmidAnalyzer({ historyData }) {
                         onClick={() => setSelectedFeatureIdx(i === selectedFeatureIdx ? null : i)}>
                         <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ background: feat.color || '#6366f1' }} />
                         {editingFeatureIdx === i ? (
-                          <div className="flex-1 flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                            <Input value={feat.label} onChange={e => updateFeature(i, { label: e.target.value })} className="h-6 text-xs border-slate-200 flex-1" />
-                            <div className="flex gap-0.5">
-                              {COLOR_PALETTE.slice(0, 6).map(c => (
-                                <button key={c} onClick={() => updateFeature(i, { color: c })} style={{ background: c }} className={`w-3.5 h-3.5 rounded-full border ${feat.color === c ? 'border-slate-700' : 'border-transparent'}`} />
-                              ))}
+                          <div className="flex-1 flex flex-col gap-1 items-stretch" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-1.5">
+                              <Input value={feat.label} onChange={e => updateFeature(i, { label: e.target.value })} className="h-7 text-xs border-slate-200 flex-1" placeholder="Naam" />
+                              <Input value={feat.type || ''} onChange={e => updateFeature(i, { type: e.target.value })} className="h-7 text-xs border-slate-200 w-20 flex-shrink-0" placeholder="Type" />
                             </div>
-                            <button onClick={() => setEditingFeatureIdx(null)} className="text-teal-600 flex-shrink-0"><Check className="w-3.5 h-3.5" /></button>
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <select value={feat.strand} onChange={e => updateFeature(i, { strand: parseInt(e.target.value) })} className="h-7 text-[10px] border border-slate-200 rounded-md bg-white text-slate-600 px-0.5 max-w-14">
+                                <option value="1">→ (+)</option>
+                                <option value="-1">← (−)</option>
+                                <option value="0">↔︎ (0)</option>
+                              </select>
+                              <input type="color" value={feat.color || '#3b82f6'} onChange={e => updateFeature(i, { color: e.target.value })} className="w-7 h-7 p-0 border-0 rounded cursor-pointer flex-shrink-0" title="Wijzig Kleur" />
+                              <button onClick={() => setEditingFeatureIdx(null)} className="text-teal-600 hover:text-teal-700 flex-shrink-0 bg-teal-50 hover:bg-teal-100 p-1 rounded-md transition-colors"><Check className="w-4 h-4" /></button>
+                            </div>
                           </div>
                         ) : (
                           <>
-                            <span className="text-xs font-medium text-slate-700 flex-1 truncate">{feat.label}</span>
-                            <span className="text-xs text-slate-400 flex-shrink-0">{feat.strand === 1 ? '→' : '←'}</span>
+                            <div className="flex-1 min-w-0 pr-1">
+                              <div className="text-xs font-medium text-slate-700 truncate">{feat.label}</div>
+                              {feat.type && feat.type !== 'misc_feature' && <div className="text-[10px] text-slate-400 capitalize truncate">{feat.type}</div>}
+                            </div>
+                            <span className="text-xs text-slate-400 flex-shrink-0">{feat.strand === 1 ? '→' : feat.strand === -1 ? '←' : '↔︎'}</span>
                             <button onClick={e => { e.stopPropagation(); updateFeature(i, { visible: feat.visible === false }); }}
                               className={`p-0.5 flex-shrink-0 ${feat.visible === false ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>
                               {feat.visible === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}

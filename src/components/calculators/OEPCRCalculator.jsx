@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dna, Plus, Trash2, FlaskConical, Copy, Check, AlertTriangle, Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Copy, Check, FlaskConical, AlertTriangle, Plus, Trash2, Info } from 'lucide-react';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -29,7 +30,10 @@ function formatTime(sec) {
   return sec >= 60 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} min` : `${sec}s`;
 }
 
-export default function OEPCRCalculator() {
+export default function OEPCRCalculator({ historyData }) {
+  const { addHistoryItem } = useHistory();
+  const tableRef = useRef(null);
+  
   const [fragments, setFragments] = useState(DEFAULT_FRAGMENTS);
   const [refNg, setRefNg] = useState('50');
   const [totalVolume, setTotalVolume] = useState('50');
@@ -235,16 +239,19 @@ export default function OEPCRCalculator() {
                   <FlaskConical className="w-4 h-4 text-blue-600" /> PCR Mix (initieel — zonder primers)
                 </CardTitle>
                 {results?.isValid && (
-                  <button onClick={copyTable} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
-                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    {copied ? 'Gekopieerd!' : 'Kopieer'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={copyTable} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
+                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      {copied ? 'Gekopieerd!' : 'Kopieer'}
+                    </button>
+                    <CopyImageButton targetRef={tableRef} label="Kopieer Image" />
+                  </div>
                 )}
               </div>
             </CardHeader>
             <CardContent>
               {results ? (
-                <div className="space-y-3">
+                <div ref={tableRef} className="space-y-3 bg-white p-2 rounded-xl">
                   {results.fmol && (
                     <div className="text-xs text-slate-500 px-1">
                       Equimolair doel: <strong className="text-blue-700">{results.fmol} fmol</strong> per fragment (ref: {results.largestFragName})
