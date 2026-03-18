@@ -1,7 +1,8 @@
 # BiBaBenchBuddy (Lab Assistant)
 
-<a href="https://www.buymeacoffee.com/daphnewoodpecker"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" height="30" /></a>
+<a href="https://bi-ba-bench-buddy.vercel.app/"><img src="https://img.shields.io/badge/Open-Webapp-BF5FFF?style=for-the-badge&logo=vercel&logoColor=white&labelColor=000000&color=BF5FFF&link=https%3A%2F%2Fbi-ba-bench-buddy.vercel.app" height="30" /></a>
 <a href="./release/"><img src="https://img.shields.io/badge/Download-App-BD5FFF?style=for-the-badge&logo=apple&logoColor=white" height="30" /></a>
+<a href="https://www.buymeacoffee.com/daphnewoodpecker"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00" height="30" /></a>
 
 **BiBaBench-Buddy** is an all-in-one digital assistant for the modern molecular biology lab. It streamlines complex calculations, visualizes experimental results, and uses AI to help you design protocols in seconds, allowing you to focus on the science rather than the paperwork.
 
