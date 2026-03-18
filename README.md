@@ -95,3 +95,12 @@ If you wish to run this locally:
 
 1. `npm install`
 2. `npm run dev` (Web) or `npm run app:dev` (Desktop)
+
+
+## ☕ Support
+
+If you like this app, feel free to buy me a coffee :)
+
+<a href="https://buymeacoffee.com/daphnewoodpecker" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50">
+</a>
