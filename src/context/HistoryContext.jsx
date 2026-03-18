@@ -6,7 +6,7 @@ const HistoryContext = createContext(null);
 export function HistoryProvider({ children }) {
   const [history, setHistory] = useState(() => {
     try {
-      const saved = localStorage.getItem('labcalc_tool_history');
+      const saved = localStorage.getItem('bibabenchbuddy_tool_history');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -51,7 +51,7 @@ export function HistoryProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') syncRemoteHistory();
       if (event === 'SIGNED_OUT') {
-        const local = localStorage.getItem('labcalc_tool_history');
+        const local = localStorage.getItem('bibabenchbuddy_tool_history');
         setHistory(local ? JSON.parse(local) : []);
       }
     });
@@ -61,7 +61,7 @@ export function HistoryProvider({ children }) {
 
   // Update localStorage and Remote on history change
   useEffect(() => {
-    localStorage.setItem('labcalc_tool_history', JSON.stringify(history));
+    localStorage.setItem('bibabenchbuddy_tool_history', JSON.stringify(history));
 
     const syncTimeout = setTimeout(async () => {
       if (!isSyncEnabled()) return;

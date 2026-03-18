@@ -9,9 +9,9 @@ import { Wrench, Send, Loader2, Plus, Trash2, ChevronRight, ArrowLeft, Play, Cop
 
 import ReactMarkdown from 'react-markdown';
 
-const HOMEPAGE_TOOLS_KEY = 'labcalc_homepage_custom_tools';
+const HOMEPAGE_TOOLS_KEY = 'bibabenchbuddy_homepage_custom_tools';
 
-const TOOL_STORAGE_KEY = 'labcalc_custom_tools';
+const TOOL_STORAGE_KEY = 'bibabenchbuddy_custom_tools';
 
 function loadTools() {
   try { return JSON.parse(localStorage.getItem(TOOL_STORAGE_KEY)) || []; } catch { return []; }

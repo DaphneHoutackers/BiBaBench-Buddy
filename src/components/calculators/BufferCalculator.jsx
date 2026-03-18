@@ -205,7 +205,7 @@ function NumInput({ value, onChange, ...props }) {
 export default function BufferCalculator({ historyData }) {
   const { addHistoryItem } = useHistory();
   const [savedRecipes, setSavedRecipes] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('labcalc_custom_buffers')) || {}; } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('bibabenchbuddy_custom_buffers')) || {}; } catch { return {}; }
   });
   const allBuffers = { ...DEFAULT_BUFFERS, ...savedRecipes };
 
@@ -258,7 +258,7 @@ export default function BufferCalculator({ historyData }) {
   const handleSaveAiRecipe = (name, recipeObj) => {
     const updated = { ...savedRecipes, [name]: recipeObj };
     setSavedRecipes(updated);
-    localStorage.setItem('labcalc_custom_buffers', JSON.stringify(updated));
+    localStorage.setItem('bibabenchbuddy_custom_buffers', JSON.stringify(updated));
     setSelectedBuffer(name);
     setActiveTab('recipes');
   };
@@ -267,7 +267,7 @@ export default function BufferCalculator({ historyData }) {
     const updated = { ...savedRecipes };
     delete updated[name];
     setSavedRecipes(updated);
-    localStorage.setItem('labcalc_custom_buffers', JSON.stringify(updated));
+    localStorage.setItem('bibabenchbuddy_custom_buffers', JSON.stringify(updated));
     setSelectedBuffer('TAE (50×)');
   };
 

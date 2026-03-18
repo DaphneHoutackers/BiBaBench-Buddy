@@ -4,7 +4,7 @@
 
 const getSettings = () => {
   try {
-    return JSON.parse(localStorage.getItem('labcalc_settings') || '{}');
+    return JSON.parse(localStorage.getItem('bibabenchbuddy_settings') || '{}');
   } catch {
     return {};
   }

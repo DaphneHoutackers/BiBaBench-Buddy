@@ -18,7 +18,7 @@ const FALLBACK_JOKES = [
   "Helium walks into a bar. Bartender: \"We don't serve noble gases.\" He doesn't react.",
 ];
 
-const CACHE_KEY = 'labcalc_science_jokes_pool';
+const CACHE_KEY = 'bibabenchbuddy_science_jokes_pool';
 
 function shuffle(array) {
   const arr = [...array];

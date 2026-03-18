@@ -52,7 +52,7 @@ function createNewChat() {
   ], createdAt: Date.now() };
 }
 
-const STORAGE_KEY = 'labcalc_ai_chats';
+const STORAGE_KEY = 'bibabenchbuddy_ai_chats';
 
 function loadChats() {
   try {
@@ -345,7 +345,7 @@ export default function AIAssistant({ historyData }) {
                   <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tight">
                     Using <span className="text-slate-500">{(() => {
                       try {
-                        const s = JSON.parse(localStorage.getItem('labcalc_settings') || '{}');
+                        const s = JSON.parse(localStorage.getItem('bibabenchbuddy_settings') || '{}');
                         const p = s.aiProvider || 'groq';
                         const m = s.aiModel || (p === 'groq' ? 'llama-3.3-70b-versatile' : p === 'openai' ? 'gpt-4o' : p === 'gemini' ? 'gemini-2.0-flash' : 'google/gemini-2.0-flash-001');
                         return `${m} via ${p.toUpperCase()}`;

@@ -115,6 +115,11 @@
     "directories": {
       "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
     "mac": {
       "target": [
         "dmg"

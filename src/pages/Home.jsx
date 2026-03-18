@@ -22,7 +22,7 @@ import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 
-const SETTINGS_KEY = 'labcalc_settings';
+const SETTINGS_KEY = 'bibabenchbuddy_settings';
 
 function loadSettings() {
   try {
