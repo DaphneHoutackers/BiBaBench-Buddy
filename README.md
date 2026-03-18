@@ -77,10 +77,11 @@ Before starting your experiments, click the **Settings** icon in the top right:
 
 ## ⚠️ Known Issues
 
-While I strive for precision, the following issues are known:
+The following issues are known:
 
 - **Ta Calculator:** The Annealing Temperature (Ta) logic is currently being refined and may not be 100% accurate for high-GC or complex primer pairs.
 - **Image Annotator:** This tool is in active beta. While basic labeling and exporting work, some advanced selection and scaling features may still behave unexpectedly.
+- **Sequence Analyzer:** The feature labeling is not very nicely visualized yet.
 
 ---
 
