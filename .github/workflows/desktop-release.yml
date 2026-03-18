@@ -35,3 +35,27 @@ jobs:
         with:
           name: desktop-build-${{ matrix.os }}
           path: release/*
+
+  create_release:
+    needs: build_release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-build-macos-latest
+          path: release/macos
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-build-windows-latest
+          path: release/windows
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/macos/*
+            release/windows/*
