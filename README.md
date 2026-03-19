@@ -16,22 +16,43 @@
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="28">
 </a>
 
+<<<<<<< HEAD
 ---
 
 ## 🧬 Overview
 
 **BiBaBenchBuddy** is a desktop and web application designed for molecular biology workflows.  
+=======
+## Description
+
+BiBaBenchBuddy is a desktop and web application designed for molecular biology workflows.
+>>>>>>> 80db535 (Improve PCR calculator accuracy and UI responsiveness)
 It provides practical tools for calculations, visualization, and protocol support, helping streamline routine lab work and reduce manual errors.
 
----
+![alt text](image.png)
 
+<<<<<<< HEAD
 <img width="1312" height="912" alt="Scherm­afbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
 
 ---
 
 ## 🚀 Use & Installation
+=======
+## Features
+>>>>>>> 80db535 (Improve PCR calculator accuracy and UI responsiveness)
 
-### 🌐 Web Application [Open webapp ↗](https://bi-ba-bench-buddy.vercel.app/)
+- DNA digestion calculator
+- Ligation calculator
+- Gibson assembly calculator
+- PCR setup & optimization tools
+- Dilution and concentration calculators
+- Gel electrophoresis and western blot simulator
+- Buffer library & calculator
+- Clean, fast, mobile-friendly interface
+
+## Use & Installation
+
+### 🌐 WebApp [Open webapp ↗](https://bi-ba-bench-buddy.vercel.app/)
 
 The latest version is always active and accessible from any browser via this link:
 **[https://bi-ba-bench-buddy.app](https://bi-ba-bench-buddy.vercel.app/)**
@@ -44,9 +65,7 @@ For a standalone experience with native performance:
 - **Windows Version:** [![Download for Windows](https://img.shields.io/badge/Download-Windows-green?logo=windows)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup-.exe)
 - **All versions:** [Releases overview](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
 
----
-
-## 📖 Quick Start Guide
+## Usage
 
 ### 1. Setup & Configuration
 
@@ -55,6 +74,8 @@ Before starting your experiments, click the **Settings** icon in the top right:
 - **Sync:** Log in with **Email** or **GitHub** to keep your sessions and settings synced across your laptop and web browser.
 - **AI Settings:** Paste your API keys (e.g., Google Gemini, OpenAI, or Groq) to unlock the AI Buffer Assistant and smarter protocol generation.
 - **Appearance:** Choose from various themes, including _Modern Dark_, _Glass MacOS_, and curated styles like _pretty pink💕_.
+
+![alt text](<Kapture 2026-03-19 at 03.03.31.gif>)
 
 ### 2. Navigation & History
 
