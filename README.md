@@ -1,45 +1,25 @@
-# BiBaBenchBuddy (Lab Assistant)
+# BiBaBenchBuddy
 
-![Latest Release](https://img.shields.io/github/v/release/DaphneHoutackers/BiBaBench-Buddy?style=for-the-badge)
-![Downloads](https://img.shields.io/github/downloads/DaphneHoutackers/BiBaBench-Buddy/total?style=for-the-badge&logo=github&label=downloads)
-
+<a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest" height="20">
+<a href="https://img.shields.io/github/downloads/DaphneHoutackers/BiBaBench-Buddy/total?style=for-the-badge&logo=github&label=downloads" height="20">
 <a href="https://bi-ba-bench-buddy.vercel.app/">
-  <img src="https://img.shields.io/badge/Open-Webapp-BF5FFF?style=for-the-badge&logo=vercel&logoColor=white" height="28" />
+  <img src="https://img.shields.io/badge/Open-Webapp-BF5FFF?style=for-the-badge&logo=vercel&logoColor=white" height="20" />
 </a>
 <a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-mac-arm64.dmg">
-  <img src="https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple&logoColor=white" height="28" />
+  <img src="https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple&logoColor=white" height="20" />
 </a>
 <a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup.exe">
-  <img src="https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows&logoColor=white" height="28" />
+  <img src="https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows&logoColor=white" height="20" />
 </a>
 <a href="https://buymeacoffee.com/daphnewoodpecker">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="28">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="20">
 </a>
 
-<<<<<<< HEAD
----
+BiBaBenchBuddy is a desktop and web application designed for molecular biology workflows. It provides practical tools for calculations, visualization, and protocol support, helping streamline routine lab work and reduce manual errors.
 
-## 🧬 Overview
+<img width="800" height="600" alt="Schermafbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
 
-**BiBaBenchBuddy** is a desktop and web application designed for molecular biology workflows.  
-=======
-## Description
-
-BiBaBenchBuddy is a desktop and web application designed for molecular biology workflows.
->>>>>>> 80db535 (Improve PCR calculator accuracy and UI responsiveness)
-It provides practical tools for calculations, visualization, and protocol support, helping streamline routine lab work and reduce manual errors.
-
-![alt text](image.png)
-
-<<<<<<< HEAD
-<img width="1312" height="912" alt="Scherm­afbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
-
----
-
-## 🚀 Use & Installation
-=======
 ## Features
->>>>>>> 80db535 (Improve PCR calculator accuracy and UI responsiveness)
 
 - DNA digestion calculator
 - Ligation calculator
@@ -134,7 +114,6 @@ If you wish to run this locally:
 
 1. `npm install`
 2. `npm run dev` (Web) or `npm run app:dev` (Desktop)
-
 
 ## ☕ Support
 
