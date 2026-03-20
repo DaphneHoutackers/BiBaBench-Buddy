@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Scissors, Link2, GitMerge, Dna, Droplets, Beaker,
   Sparkles, ArrowLeft, BookOpen, Microscope,
@@ -104,7 +104,7 @@ const ALL_IDS = [
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({ active, onSelect, onSelectTab, activeTab, onClose, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron }) {
+function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
@@ -282,7 +282,7 @@ export default function Home() {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     document.documentElement.style.fontSize = settings.fontSize || '16px';
     const currentTheme = APP_THEMES[settings.appTheme] || APP_THEMES.default;
-    const isDark = currentTheme.isDark;
+    // const isDark = currentTheme.isDark; // Handled by classList below
     if (currentTheme.isDark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [settings]);
@@ -328,10 +328,6 @@ export default function Home() {
   const settingsBtnColor = theme.iconTextColor || (isDark ? 'text-white/50 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700');
 
   const isHome = !active;
-
-  const activeName = active
-    ? [...CALCULATORS, ...ALL_TOOLS_FLAT].find(c => c.id === active)?.name
-    : null;
 
   const goHome = () => { setActive(null); setSidebarOpen(false); setHistoryData(null); };
 
@@ -421,11 +417,6 @@ export default function Home() {
                 <span className="text-xs font-bold uppercase tracking-wider">AI Assistent</span>
               </button>
               
-              {activeName && (
-                <span className={`text-sm mr-4 ${isDark ? 'text-white/30' : 'text-slate-300'}`}>
-                   <span className={isDark ? 'text-white/70 font-medium' : 'text-slate-600 font-medium'}>{activeName}</span>
-                </span>
-              )}
               <button onClick={() => setShowSettings(true)} className={`p-2 rounded-xl transition-colors ${settingsBtnColor}`} title="Settings">
                 <Settings className="w-4 h-4" />
               </button>
@@ -537,6 +528,13 @@ export default function Home() {
             href="https://www.buymeacoffee.com/daphnewoodpecker"
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => {
+              // Ensure external links open in system browser in Electron/local-file mode
+              if (window.location.protocol === 'file:' || navigator.userAgent.toLowerCase().includes('electron')) {
+                e.preventDefault();
+                window.open("https://www.buymeacoffee.com/daphnewoodpecker", "_blank");
+              }
+            }}
             className="block transition-transform hover:scale-105 active:scale-95 shadow-lg rounded-xl overflow-hidden"
           >
             <img

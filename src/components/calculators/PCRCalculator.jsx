@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,130 +10,155 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2 } from 'lucide-react';
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
-import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyTableButton from '@/components/shared/CopyTableButton';
 import { useHistory } from '@/context/HistoryContext';
 
 const POLYMERASES = {
-  'Phusion High-Fidelity': { buffer: 'Phusion HF Buffer', bufferX: 5, dntpFinal: 0.2 },
-  'Q5 High-Fidelity': { buffer: 'Q5 Reaction Buffer', bufferX: 5, dntpFinal: 0.2 },
-  'Platinum SuperFi II': { buffer: 'SuperFi II Buffer', bufferX: 5, dntpFinal: 0.2 },
-  'Taq Polymerase': { buffer: 'Standard Taq Buffer', bufferX: 10, dntpFinal: 0.2 },
-  'OneTaq': { buffer: 'OneTaq Standard Buffer', bufferX: 5, dntpFinal: 0.2 },
-  'DreamTaq': { buffer: 'DreamTaq Buffer (10×)', bufferX: 10, dntpFinal: 0.2 },
-  'Pfu Polymerase': { buffer: 'Pfu Buffer (10×)', bufferX: 10, dntpFinal: 0.2 },
+  'Phusion High-Fidelity': {
+    label: 'Phusion High-Fidelity',
+    buffer: '5× Phusion HF Buffer',
+    bufferX: 5,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
+  'Q5 High-Fidelity': {
+    label: 'Q5 High-Fidelity',
+    buffer: '5× Q5 Reaction Buffer',
+    bufferX: 5,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
+  'Platinum SuperFi II': {
+    label: 'Platinum SuperFi II',
+    buffer: '5× SuperFi II Buffer',
+    bufferX: 5,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
+  'Taq Polymerase': {
+    label: 'Taq Polymerase',
+    buffer: '10× Taq Buffer',
+    bufferX: 10,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
+  'OneTaq': {
+    label: 'OneTaq',
+    buffer: '5× OneTaq Buffer',
+    bufferX: 5,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
+  'DreamTaq': {
+    label: 'DreamTaq',
+    buffer: '10× DreamTaq Buffer',
+    bufferX: 10,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
+  'Pfu Polymerase': {
+    label: 'Pfu Polymerase',
+    buffer: '10× Pfu Buffer',
+    bufferX: 10,
+    dntpFinal: 0.2,
+    naEqM: 0.05,
+  },
 };
 
-// Breslauer 1986 NN params as used by ThermoFisher Tm calculator
-// dH in cal/mol, dS in cal/mol·K (entropy stored as positive, sign applied in formula)
-// SantaLucia 1998 NN params (dH in kcal/mol, dS in cal/mol·K)
+// Breslauer 1986 nearest-neighbor parameters
+// dH in cal/mol, dS in cal/mol·K
 const NN_DH = {
-  AA:-7.9, TT:-7.9, AT:-7.2, TA:-7.2,
-  CA:-8.5, TG:-8.5, GT:-8.4, AC:-8.4,
-  CT:-7.8, AG:-7.8, GA:-8.2, TC:-8.2,
-  CG:-10.6, GC:-9.8, GG:-8.0, CC:-8.0,
+  AA: -9100, TT: -9100, AT: -8600, TA: -6000,
+  CA: -5800, TG: -5800, GT: -6500, AC: -6500,
+  CT: -7800, AG: -7800, GA: -5600, TC: -5600,
+  CG: -11900, GC: -11100, GG: -11000, CC: -11000,
 };
+
 const NN_DS = {
-  AA:-22.2, TT:-22.2, AT:-20.4, TA:-21.3,
-  CA:-22.7, TG:-22.7, GT:-22.4, AC:-22.4,
-  CT:-21.0, AG:-21.0, GA:-22.2, TC:-22.2,
-  CG:-27.2, GC:-24.4, GG:-19.9, CC:-19.9,
+  AA: -24.0, TT: -24.0, AT: -23.9, TA: -16.9,
+  CA: -12.9, TG: -12.9, GT: -17.3, AC: -17.3,
+  CT: -20.8, AG: -20.8, GA: -13.5, TC: -13.5,
+  CG: -27.8, GC: -26.7, GG: -26.6, CC: -26.6,
 };
 
-// Initiation parameters (SantaLucia 1998)
-const INIT_dH_GC = 0.1;   // kcal/mol
-const INIT_dS_GC = -2.8;  // cal/mol·K
-const INIT_dH_AT = 2.3;   // kcal/mol
-const INIT_dS_AT = 4.1;   // cal/mol·K
+const INIT_DH = 0;
+const INIT_DS = -10.8;
+const GAS_R = 1.987;
+const DEFAULT_PRIMER_CONC_M = 0.5e-6;
+const DEFAULT_NA_EQ_M = 50e-3;
 
-function calcTm(seq) {
-  if (!seq) return null;
-  const s = seq.toUpperCase().replace(/[^ATGC]/g, '');
+const sanitizeSeq = seq => (seq || '').toUpperCase().replace(/[^ATGC]/g, '');
+
+const revComp = seq =>
+  sanitizeSeq(seq)
+    .split('')
+    .reverse()
+    .map(b => ({ A: 'T', T: 'A', G: 'C', C: 'G' }[b]))
+    .join('');
+
+function findAnnealingRegion(primer, template) {
+  const p = sanitizeSeq(primer);
+  const t = sanitizeSeq(template);
+
+  if (!p || !t) return null;
+
+  for (let start = 0; start <= p.length - 8; start++) {
+    const suffix = p.slice(start);
+    if (t.includes(suffix) || t.includes(revComp(suffix))) {
+      return suffix;
+    }
+  }
+
+  return null;
+}
+
+function calcTm(seq, primerConcM = DEFAULT_PRIMER_CONC_M, naEqM = DEFAULT_NA_EQ_M) {
+  const s = sanitizeSeq(seq);
   if (s.length < 7) return null;
 
-  // Wallace for very short primers
   if (s.length < 14) {
     const at = (s.match(/[AT]/g) || []).length;
     const gc = (s.match(/[GC]/g) || []).length;
-    return 2 * at + 4 * gc;
+    return +(2 * at + 4 * gc).toFixed(1);
   }
 
-  // SantaLucia 1998 Nearest Neighbor model
-  let dH = 0;
-  let dS = 0;
+  let dH = INIT_DH; // cal/mol
+  let dS = INIT_DS; // cal/mol/K
 
   for (let i = 0; i < s.length - 1; i++) {
-    const key = s[i] + s[i + 1];
-    dH += (NN_DH[key] || 0);
-    dS += (NN_DS[key] || 0);
+    const key = s.slice(i, i + 2);
+    dH += NN_DH[key] ?? 0;
+    dS += NN_DS[key] ?? 0;
   }
 
-  // Add initiation penalties for terminals
-  const ends = [s[0], s[s.length - 1]];
-  ends.forEach(e => {
-    if (e === 'A' || e === 'T') {
-      dH += INIT_dH_AT;
-      dS += INIT_dS_AT;
-    } else {
-      dH += INIT_dH_GC;
-      dS += INIT_dS_GC;
-    }
-  });
+  const deltaS = dS + 0.368 * (s.length - 1) * Math.log(naEqM);
+  const tmK = dH / (deltaS + GAS_R * Math.log(primerConcM / 4));
+  const tmC = tmK - 273.15;
 
-  const R = 1.9872;  // cal/mol·K
-  const C = 500e-9;  // 500 nM primer (ThermoFisher default)
-  
-  // Tm = (dH * 1000) / (dS + R * ln(C/4)) - 273.15
-  const Tm = (dH * 1000) / (dS + R * Math.log(C / 4)) - 273.15;
-
-  // Salt correction (von Ahsen 2001 style, as used in Phusion calculators)
-  // Assumes 50mM K+ and 1.5mM Mg2+ (standard HF buffer)
-  const Na = 0.05;
-  const Mg = 0.0015;
-  const SaltCorr = 16.6 * Math.log10(Na + 120 * Math.sqrt(Mg));
-  
-  return Tm + SaltCorr;
+  return Number.isFinite(tmC) ? +tmC.toFixed(1) : null;
 }
 
-// ThermoFisher Ta rule:
-// If primer length ≤ 20 nt → Ta = lower Tm
-// If primer length > 20 nt → Ta = lower Tm + 3°C
-function calcTa(fwdTm, revTm, fwdLen, revLen) {
+function calcTa(fwdTm, revTm) {
   if (fwdTm == null || revTm == null) return null;
-  const lower = Math.min(fwdTm, revTm);
-  const lowerLen = fwdTm <= revTm ? fwdLen : revLen;
-  const ta = lowerLen > 20 ? lower + 3 : lower;
-  return Math.round(ta * 10) / 10;
+  return +Math.min(fwdTm, revTm).toFixed(1);
 }
 
-const calcGC = (seq) => {
-  const s = (seq || '').toUpperCase().replace(/[^ATGC]/g, '');
+const calcGC = seq => {
+  const s = sanitizeSeq(seq);
   if (!s.length) return 0;
-  return ((s.match(/[GC]/g) || []).length / s.length * 100).toFixed(1);
+  return +((((s.match(/[GC]/g) || []).length / s.length) * 100).toFixed(1));
 };
 
-const calcMW = (seq) => {
-  const s = (seq || '').toUpperCase().replace(/[^ATGC]/g, '');
+const calcMW = seq => {
+  const s = sanitizeSeq(seq);
   const mw = { A: 313.21, T: 304.19, G: 329.21, C: 289.18 };
-  return s.split('').reduce((sum, b) => sum + (mw[b] || 0), 0) - 61.96; // subtract water
+  return s.split('').reduce((sum, b) => sum + (mw[b] || 0), 0) - 61.96;
 };
 
-const calcExtCoeff = (seq) => {
-  const s = (seq || '').toUpperCase().replace(/[^ATGC]/g, '');
+const calcExtCoeff = seq => {
+  const s = sanitizeSeq(seq);
   const ec = { A: 15400, T: 8700, G: 11500, C: 7400 };
   return s.split('').reduce((sum, b) => sum + (ec[b] || 0), 0);
-};
-
-const findAnnealingRegion = (primer, template) => {
-  if (!primer || !template) return null;
-  const p = primer.toUpperCase().replace(/[^ATGC]/g, '');
-  const t = template.toUpperCase().replace(/[^ATGC]/g, '');
-  for (let startIdx = 0; startIdx < p.length - 9; startIdx++) {
-    const binding = p.slice(startIdx);
-    if (t.includes(binding)) return binding;
-    const rc = binding.split('').reverse().map(b => ({ A: 'T', T: 'A', G: 'C', C: 'G' }[b])).join('');
-    if (t.includes(rc)) return binding;
-  }
-  return null;
 };
 
 function NumInput({ value, onChange, ...props }) {
@@ -188,6 +213,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
   const [taRevPrimer, setTaRevPrimer] = useState('');
   const [taTemplate, setTaTemplate] = useState('');
   const [taPolymerase, setTaPolymerase] = useState('Phusion High-Fidelity');
+  const [taPrimerConc, setTaPrimerConc] = useState('0.5');
   const [taResults, setTaResults] = useState(null);
 
   // Restore from history
@@ -212,6 +238,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
         if (d.taRevPrimer !== undefined) setTaRevPrimer(d.taRevPrimer);
         if (d.taTemplate !== undefined) setTaTemplate(d.taTemplate);
         if (d.taPolymerase !== undefined) setTaPolymerase(d.taPolymerase);
+        if (d.taPrimerConc !== undefined) setTaPrimerConc(d.taPrimerConc);
       }
       setTimeout(() => setIsRestoring(false), 50);
     }
@@ -233,12 +260,12 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
         title: title,
         data: {
           tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples,
-          primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase
+          primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc
         }
       });
     }, 1000);
     return () => clearTimeout(debounce);
-  }, [tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples, primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, isRestoring, addHistoryItem]);
+  }, [tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples, primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc, isRestoring, addHistoryItem]);
 
   const poly = POLYMERASES[polymerase];
   const vol = parseFloat(totalVolume) || 50;
@@ -289,46 +316,59 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
 
   // ── Ta calculation ──
   useEffect(() => {
-    if (!taFwdPrimer && !taRevPrimer) { setTaResults(null); return; }
+    if (!taFwdPrimer && !taRevPrimer) {
+      setTaResults(null);
+      return;
+    }
 
-    const calcPrimerTm = (primer) => {
-      if (!primer) return null;
-      if (taTemplate) {
-        const binding = findAnnealingRegion(primer, taTemplate);
-        if (binding) return calcTm(binding);
-      }
-      return calcTm(primer);
-    };
+    const profile =
+    POLYMERASES[taPolymerase] ||
+    POLYMERASES['Phusion High-Fidelity'];
 
-    const fwdSeq = taFwdPrimer.toUpperCase().replace(/[^ATGC]/g, '');
-    const revSeq = taRevPrimer.toUpperCase().replace(/[^ATGC]/g, '');
+    const primerConcM = (parseFloat(taPrimerConc) || 0.5) * 1e-6;
+    const naEqM = profile.naEqM ?? 0.05;
+
+    const fwdSeq = sanitizeSeq(taFwdPrimer);
+    const revSeq = sanitizeSeq(taRevPrimer);
 
     const fwdBinding = taTemplate ? findAnnealingRegion(taFwdPrimer, taTemplate) : null;
     const revBinding = taTemplate ? findAnnealingRegion(taRevPrimer, taTemplate) : null;
 
-    const fwdTm = calcPrimerTm(taFwdPrimer);
-    const revTm = calcPrimerTm(taRevPrimer);
-    if (!fwdTm && !revTm) { setTaResults(null); return; }
+    const fwdTm = calcTm(fwdBinding || fwdSeq, primerConcM, naEqM);
+    const revTm = calcTm(revBinding || revSeq, primerConcM, naEqM);
 
-    const fwdBindLen = fwdBinding ? fwdBinding.length : fwdSeq.length;
-    const revBindLen = revBinding ? revBinding.length : revSeq.length;
-    const ta = calcTa(fwdTm, revTm, fwdBindLen, revBindLen);
+    if (fwdTm == null || revTm == null) {
+      setTaResults(null);
+      return;
+    }
+
+    const ta = calcTa(fwdTm, revTm);
 
     setTaResults({
-      fwdTm: fwdTm ? fwdTm.toFixed(1) : null,
-      revTm: revTm ? revTm.toFixed(1) : null,
-      fwdGC: calcGC(taFwdPrimer),
-      revGC: calcGC(taRevPrimer),
+      ta,
+      polymerase: taPolymerase,
+      primerConc: parseFloat(taPrimerConc) || 0.5,
+
+      fwdTm,
+      revTm,
+      tmDiff: Math.abs(fwdTm - revTm),
+
+      fwdGC: calcGC(fwdBinding || fwdSeq),
+      revGC: calcGC(revBinding || revSeq),
+
       fwdLen: fwdSeq.length,
       revLen: revSeq.length,
-      fwdMW: calcMW(fwdSeq).toFixed(0),
-      revMW: calcMW(revSeq).toFixed(0),
+
+      fwdMW: calcMW(fwdSeq),
+      revMW: calcMW(revSeq),
+
       fwdEC: calcExtCoeff(fwdSeq),
       revEC: calcExtCoeff(revSeq),
-      fwdBinding, revBinding, ta,
-      tmDiff: fwdTm && revTm ? Math.abs(fwdTm - revTm) : 0,
+
+      fwdBinding,
+      revBinding,
     });
-  }, [taFwdPrimer, taRevPrimer, taTemplate, taPolymerase]);
+  }, [taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc]);
 
   // Order: MQ, Template DNA, HF buffer, Betaine, dNTPs, DNA polymerase, Forward primer, Reverse primer
   const componentOrder = [
@@ -665,26 +705,73 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Forward Primer (5'→3') — full sequence incl. overhang</Label>
-                    <Textarea value={taFwdPrimer} onChange={e => setTaFwdPrimer(e.target.value)} placeholder="Full primer sequence..." className="font-mono text-sm h-16 border-slate-200" />
+                    <Textarea
+                      value={taFwdPrimer}
+                      onChange={e => setTaFwdPrimer(e.target.value)}
+                      placeholder="Full primer sequence..."
+                      className="font-mono text-sm h-16 border-slate-200"
+                    />
                   </div>
+
                   <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Reverse Primer (5'→3') — full sequence incl. overhang</Label>
-                    <Textarea value={taRevPrimer} onChange={e => setTaRevPrimer(e.target.value)} placeholder="Full primer sequence..." className="font-mono text-sm h-16 border-slate-200" />
+                    <Textarea
+                      value={taRevPrimer}
+                      onChange={e => setTaRevPrimer(e.target.value)}
+                      placeholder="Full primer sequence..."
+                      className="font-mono text-sm h-16 border-slate-200"
+                    />
                   </div>
+
                   <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Template Sequence (optional — for overhang-aware Tm)</Label>
-                    <Textarea value={taTemplate} onChange={e => setTaTemplate(e.target.value)} placeholder="Paste template sequence..." className="font-mono text-sm h-24 border-slate-200" />
-                    <p className="text-xs text-slate-400">If provided, only the binding region (without overhangs) is used for Tm calculation.</p>
+                    <Textarea
+                      value={taTemplate}
+                      onChange={e => setTaTemplate(e.target.value)}
+                      placeholder="Paste template sequence..."
+                      className="font-mono text-sm h-24 border-slate-200"
+                    />
+                    <p className="text-xs text-slate-400">
+                      If provided, only the binding region without overhangs is used for Tm calculation.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
+
               <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
-                <CardHeader className="pb-4">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-base font-medium text-slate-700">Settings</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-500">
-                    Uses Breslauer (1986) nearest-neighbor model matching ThermoFisher Tm Calculator. Ta rule: binding region ≤20 nt → Ta = lower Tm; &gt;20 nt → Ta = lower Tm + 3°C. (250 nM primer, 50 mM NaCl)
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-600">Primer concentration, final (µM)</Label>
+                      <NumInput
+                        value={taPrimerConc}
+                        onChange={e => setTaPrimerConc(e.target.value)}
+                        className="border-slate-200"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-600">Polymerase</Label>
+                      <Select value={taPolymerase} onValueChange={setTaPolymerase}>
+                        <SelectTrigger className="border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.keys(POLYMERASES).map(p => (
+                            <SelectItem key={p} value={p}>
+                              {p}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                    Ta is estimated from the lower primer Tm, using the detected annealing region if a template is provided.
                   </div>
                 </CardContent>
               </Card>
@@ -702,6 +789,9 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                         <div>
                           <p className="text-sm text-slate-500">Recommended Annealing Temperature</p>
                           <p className="text-4xl font-bold text-orange-600">{taResults.ta}°C</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {taResults.polymerase} • {taResults.primerConc} µM primer
+                          </p>
                         </div>
                       </div>
                       {taResults.tmDiff > 5 && (
@@ -727,14 +817,14 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                           <div key={p.label} className="p-3 bg-slate-50 rounded-lg">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm font-medium text-slate-700">{p.label} Primer</span>
-                              {p.tm && <span className="text-sm font-bold text-orange-600">Tm: {p.tm}°C</span>}
                             </div>
-                            <div className="grid grid-cols-3 gap-1 text-xs text-slate-500 mb-2">
-                              <span>Length: <strong>{p.len} nt</strong></span>
-                              <span>GC: <strong>{p.gc}%</strong></span>
-                              {p.binding && <span className="text-teal-600">Binding: <strong>{p.binding.length} nt</strong></span>}
-                              <span>MW: <strong>{parseFloat(p.mw).toFixed(0)} Da</strong></span>
-                              <span>ε260: <strong>{p.ec.toLocaleString()}</strong></span>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-500 mb-2">
+                              <span>Length: <strong>{Number.isFinite(Number(p.len)) ? p.len : '—'} nt</strong></span>
+                              <span>Tm: <strong>{typeof p.tm === 'number' ? `${p.tm}°C` : '—'}</strong></span>
+                              <span>GC: <strong>{Number.isFinite(Number(p.gc)) ? `${p.gc}%` : '—'}</strong></span>
+                              <span>Binding: <strong>{typeof p.binding === 'string' ? `${p.binding.length} nt` : '—'}</strong></span>
+                              <span>MW: <strong>{Number.isFinite(Number(p.mw)) ? Number(p.mw).toFixed(0) : '—'} Da</strong></span>
+                              <span>ε260: <strong>{Number.isFinite(Number(p.ec)) ? Number(p.ec).toLocaleString() : '—'}</strong></span>
                             </div>
                             {seq && (
                               <div className="font-mono text-xs break-all leading-relaxed">

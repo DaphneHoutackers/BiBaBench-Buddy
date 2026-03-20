@@ -1,11 +1,11 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wrench, Send, Loader2, Plus, Trash2, ChevronRight, ArrowLeft, Play, Copy, Check, Pencil, Home, X } from 'lucide-react';
+import { Wrench, Send, Loader2, Plus, Trash2, ChevronRight, ArrowLeft, Play, Check, Pencil, Home } from 'lucide-react';
 
 import ReactMarkdown from 'react-markdown';
 

@@ -1,7 +1,6 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -93,7 +92,7 @@ function parseGenBank(text) {
     if (line.startsWith('//')) { finishCur(); cur = null; break; }
     if (inOrigin) { sequence += line.replace(/[^ATGCatgcNn]/g, ''); }
     if (inFeatures) {
-      if (line.match(/^     \w/) && !line.match(/^     \//)) {
+      if (line.match(/^ {5}\w/) && !line.match(/^ {5}\//)) {
         finishCur();
         const parts = line.trim().split(/\s+/), type = parts[0], loc = parts[1] || '';
         let start = 0, end = 0, strand = 1;

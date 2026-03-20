@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useHistory } from '@/context/HistoryContext';
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   MousePointer, Type, ArrowRight, Minus, Square, Circle, Trash2, Download,
   Upload, RotateCcw, Crop, Plus, Check, X, Star, ChevronDown, Undo, Redo

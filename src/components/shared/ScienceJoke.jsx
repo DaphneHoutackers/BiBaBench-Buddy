@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const FALLBACK_JOKES = [
   'What did the asteroid say when asked a question? "No comet."',

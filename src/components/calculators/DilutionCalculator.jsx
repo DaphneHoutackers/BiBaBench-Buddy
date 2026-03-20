@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +48,7 @@ const VOL_UNITS = {
   'µL': 1e-6,
   'nL': 1e-9,
 };
-import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 
 export default function DilutionCalculator({ historyData }) {

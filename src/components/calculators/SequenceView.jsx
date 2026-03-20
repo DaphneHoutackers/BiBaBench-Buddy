@@ -1,4 +1,3 @@
-import React from 'react';
 
 const CODON_TABLE = {
   TTT:'F',TTC:'F',TTA:'L',TTG:'L',CTT:'L',CTC:'L',CTA:'L',CTG:'L',

@@ -1,12 +1,12 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 import ReactMarkdown from 'react-markdown';
 import {
   FileText, Link, Upload, Send, Sparkles, X, MessageSquare,
   Loader2, BookOpen, Quote, RotateCcw, Copy, Check,
-  AlertCircle, ExternalLink, History, Plus, ChevronLeft, Trash2,
+  AlertCircle, ExternalLink, History, Plus, Trash2,
   Search, Download, BookMarked
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

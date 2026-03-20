@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Image, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';

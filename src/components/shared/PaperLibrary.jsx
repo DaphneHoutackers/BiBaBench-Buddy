@@ -1,8 +1,8 @@
 const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
 
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 
-import { BookOpen, Trash2, Search, X, Clock, FileText, ExternalLink, ChevronRight, Plus, Upload, Link, Loader2, AlertCircle } from 'lucide-react';
+import { BookOpen, Trash2, Search, X, Clock, FileText, ChevronRight, Plus, Upload, Link, Loader2, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 

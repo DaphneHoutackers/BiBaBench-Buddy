@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Settings,
   User,
   Cpu,
-  Moon,
-  Sun,
   Palette,
   Check,
   X,
   LogOut,
-  Cloud,
-  Info,
-  Lock,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -19,7 +13,7 @@ import {
   Globe,
   Mail,
   Clock,
-  ChevronRight,
+  Lock,
   Github
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
@@ -508,31 +502,37 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
                   <form onSubmit={handleEmailAuth} className="space-y-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email</label>
+                      <label htmlFor="email" className="text-[10px] font-bold text-slate-400 uppercase ml-1">Email</label>
                       <div className="relative">
                         <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
+                          id="email"
+                          name="email"
                           required
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
                           placeholder="name@university.edu"
+                          autoComplete="username email"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Password</label>
+                      <label htmlFor="password" className="text-[10px] font-bold text-slate-400 uppercase ml-1">Password</label>
                       <div className="relative">
                         <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
+                          id="password"
+                          name="password"
                           required
                           type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
                           placeholder="••••••••"
+                          autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                         />
                       </div>
                     </div>

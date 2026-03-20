@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Microscope, Plus, Trash2, Scissors, Loader2, Copy, Check, Search, X, FlaskConical } from 'lucide-react';
+import { Microscope, Plus, Trash2, Copy, Check, Search, X } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
 
 // ── DNA Ladders ──
