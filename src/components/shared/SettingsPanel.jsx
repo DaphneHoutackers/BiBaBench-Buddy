@@ -23,7 +23,6 @@ import {
   Github
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
-import { db } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 

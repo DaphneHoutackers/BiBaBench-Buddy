@@ -8,6 +8,7 @@ import { Copy, Check, FlaskConical, AlertTriangle, Plus, Trash2, Info } from 'lu
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
+import { useHistory } from '@/context/HistoryContext';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -34,6 +35,7 @@ export default function OEPCRCalculator({ historyData }) {
   const { addHistoryItem } = useHistory();
   const tableRef = useRef(null);
   
+  const [isRestoring, setIsRestoring] = useState(false);
   const [fragments, setFragments] = useState(DEFAULT_FRAGMENTS);
   const [refNg, setRefNg] = useState('50');
   const [totalVolume, setTotalVolume] = useState('50');
@@ -41,6 +43,22 @@ export default function OEPCRCalculator({ historyData }) {
   const [extensionTime, setExtensionTime] = useState('20'); // seconds, editable
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  // Restore from history
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'oepcr') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.fragments) setFragments(d.fragments);
+        if (d.refNg) setRefNg(d.refNg);
+        if (d.totalVolume) setTotalVolume(d.totalVolume);
+        if (d.extensionRate) setExtensionRate(d.extensionRate);
+        if (d.extensionTime) setExtensionTime(d.extensionTime);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
 
   const addFragment = () => {
     const newId = Math.max(...fragments.map(f => f.id)) + 1;
@@ -64,6 +82,21 @@ export default function OEPCRCalculator({ historyData }) {
     const autoTime = Math.max(15, Math.round((longestBp / 1000) * rate));
     setExtensionTime(String(autoTime));
   }, [fragments.map(f => f.length).join(','), extensionRate]);
+
+  // Save to history
+  useEffect(() => {
+    if (isRestoring) return;
+    const hasData = fragments.some(f => f.length || f.concentration);
+    if (!hasData) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        toolId: 'oepcr',
+        title: `OE-PCR (${fragments.length} frags)`,
+        data: { fragments, refNg, totalVolume, extensionRate, extensionTime }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [fragments, refNg, totalVolume, extensionRate, extensionTime, addHistoryItem]);
 
   // Main calculation
   useEffect(() => {

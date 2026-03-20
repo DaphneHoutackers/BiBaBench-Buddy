@@ -11,7 +11,6 @@ import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2 } from 'lucide-reac
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
-import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 
 const POLYMERASES = {
@@ -26,38 +25,41 @@ const POLYMERASES = {
 
 // Breslauer 1986 NN params as used by ThermoFisher Tm calculator
 // dH in cal/mol, dS in cal/mol·K (entropy stored as positive, sign applied in formula)
+// SantaLucia 1998 NN params (dH in kcal/mol, dS in cal/mol·K)
 const NN_DH = {
-  AA:-9100, TT:-9100, AT:-8600, TA:-6000,
-  CA:-5800, TG:-5800, GT:-6500, AC:-6500,
-  CT:-7800, AG:-7800, GA:-5600, TC:-5600,
-  CG:-11900, GC:-11100, GG:-11000, CC:-11000,
+  AA:-7.9, TT:-7.9, AT:-7.2, TA:-7.2,
+  CA:-8.5, TG:-8.5, GT:-8.4, AC:-8.4,
+  CT:-7.8, AG:-7.8, GA:-8.2, TC:-8.2,
+  CG:-10.6, GC:-9.8, GG:-8.0, CC:-8.0,
 };
 const NN_DS = {
-  AA:-24.0, TT:-24.0, AT:-23.9, TA:-16.9,
-  CA:-12.9, TG:-12.9, GT:-17.3, AC:-17.3,
-  CT:-20.8, AG:-20.8, GA:-13.5, TC:-13.5,
-  CG:-27.8, GC:-26.7, GG:-26.6, CC:-26.6,
+  AA:-22.2, TT:-22.2, AT:-20.4, TA:-21.3,
+  CA:-22.7, TG:-22.7, GT:-22.4, AC:-22.4,
+  CT:-21.0, AG:-21.0, GA:-22.2, TC:-22.2,
+  CG:-27.2, GC:-24.4, GG:-19.9, CC:-19.9,
 };
 
-// ThermoFisher uses these initiation parameters (Breslauer 1986 style)
-const INIT_dH = 0;      // cal/mol
-const INIT_dS = -10.8;  // cal/mol·K (phosphate initiation)
+// Initiation parameters (SantaLucia 1998)
+const INIT_dH_GC = 0.1;   // kcal/mol
+const INIT_dS_GC = -2.8;  // cal/mol·K
+const INIT_dH_AT = 2.3;   // kcal/mol
+const INIT_dS_AT = 4.1;   // cal/mol·K
 
 function calcTm(seq) {
-  // ThermoFisher Tm calculator implementation (Breslauer 1986 / basic NN model)
   if (!seq) return null;
   const s = seq.toUpperCase().replace(/[^ATGC]/g, '');
   if (s.length < 7) return null;
 
-  // Short sequences: Wallace rule
+  // Wallace for very short primers
   if (s.length < 14) {
     const at = (s.match(/[AT]/g) || []).length;
     const gc = (s.match(/[GC]/g) || []).length;
     return 2 * at + 4 * gc;
   }
 
-  let dH = INIT_dH;   // cal/mol
-  let dS = INIT_dS;   // cal/mol·K
+  // SantaLucia 1998 Nearest Neighbor model
+  let dH = 0;
+  let dS = 0;
 
   for (let i = 0; i < s.length - 1; i++) {
     const key = s[i] + s[i + 1];
@@ -65,14 +67,31 @@ function calcTm(seq) {
     dS += (NN_DS[key] || 0);
   }
 
-  // ThermoFisher formula: Tm = dH / (dS/1000 + R·ln(C)) - 273.15
-  // with C = 250nM = 250e-9, R = 1.987 cal/mol·K
-  const R = 1.987;
-  const C = 250e-9;  // 250 nM primer concentration
-  const Tm = dH / (dS / 1000 + R * Math.log(C)) - 273.15;
+  // Add initiation penalties for terminals
+  const ends = [s[0], s[s.length - 1]];
+  ends.forEach(e => {
+    if (e === 'A' || e === 'T') {
+      dH += INIT_dH_AT;
+      dS += INIT_dS_AT;
+    } else {
+      dH += INIT_dH_GC;
+      dS += INIT_dS_GC;
+    }
+  });
 
-  // Salt correction (50 mM monovalent): Tm += 16.6 * log10(0.05)
-  return Tm + 16.6 * Math.log10(0.05);
+  const R = 1.9872;  // cal/mol·K
+  const C = 500e-9;  // 500 nM primer (ThermoFisher default)
+  
+  // Tm = (dH * 1000) / (dS + R * ln(C/4)) - 273.15
+  const Tm = (dH * 1000) / (dS + R * Math.log(C / 4)) - 273.15;
+
+  // Salt correction (von Ahsen 2001 style, as used in Phusion calculators)
+  // Assumes 50mM K+ and 1.5mM Mg2+ (standard HF buffer)
+  const Na = 0.05;
+  const Mg = 0.0015;
+  const SaltCorr = 16.6 * Math.log10(Na + 120 * Math.sqrt(Mg));
+  
+  return Tm + SaltCorr;
 }
 
 // ThermoFisher Ta rule:
@@ -144,9 +163,9 @@ function calcTemplateDilution(rawVol, totalVol) {
 }
 
 export default function PCRCalculator({ externalTab, onTabChange, historyData }) {
-  const pcrMixTableRef = useRef(null);
   const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState(externalTab || 'mix');
+  const [isRestoring, setIsRestoring] = useState(false);
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
 
   // ── MIX TAB ──
@@ -171,8 +190,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
   const [taPolymerase, setTaPolymerase] = useState('Phusion High-Fidelity');
   const [taResults, setTaResults] = useState(null);
 
-  const [isRestoring, setIsRestoring] = useState(false);
-
+  // Restore from history
   useEffect(() => {
     if (historyData && historyData.toolId === 'pcr') {
       setIsRestoring(true);
@@ -199,6 +217,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
     }
   }, [historyData]);
 
+  // Save to history
   useEffect(() => {
     if (isRestoring || tab === 'oepcr' || tab === 'product') return; 
     const debounce = setTimeout(() => {
@@ -505,41 +524,38 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                     <FlaskConical className="w-4 h-4 text-blue-600" />
                     PCR Mix{gradientMode ? ` (Gradient ×${gradientNNum}, MM ×${mmMultiplier})` : hasMultiple ? ` (${n} samples, MM ×${nMM})` : ''}
                     </CardTitle>
-                    <div className="flex gap-2">
-                      <CopyTableButton getData={() => {
-                        if (!hasMultiple) {
-                          const rows = [['Component', 'Volume (µL)']];
-                          const sc = sampleCalcs[0];
-                          rows.push(['MQ', sc.mqVol.toFixed(2)]);
-                          rows.push([`Template DNA (${samples[0].desiredNg} ng)`, sc.templateVol.toFixed(2)]);
-                          rows.push([`${poly.buffer} (${poly.bufferX}×)`, bufferVol.toFixed(2)]);
-                          if (useBetaine) rows.push(['Betaine', betaineActualVol.toFixed(2)]);
-                          rows.push(['10mM dNTPs', dntpVol.toFixed(2)]);
-                          rows.push([polymerase, polyVol.toFixed(2)]);
-                          rows.push([`Forward Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
-                          rows.push([`Reverse Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
-                          rows.push(['Total', vol]);
-                          return rows;
-                        }
-                        const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
-                        const rows = [header];
-                        rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
-                        rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
-                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
-                        if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
-                        rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
-                        rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
-                        rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                        rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                        rows.push(['Total', ...samples.map(() => vol), '']);
+                    <CopyTableButton getData={() => {
+                      if (!hasMultiple) {
+                        const rows = [['Component', 'Volume (µL)']];
+                        const sc = sampleCalcs[0];
+                        rows.push(['MQ', sc.mqVol.toFixed(2)]);
+                        rows.push([`Template DNA (${samples[0].desiredNg} ng)`, sc.templateVol.toFixed(2)]);
+                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, bufferVol.toFixed(2)]);
+                        if (useBetaine) rows.push(['Betaine', betaineActualVol.toFixed(2)]);
+                        rows.push(['10mM dNTPs', dntpVol.toFixed(2)]);
+                        rows.push([polymerase, polyVol.toFixed(2)]);
+                        rows.push([`Forward Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
+                        rows.push([`Reverse Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
+                        rows.push(['Total', vol]);
                         return rows;
-                      }} />
-                      <CopyImageButton targetRef={pcrMixTableRef} />
-                    </div>
+                      }
+                      const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
+                      const rows = [header];
+                      rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
+                      rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
+                      rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
+                      if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
+                      rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
+                      rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
+                      rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                      rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                      rows.push(['Total', ...samples.map(() => vol), '']);
+                      return rows;
+                    }} />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={pcrMixTableRef}>
+                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-blue-50">

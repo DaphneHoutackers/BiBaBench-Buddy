@@ -1,7 +1,7 @@
 {
-  "name": "BiBaBenchBuddy",
-  "private": true,
-  "version": "0.0.1",
+  "name": "bibabenchbuddy",
+  "private": false,
+  "version": "0.0.4",
   "type": "module",
   "repository": {
     "type": "git",
@@ -67,6 +67,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
     "moment": "^2.30.1",
+    "next": "^16.2.0",
     "next-themes": "^0.4.4",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.1",
@@ -87,7 +88,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.19.0",
+    "@eslint/js": "^9.39.4",
     "@types/node": "^22.13.5",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
@@ -96,12 +97,12 @@
     "baseline-browser-mapping": "^2.8.32",
     "electron": "^41.0.2",
     "electron-builder": "^26.8.1",
-    "eslint": "^9.19.0",
-    "eslint-plugin-react": "^7.37.4",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "eslint-plugin-unused-imports": "^4.3.0",
-    "globals": "^15.14.0",
+    "globals": "^15.15.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
@@ -111,7 +112,7 @@
   },
   "build": {
     "appId": "com.bibabenchbuddy.app",
-    "productName": "BiBaBenchBuddy",
+    "productName": "BiBaBench Buddy",
     "directories": {
       "output": "release"
     },
@@ -127,13 +128,17 @@
       }
     ],
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/icon.icns",
       "identity": null,
       "artifactName": "BiBaBenchBuddy-mac-${arch}.${ext}"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "build/icon.ico",
       "artifactName": "BiBaBenchBuddy-Setup.${ext}"
     }
