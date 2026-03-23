@@ -176,7 +176,7 @@ export default function OEPCRCalculator({ historyData }) {
           <Dna className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">OE-PCR Calculator</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">OE-PCR Calculator</h2>
           <p className="text-sm text-slate-500">Overlap Extension PCR — equimolar template DNA + volledige PCR mix</p>
         </div>
       </div>

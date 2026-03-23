@@ -10,99 +10,7 @@ import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
-const ENZYMES = {
-  'AatII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AclI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AfeI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AflII': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AgeI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AhdI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'ApaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'ApaLI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AscI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AvaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AvrII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'BamHI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'BbsI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'BclI': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 60, time: '1 hr', fd: false },
-  'BglII': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'BmtI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'BsaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'BsiWI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 55, time: '1 hr', fd: false },
-  'BsmBI': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 55, time: '1 hr', fd: false },
-  'BsmI': { buffers: ['NEBuffer 2.1'], optimal: 'NEBuffer 2.1', temp: 65, time: '1 hr', fd: false },
-  'BsrGI': { buffers: ['NEBuffer 2.1'], optimal: 'NEBuffer 2.1', temp: 37, time: '1 hr', fd: false },
-  'BstBI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 65, time: '1 hr', fd: false },
-  'BstEII': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 60, time: '1 hr', fd: false },
-  'ClaI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'DpnI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'DpnII': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 37, time: '1 hr', fd: false },
-  'EcoRI': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'EcoRV': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'FseI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'HindIII': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'KpnI': { buffers: ['CutSmart', 'NEBuffer 1.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'MluI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NcoI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NdeI': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NheI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NotI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NruI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NsiI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PacI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PmeI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PstI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'PvuI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PvuII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SacI': { buffers: ['CutSmart', 'NEBuffer 1.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'SacII': { buffers: ['NEBuffer 4'], optimal: 'NEBuffer 4', temp: 37, time: '1 hr', fd: false },
-  'SalI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'ScaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SfiI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 50, time: '1 hr', fd: false },
-  'SmaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 25, time: '1 hr', fd: false },
-  'SpeI': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'SphI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SspI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'TaqI': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 65, time: '1 hr', fd: false },
-  'XbaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'XhoI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'XmaI': { buffers: ['NEBuffer 4'], optimal: 'NEBuffer 4', temp: 37, time: '1 hr', fd: false },
-  'XmnI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  // Thermo FastDigest enzymes
-  'BshTI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'Eco31I': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'Eco32I': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest EcoRI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest BamHI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest HindIII': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest XbaI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest SalI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest PstI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NotI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest XhoI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NdeI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NcoI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest KpnI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest SacI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest BglII': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest SpeI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NheI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest DpnI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'BamHI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'EcoRI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'HindIII-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'KpnI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NcoI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NheI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NotI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PstI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SacI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SalI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SpeI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SphI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'XbaI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'XhoI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-};
+import { ENZYME_DB } from '@/lib/enzymes';
 
 const LOW_VOL = 0.5; // µL warning threshold
 
@@ -205,25 +113,27 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   // Filter enzymes based on selected enzyme type
   const getFilteredEnzymes = (type) => {
     const result = {};
-    Object.entries(ENZYMES).forEach(([name, info]) => {
-      if (type === 'FastDigest' && (name.startsWith('FastDigest ') || info.optimal === 'FastDigest Buffer')) {
-        result[name] = info;
+    Object.entries(ENZYME_DB).forEach(([name, info]) => {
+      if (type === 'FastDigest' && info.fd) {
+        const newName = name.replace(/^FastDigest /, '');
+        result[newName] = info;
       } else if (type === 'HF' && name.endsWith('-HF')) {
         result[name] = info;
-      } else if (type === 'Standard' && !name.startsWith('FastDigest ') && !name.endsWith('-HF') && info.optimal !== 'FastDigest Buffer') {
+      } else if (type === 'Standard' && !info.fd && !name.endsWith('-HF')) {
         result[name] = info;
       }
     });
     return result;
   };
 
+  const singleFilteredEnzymes = getFilteredEnzymes(enzymeType);
   const batchFilteredEnzymes = getFilteredEnzymes(batchEnzymeType);
   const batchMaxEnzymes = Math.max(1, ...batchSamples.map(s => s.enzymes.length));
 
   const getOptimalBuffer = () => {
     if (enzymeType === 'FastDigest') return 'FastDigest Buffer (10×)';
     if (selectedEnzymes.length === 0) return null;
-    const allBuffers = selectedEnzymes.map(e => ENZYMES[e]?.buffers || ['CutSmart']);
+    const allBuffers = selectedEnzymes.map(e => singleFilteredEnzymes[e]?.buffers || ['CutSmart']);
     const common = allBuffers.reduce((a, b) => a.filter(c => b.includes(c)));
     if (common.includes('CutSmart')) return 'CutSmart (10×)';
     return common[0] ? `${common[0]} (10×)` : 'CutSmart (check compatibility)';
@@ -232,7 +142,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const getProtocol = () => {
     if (enzymeType === 'FastDigest') return '37°C for 5-15 min (FastDigest)';
     if (selectedEnzymes.length === 0) return '37°C for 1-2 hours';
-    const temps = selectedEnzymes.map(e => ENZYMES[e]?.temp || 37);
+    const temps = selectedEnzymes.map(e => singleFilteredEnzymes[e]?.temp || 37);
     return `${Math.max(...temps)}°C for 1-2 hours`;
   };
 
@@ -313,7 +223,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
           <Scissors className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Restriction Digest</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Restriction Digest</h2>
           <p className="text-sm text-slate-500">Single or batch digest mix calculator</p>
         </div>
       </div>
@@ -384,7 +294,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     selectedEnzymes={selectedEnzymes}
                     onAdd={(e) => setSelectedEnzymes(prev => prev.includes(e) ? prev : [...prev, e])}
                     onRemove={(e) => setSelectedEnzymes(prev => prev.filter(x => x !== e))}
-                    enzymes={ENZYMES}
+                    enzymes={singleFilteredEnzymes}
                     enzymeType={enzymeType}
                   />
                 </div>

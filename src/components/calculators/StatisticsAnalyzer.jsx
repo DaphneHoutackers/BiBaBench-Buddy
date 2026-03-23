@@ -434,7 +434,7 @@ Return EXACT numeric values — not approximations like ">0.05". Calculate actua
           <BarChart2 className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Statistics Analyzer</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Statistics Analyzer</h2>
           <p className="text-sm text-slate-500">Normality testing, statistical tests, effect sizes & publication-ready figures</p>
         </div>
       </div>

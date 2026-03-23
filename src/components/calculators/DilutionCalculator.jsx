@@ -317,7 +317,7 @@ export default function DilutionCalculator({ historyData }) {
           <Droplets className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Dilution Calculator</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Dilution Calculator</h2>
           <p className="text-sm text-slate-500">C₁V₁=C₂V₂ and serial dilutions</p>
         </div>
       </div>

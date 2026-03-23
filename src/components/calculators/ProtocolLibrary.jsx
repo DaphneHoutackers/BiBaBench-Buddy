@@ -553,7 +553,7 @@ export default function ProtocolLibrary({ historyData }) {
           <BookOpen className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Protocol Library</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Protocol Library</h2>
           <p className="text-sm text-slate-500">Standard workflows with scaling calculators and safety notes</p>
         </div>
       </div>

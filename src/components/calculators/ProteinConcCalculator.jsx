@@ -254,7 +254,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           <Beaker className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Protein Concentration</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Protein Concentration</h2>
           <p className="text-sm text-slate-500">BCA / Bradford standard curve & SDS-PAGE sample prep</p>
         </div>
       </div>

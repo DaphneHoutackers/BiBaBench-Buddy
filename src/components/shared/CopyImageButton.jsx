@@ -12,11 +12,16 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
     
     setIsCapturing(true);
     try {
-      const canvas = await html2canvas(targetRef.current, {
-        backgroundColor: '#ffffff', // Ensure white background for tables
-        scale: 2, // Higher resolution
+      const element = targetRef.current;
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: 2,
         logging: false,
-        useCORS: true
+        useCORS: true,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       });
 
       canvas.toBlob(async (blob) => {

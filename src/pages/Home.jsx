@@ -95,8 +95,6 @@ const TOOL_GROUPS = [
   },
 ];
 
-const ALL_TOOLS_FLAT = TOOL_GROUPS.flatMap(g => g.tools);
-
 // ── All tool IDs to keep mounted ─────────────────────────────────────────────
 const ALL_IDS = [
   'digest', 'ligation', 'gibson', 'pcr', 'dilution', 'protein',
@@ -321,7 +319,6 @@ export default function Home() {
   const titleColor = theme.textPrimary || (isDark ? 'text-white' : 'text-slate-800');
   const sectionLabelColor = isDark ? 'text-white/40' : 'text-slate-400';
   const cardBg = theme.cardBg || (isDark ? 'bg-white/10 backdrop-blur-xl border-white/20' : 'bg-white border-slate-200/60');
-  const cardBorder = theme.cardBorder || (isDark ? 'border-white/20' : 'border-slate-200/60');
   const cardTextPrimary = theme.textPrimary || (isDark ? 'text-white' : 'text-slate-800');
   const cardTextSecondary = theme.textSecondary || (isDark ? 'text-white/60' : 'text-slate-400');
   const backBtnColor = theme.iconTextColor || (isDark ? 'text-white/60 hover:text-white' : 'text-slate-500 hover:text-slate-800');
@@ -442,13 +439,13 @@ export default function Home() {
           />
         )}
 
-        <main className="flex-1 px-2 sm:px-6 lg:px-8 py-8 overflow-y-auto overflow-x-hidden relative">
+        <main className={`flex-1 px-2 sm:px-6 lg:px-8 pt-8 ${isHome ? 'pb-0' : 'pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col`}>
 {/* ── HOME ── */}
           {isHome && (
-            <div className="space-y-7">
+            <div className="space-y-7 flex-1 flex flex-col">
               <div className="mb-2">
                 <div className="text-center mb-2">
-                  <h2 className={`text-3xl sm:text-4xl font-bold ${titleColor}`}>
+                  <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight ${titleColor}`}>
                     Lab tools that{' '}
                     <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
                       actually save time
@@ -463,18 +460,17 @@ export default function Home() {
                   <div className="flex flex-col space-y-4">
                     <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Calculators</h3>
 
-                    <div className="grid grid-cols-3 grid-rows-2 gap-3 h-full">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 h-full">
                       {CALCULATORS.map(calc => (
                         <button
                           key={calc.id}
                           onClick={() => {setActive(calc.id); setHistoryData(null);}}
-                          className={`group rounded-2xl p-4 text-center border shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex flex-col items-center justify-center ${cardBg} ${cardBorder} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
+                          className={`group rounded-2xl p-4 text-center shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex flex-col items-center justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
                         >
                           <div className={`inline-flex p-2.5 rounded-xl shadow-md mb-2 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
                             <calc.icon className={`w-5 h-5 ${theme?.iconTextColor || 'text-white'}`} />
                           </div>
-                          <p className={`text-m font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
-                          <p className={`text-[11px] leading-tight ${cardTextSecondary} line-clamp-2`}>{calc.description}</p>
+                          <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
                         </button>
                       ))}
                     </div>
@@ -485,15 +481,15 @@ export default function Home() {
                     {TOOL_GROUPS.map(group => (
                       <div key={group.id} className="flex flex-col space-y-4 flex-1">
                         <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>{group.label}</h3>
-                        <div className={`grid gap-4 h-full ${group.id === 'lab' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                        <div className={`grid gap-3 md:gap-4 h-full ${group.id === 'lab' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
                           {group.tools.map(tool => (
                             <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
-                              className={`group relative rounded-2xl p-4 text-left border shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-center ${cardBg} ${cardBorder} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
+                              className={`group relative rounded-2xl p-4 text-left shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
                               <div className={`inline-flex rounded-xl shadow-lg mb-2 p-2.5 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
                                 <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-4 h-4 sm:w-5 sm:h-5`} />
                               </div>
-                              <p className={`text-m font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
-                              <p className={`mt-1 ${cardTextSecondary} text-[11px] leading-tight pr-4 line-clamp-2`}>{tool.description}</p>
+                              <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
+                              <p className={`mt-1 ${cardTextSecondary} text-[10px] md:text-[11px] leading-tight pr-2 sm:pr-4 line-clamp-2`}>{tool.description}</p>
                             </button>
                           ))}
                         </div>
@@ -501,6 +497,38 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+                
+                {/* Footer moved to homepage body */}
+                <div className={`mt-auto pt-12 pb-3 text-center text-xs flex flex-col items-center gap-3 transition-colors ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
+                  <p>
+                    {settings.language === 'nl'
+                      ? 'Controleer altijd berekeningen voor gebruik in experimenten'
+                      : 'Always verify calculations before use in experiments'}
+                  </p>
+          
+                  <div>
+                    <a
+                      href="https://www.buymeacoffee.com/daphnewoodpecker"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        // Ensure external links open in system browser in Electron/local-file mode
+                        if (window.location.protocol === 'file:' || navigator.userAgent.toLowerCase().includes('electron')) {
+                          e.preventDefault();
+                          window.open("https://www.buymeacoffee.com/daphnewoodpecker", "_blank");
+                        }
+                      }}
+                      className="inline-block transition-transform hover:scale-105 active:scale-95 shadow-lg rounded-xl overflow-hidden"
+                    >
+                      <img
+                        src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00"
+                        alt="Buy me a cookie"
+                        className="h-6"
+                      />
+                    </a>
+                  </div>
+                </div>
+
               </div>
             )}
 
@@ -516,35 +544,7 @@ export default function Home() {
         </main>
       </div>
 
-      <footer className={`relative border-t mt-0 py-2 text-center text-xs flex flex-col items-center gap-2 ${isDark ? 'border-white/10 text-white/30' : 'border-slate-40/10 text-slate-400'}`}>
-        <p>
-          {settings.language === 'nl'
-            ? 'Controleer altijd berekeningen voor gebruik in experimenten'
-            : 'Always verify calculations before use in experiments'}
-        </p>
 
-        <div className="md:absolute right-4 bottom-1 mt-2 md:mt-0">
-          <a
-            href="https://www.buymeacoffee.com/daphnewoodpecker"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              // Ensure external links open in system browser in Electron/local-file mode
-              if (window.location.protocol === 'file:' || navigator.userAgent.toLowerCase().includes('electron')) {
-                e.preventDefault();
-                window.open("https://www.buymeacoffee.com/daphnewoodpecker", "_blank");
-              }
-            }}
-            className="block transition-transform hover:scale-105 active:scale-95 shadow-lg rounded-xl overflow-hidden"
-          >
-            <img
-              src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00"
-              alt="Buy me a cookie"
-              className="h-6"
-            />
-          </a>
-        </div>
-      </footer>
 
       {showSettings && (
         <SettingsPanel

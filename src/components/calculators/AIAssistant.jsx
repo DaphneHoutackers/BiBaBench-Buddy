@@ -229,7 +229,7 @@ export default function AIAssistant({ historyData }) {
           <Sparkles className="w-5 h-5" />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-slate-800">AI Lab Assistant</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">AI Lab Assistant</h2>
           <p className="text-sm text-slate-500">Ask any lab calculation question in plain language</p>
         </div>
         <div className="flex gap-2">

@@ -102,6 +102,14 @@ function normalizeJoke(joke) {
     .trim();
 }
 
+function isShortJoke(joke) {
+  if (!joke) return false;
+  const wordCount = joke.split(/\s+/).length;
+  const lineCount = joke.split('\n').length;
+  // Limit to max 3 lines, 35 words, and 200 characters to ensure jokes don't span large blocks.
+  return lineCount <= 3 && wordCount <= 35 && joke.length <= 200;
+}
+
 function uniqueJokes(jokes) {
   const seen = new Set();
   const result = [];
@@ -109,6 +117,9 @@ function uniqueJokes(jokes) {
   for (const joke of jokes) {
     const normalized = normalizeJoke(joke);
     if (!normalized) continue;
+
+    // Filter out long jokes (max ~3 lines)
+    if (!isShortJoke(normalized)) continue;
 
     const key = normalized.toLowerCase();
     if (seen.has(key)) continue;
@@ -272,7 +283,7 @@ export default function ScienceJoke({ isDark = false }) {
 
   return (
     <p className={`max-w-xl mx-auto text-sm italic text-center ${isDark ? 'text-white/50' : 'text-slate-500'}`}>
-      "{joke || FALLBACK_JOKES[0]}"
+      &quot;{joke || FALLBACK_JOKES[0]}&quot;
     </p>
   );
 }

@@ -11,33 +11,18 @@ import html2canvas from 'html2canvas';
 import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
 import { useHistory } from '@/context/HistoryContext';
-
+import { ENZYME_DB } from '@/lib/enzymes';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COLOR_PALETTE = ['#3b82f6','#8b5cf6','#f59e0b','#ef4444','#10b981','#06b6d4','#6366f1','#f97316','#84cc16','#ec4899','#14b8a6','#f43f5e'];
 const FEATURE_DEFAULTS = { CDS:'#3b82f6', gene:'#8b5cf6', promoter:'#f59e0b', terminator:'#ef4444', rep_origin:'#10b981', primer_bind:'#06b6d4', misc_feature:'#6366f1', regulatory:'#f97316' };
 const RE_HIGHLIGHT_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f43f5e','#84cc16'];
 const PRIMER_COLORS = ['#f59e0b','#22c55e','#ec4899','#06b6d4','#f97316','#8b5cf6','#84cc16','#ef4444'];
-const RE_DB = {
-  EcoRI:'GAATTC', BamHI:'GGATCC', HindIII:'AAGCTT', NcoI:'CCATGG', XhoI:'CTCGAG',
-  SalI:'GTCGAC', XbaI:'TCTAGA', NheI:'GCTAGC', SpeI:'ACTAGT', PstI:'CTGCAG',
-  SacI:'GAGCTC', KpnI:'GGTACC', ClaI:'ATCGAT', EcoRV:'GATATC', MluI:'ACGCGT',
-  NdeI:'CATATG', SmaI:'CCCGGG', AscI:'GGCGCGCC', NotI:'GCGGCCGC', PacI:'TTAATTAA',
-  AgeI:'ACCGGT', AvrII:'CCTAGG', BglII:'AGATCT', BspEI:'TCCGGA', BsrGI:'TGTACA',
-  BssHII:'GCGCGC', BstBI:'TTCGAA', DraI:'TTTAAA', FseI:'GGCCGGCC', MfeI:'CAATTG',
-  NarI:'GGCGCC', NsiI:'ATGCAT', NruI:'TCGCGA', SacII:'CCGCGG', ScaI:'AGTACT',
-  SphI:'GCATGC', StuI:'AGGCCT', SwaI:'ATTTAAAT', XmaI:'CCCGGG', ApaI:'GGGCCC',
-  BclI:'TGATCA', BsiWI:'CGTACG', BspHI:'TCATGA', MspI:'CCGG',
-  AatII:'GACGTC', AclI:'AACGTT', AfeI:'AGCGCT', AflII:'CTTAAG', ApaLI:'GTGCAC',
-  BmtI:'GCTAGC', BsaI:'GGTCTC', BsmBI:'CGTCTC', BsmI:'GAATGC', BbsI:'GAAGAC',
-  BstEII:'GGTNACC', DpnI:'GATC', DpnII:'GATC', PmeI:'GTTTAAAC',
-  PvuI:'CGATCG', PvuII:'CAGCTG', SspI:'AATATT', TaqI:'TCGA', XmnI:'GAANNNNTTC',
-  BshTI:'TCCGGA', Eco31I:'GGTCTC', Eco32I:'GATATC',
-  'BamHI-HF':'GGATCC', 'EcoRI-HF':'GAATTC', 'HindIII-HF':'AAGCTT',
-  'KpnI-HF':'GGTACC', 'NcoI-HF':'CCATGG', 'NheI-HF':'GCTAGC',
-  'NotI-HF':'GCGGCCGC', 'PstI-HF':'CTGCAG', 'SacI-HF':'GAGCTC',
-  'SalI-HF':'GTCGAC', 'SpeI-HF':'ACTAGT', 'SphI-HF':'GCATGC',
-  'XbaI-HF':'TCTAGA', 'XhoI-HF':'CTCGAG',
-};
+const RE_DB = Object.entries(ENZYME_DB)
+  .filter(([name, info]) => !info.fd && !name.endsWith('-HF'))
+  .reduce((acc, [name, info]) => {
+    acc[name] = info.seq;
+    return acc;
+  }, {});
 
 // ── Library persistence ───────────────────────────────────────────────────────
 const LIB_KEY = 'seq_analyzer_lib_v1';
@@ -534,7 +519,7 @@ export default function PlasmidAnalyzer({ historyData }) {
           <Dna className="w-5 h-5" />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold text-slate-800">Sequence Analyzer</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Sequence Analyzer</h2>
           <p className="text-sm text-slate-500">Visualize DNA maps, features, restriction sites &amp; primers</p>
         </div>
         {phase === 'map' && seq && (
