@@ -49,27 +49,6 @@ const SCIENCE_TERMS = [
   'centrifuge', 'spectrometer', 'mitochondria', 'photon', 'genome',
 ];
 
-const TEMPLATE_SUBJECTS = [
-  'the atom', 'the proton', 'the electron', 'the PCR machine', 'the primer',
-  'the polymerase', 'the cell', 'the enzyme', 'the physicist', 'the chemist',
-  'the biologist', 'the lab intern', 'the mitochondrion', 'the bacterium',
-  'the pipette', 'the centrifuge',
-];
-
-const TEMPLATE_PUNCHLINES = [
-  'because it wanted a positive reaction.',
-  'because the results were too basic.',
-  'because there was no chemistry.',
-  'because it needed more space to orbit.',
-  'because it could not handle the pressure.',
-  'because everything finally clicked into solution.',
-  'because it lost its charge halfway through.',
-  'because it wanted to keep things in suspension.',
-  'because the protocol had too many variables.',
-  'because the data were not statistically significant.',
-  'because it was trying to stay in equilibrium.',
-  'because the whole thing was out of phase.',
-];
 
 function shuffle(array) {
   const arr = [...array];
@@ -131,17 +110,6 @@ function uniqueJokes(jokes) {
   return result;
 }
 
-function generateLocalScienceJokes(count = 10) {
-  const jokes = [];
-
-  for (let i = 0; i < count; i += 1) {
-    const subject = TEMPLATE_SUBJECTS[Math.floor(Math.random() * TEMPLATE_SUBJECTS.length)];
-    const punchline = TEMPLATE_PUNCHLINES[Math.floor(Math.random() * TEMPLATE_PUNCHLINES.length)];
-    jokes.push(`Why did ${subject} leave the experiment? ${punchline}`);
-  }
-
-  return uniqueJokes(jokes);
-}
 
 function extractJokesFromJokeApiPayload(payload) {
   if (!payload || payload.error) return [];
@@ -205,12 +173,9 @@ async function replenishPool() {
 
     const [apiJokes] = await Promise.allSettled([fetchJokeApiBatch()]);
     const fetched = apiJokes.status === 'fulfilled' ? apiJokes.value : [];
-    const generated = generateLocalScienceJokes(12);
-
     const merged = uniqueJokes([
       ...pool,
       ...fetched,
-      ...generated,
       ...shuffle(FALLBACK_JOKES),
     ]).filter(j => j !== current && !seen.includes(j));
 
@@ -227,8 +192,7 @@ function getNextJoke() {
 
   if (!pool.length) {
     pool = uniqueJokes([
-      ...shuffle(FALLBACK_JOKES),
-      ...generateLocalScienceJokes(12),
+      ...shuffle(FALLBACK_JOKES)
     ]);
   }
 
@@ -266,12 +230,22 @@ export default function ScienceJoke({ isDark = false }) {
       replenishPool().catch(() => {});
     };
 
-    // Bij iedere refresh direct een nieuwe joke
-    rotateJoke();
+    const lastRotated = Number(localStorage.getItem(LAST_ROTATED_KEY) || 0);
+    const storedJoke = localStorage.getItem(CURRENT_JOKE_KEY);
+
+    // Only rotate if no joke exists or 1 hour has passed
+    if (!storedJoke || Date.now() - lastRotated >= ROTATE_MS) {
+      rotateJoke();
+    } else {
+      // Use existing joke so it persists across refreshes
+      setJoke(normalizeJoke(storedJoke));
+      // Replenish the pool in background if needed
+      replenishPool().catch(() => {});
+    }
 
     intervalRef.current = setInterval(() => {
-      const lastRotated = Number(localStorage.getItem(LAST_ROTATED_KEY) || 0);
-      if (Date.now() - lastRotated >= ROTATE_MS) {
+      const lr = Number(localStorage.getItem(LAST_ROTATED_KEY) || 0);
+      if (Date.now() - lr >= ROTATE_MS) {
         rotateJoke();
       }
     }, 60 * 1000);
