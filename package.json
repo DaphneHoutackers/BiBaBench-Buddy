@@ -1,7 +1,7 @@
 {
   "name": "bibabench-buddy",
   "private": false,
-  "version": "1.0.0",
+  "version": "0.1.6",
   "type": "module",
   "author": "Daphne Houtackers",
   "categories": [
@@ -143,7 +143,7 @@
       "category": "public.app-category.education",
       "icon": "build/icon.icns",
       "identity": null,
-      "artifactName": "BiBaBenchBuddy-mac-${arch}.${ext}"
+      "artifactName": "BiBaBenchBuddy-${version}-mac-${arch}.${ext}"
     },
     "dmg": {
       "title": "BiBaBench Buddy",
@@ -169,7 +169,7 @@
         "nsis"
       ],
       "icon": "build/icon.ico",
-      "artifactName": "BiBaBenchBuddy-Setup.${ext}"
+      "artifactName": "BiBaBenchBuddy-${version}-Setup.${ext}"
     }
   }
 }
