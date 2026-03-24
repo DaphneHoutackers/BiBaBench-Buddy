@@ -22,6 +22,7 @@ import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
+import appLogo from '@/assets/icon-512.png';
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
 
@@ -416,7 +417,7 @@ export default function Home() {
               </button>
 
               <div className="flex items-center cursor-pointer" onClick={goHome}>
-                <img src="/icon-512.png" alt="BiBaBenchBuddy Logo" className="w-9 h-9 object-contain" />
+                <img src={appLogo} alt="BiBaBench Buddy logo" className="w-9 h-9 object-contain" />
               </div>
 
               {!isHome && (
