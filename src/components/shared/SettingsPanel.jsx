@@ -119,33 +119,68 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     let mounted = true;
 
     async function bootstrapSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
+        if (error) {
+          console.warn('Supabase getSession error:', error);
+          setUser(null);
+          setAuthMode('login');
+          return;
+        }
 
-      if (currentUser) {
-        const { data } = await supabase
-          .from('user_settings')
-          .select('settings')
-          .eq('user_id', currentUser.id)
-          .maybeSingle();
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
 
-        if (data?.settings) {
-          onChange(data.settings);
+        if (!currentUser) {
+          setAuthMode('login');
+        }
+
+        if (mounted) {
+          setLoading(false);
+        }
+
+        if (currentUser) {
           try {
-            localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(data.settings));
+            const { data, error: settingsError } = await supabase
+              .from('user_settings')
+              .select('settings')
+              .eq('user_id', currentUser.id)
+              .maybeSingle();
+
+            if (settingsError) {
+              console.warn('Failed to fetch user settings:', settingsError);
+            } else if (data?.settings) {
+              onChange(data.settings);
+              try {
+                localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(data.settings));
+              } catch (err) {
+                console.warn('Failed to cache remote settings locally:', err);
+              }
+            }
           } catch (err) {
-            console.warn('Failed to cache remote settings locally:', err);
+            console.warn('Failed to load remote settings:', err);
           }
         }
-      }
 
-      setLoading(false);
+        return;
+      
+      } catch (err) {
+        console.warn('bootstrapSession failed:', err);
+        if (mounted) {
+          setUser(null);
+          setAuthMode('login');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     }
 
     bootstrapSession();
@@ -153,31 +188,49 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
+      if (!mounted) return;
 
-      if (currentUser) {
-        const { data } = await supabase
-          .from('user_settings')
-          .select('settings')
-          .eq('user_id', currentUser.id)
-          .maybeSingle();
+      try {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
 
-        if (data?.settings) {
-          onChange(data.settings);
+        if (!currentUser) {
+          setAuthMode('login');
+        }
+
+        setLoading(false);
+
+        if (currentUser) {
           try {
-            localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(data.settings));
+            const { data, error: settingsError } = await supabase
+              .from('user_settings')
+              .select('settings')
+              .eq('user_id', currentUser.id)
+              .maybeSingle();
+
+            if (settingsError) {
+              console.warn('Failed to fetch user settings after auth change:', settingsError);
+            } else if (data?.settings) {
+              onChange(data.settings);
+              try {
+                localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(data.settings));
+              } catch (err) {
+                console.warn('Failed to cache remote settings locally:', err);
+              }
+            }
           } catch (err) {
-            console.warn('Failed to cache remote settings locally:', err);
+            console.warn('Failed to load remote settings after auth change:', err);
           }
-}
-      }
+        }
 
-      if (!currentUser) {
+        return;
+      } catch (err) {
+        console.warn('onAuthStateChange failed:', err);
+        setUser(null);
         setAuthMode('login');
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => {
