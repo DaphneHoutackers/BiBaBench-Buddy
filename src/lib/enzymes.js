@@ -73,6 +73,7 @@ export const ENZYME_DB = {
   'AcyI': { seq: 'GRCGYC', buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
   'BanI': { seq: 'GGYRCC', buffers: ['NEBuffer 4'], optimal: 'NEBuffer 4', temp: 37, time: '1 hr', fd: false },
   'BanII': { seq: 'GRGCYC', buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
+  'ZraI': { seq: 'GACGTC', buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
 
   // ── NEB High-Fidelity (HF) Enzymes ──
   'BamHI-HF': { seq: 'GGATCC', buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
@@ -111,7 +112,6 @@ export const ENZYME_DB = {
   'FastDigest NheI': { seq: 'GCTAGC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'FastDigest DpnI': { seq: 'GATC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'FastDigest SfiI': { seq: 'GGCCNNNNNGGCC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 50, time: '5-15 min', fd: true },
-  'FastDigest ZraI': { seq: 'GACGTC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'FastDigest NruI': { seq: 'TCGCGA', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'FastDigest SmaI': { seq: 'CCCGGG', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'FastDigest ApaI': { seq: 'GGGCCC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true }

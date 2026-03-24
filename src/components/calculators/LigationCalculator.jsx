@@ -473,15 +473,27 @@ function MultiLigation({ historyData }) {
   useEffect(() => {
     if (isRestoring.current) return;
     const timeout = setTimeout(() => {
-      const anyFilled = ligations.some(lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio));
+      const anyFilled = ligations.some(
+        lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio)
+      );
+
       if (anyFilled) {
         addHistoryItem({
           toolId: 'ligation',
-          title: `Multi-Ligation (${ligations.length} rxns)`,
-          data: { tab: 'multi', ligations, totalVolume, ligase, ligaseVol, usePEG }
+          toolName: 'Ligation',
+          data: {
+            preview: `Multi ligation, ${ligations.length} reaction${ligations.length > 1 ? 's' : ''}`,
+            tab: 'multi',
+            ligations,
+            totalVolume,
+            ligase,
+            ligaseVol,
+            usePEG,
+          }
         });
       }
     }, 2000);
+
     return () => clearTimeout(timeout);
   }, [ligations, totalVolume, ligase, ligaseVol, usePEG, addHistoryItem]);
 
@@ -520,7 +532,11 @@ function MultiLigation({ historyData }) {
   };
 
   const allResults = ligations.map(lig => {
-    const allFilled = lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio);
+    const allFilled =
+      Number(lig.vectorConc) > 0 &&
+      Number(lig.vectorLength) > 0 &&
+      Number(lig.vectorAmount) > 0 &&
+      lig.inserts.every(i => Number(i.conc) > 0 && Number(i.length) > 0 && Number(i.ratio) > 0);
     if (!allFilled) return null;
     return calcLigationMix(lig.vectorConc, lig.vectorLength, lig.inserts, lig.vectorAmount, totalVolume, ligase, ligaseVol, usePEG ? String(pegVol) : '0');
   });
