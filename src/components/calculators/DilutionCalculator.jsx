@@ -122,30 +122,80 @@ export default function DilutionCalculator({ historyData }) {
 
   useEffect(() => {
     if (isRestoring) return;
+
     const debounce = setTimeout(() => {
-      let title = 'Dilution';
+      let preview = 'Dilution';
+
       if (mode === 'c1v1' && c1v1Result && c1v1Result.value) {
-        title = `C1V1: solved ${labelMap[c1v1Result.solveFor]} = ${c1v1Result.value.toFixed(1)}`;
-      } else if (mode === 'sample' && sdResult) {
-        title = `Sample: ${sdStartConc} → ${sdResult.targetConc?.toFixed(1) || '?'}`;
+        preview = `C1V1: ${labelMap[c1v1Result.solveFor]} = ${c1v1Result.value.toFixed(1)} ${c1v1Result.unit}`;
+      } else if (mode === 'sample' && sdResult && !sdResult.error) {
+        preview = `Sample: ${sdStartConc} → ${sdResult.targetConc?.toFixed(1) || '?'} ng/µL`;
       } else if (mode === 'addto' && atvResult) {
-        title = `Add to Vol: ${atvVolume}µL + ${atvResult.addVol?.toFixed(1)}µL`;
+        preview = `Add to Vol: ${atvVolume} µL + ${atvResult.addVol?.toFixed(1)} µL`;
       } else if (mode === 'serial' && serialResult) {
-        title = `Serial: /${dilutionFactor}× (${numDilutions} wells)`;
+        preview = `Serial: /${dilutionFactor}× (${numDilutions} wells)`;
       }
 
       addHistoryItem({
         toolId: 'dilution',
-        title: title,
+        toolName: 'Dilution Calculator',
         data: {
-          mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
-          c1, v1, c2, v2, c1Unit, v1Unit, c2Unit, v2Unit, mw, serialStart, dilutionFactor, numDilutions, volumePerWell
+          preview,
+          mode,
+          sdStartConc,
+          sdMode,
+          sdFactor,
+          sdFinalConc,
+          sdSampleVol,
+          atvVolume,
+          atvFactor,
+          c1,
+          v1,
+          c2,
+          v2,
+          c1Unit,
+          v1Unit,
+          c2Unit,
+          v2Unit,
+          mw,
+          serialStart,
+          dilutionFactor,
+          numDilutions,
+          volumePerWell,
         }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
-  }, [mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
-      c1, v1, c2, v2, serialStart, dilutionFactor, numDilutions, volumePerWell, isRestoring, addHistoryItem, c1v1Result, sdResult, atvResult, serialResult]);
+  }, [
+    mode,
+    sdStartConc,
+    sdMode,
+    sdFactor,
+    sdFinalConc,
+    sdSampleVol,
+    atvVolume,
+    atvFactor,
+    c1,
+    v1,
+    c2,
+    v2,
+    c1Unit,
+    v1Unit,
+    c2Unit,
+    v2Unit,
+    mw,
+    serialStart,
+    dilutionFactor,
+    numDilutions,
+    volumePerWell,
+    isRestoring,
+    addHistoryItem,
+    c1v1Result,
+    sdResult,
+    atvResult,
+    serialResult
+  ]);
 
   // C1V1 calculation: always auto-detects missing field
   useEffect(() => {

@@ -7,40 +7,53 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
   const [copied, setCopied] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  const handleCopyImage = async () => {
+  const handleCopyImage = () => {
     if (!targetRef.current || isCapturing) return;
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      alert("Clipboard API not supported on this device.");
+      return;
+    }
     
     setIsCapturing(true);
+    const element = targetRef.current;
+    
     try {
-      const element = targetRef.current;
-      const canvas = await html2canvas(element, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+      const promise = new Promise((resolve, reject) => {
+        html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          width: element.scrollWidth,
+          height: element.scrollHeight,
+          windowWidth: element.scrollWidth,
+          windowHeight: element.scrollHeight
+        }).then(canvas => {
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Canvas conversion failed'));
+            }
+          }, 'image/png');
+        }).catch(err => {
+          console.error("html2canvas error:", err);
+          reject(err);
+        });
       });
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) throw new Error('Canvas conversion failed');
-        
-        try {
-          const item = new window.ClipboardItem({ 'image/png': blob });
-          await navigator.clipboard.write([item]);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch (clipboardErr) {
-          console.error("Clipboard API error:", clipboardErr);
-          // Fallback if Clipboard API fails or is not supported for images
-          alert("Could not copy image directly to clipboard. You can right-click and save the canvas if needed.");
-        }
-      }, 'image/png');
+      const item = new window.ClipboardItem({ 'image/png': promise });
+      navigator.clipboard.write([item]).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(clipboardErr => {
+        console.error("Clipboard API error:", clipboardErr);
+        alert("Could not copy image directly to clipboard. You can right-click and save the canvas if needed.");
+      }).finally(() => {
+        setIsCapturing(false);
+      });
     } catch (err) {
-      console.error("html2canvas error:", err);
-    } finally {
+      console.error("Error creating clipboard item:", err);
       setIsCapturing(false);
     }
   };

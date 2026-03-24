@@ -428,22 +428,28 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
   const copyImage = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      alert("Clipboard API not supported on this device.");
+      return;
+    }
+
     const dataUrl = canvas.toDataURL('image/png');
-    const img = document.createElement('img');
-    img.src = dataUrl;
-    // Use fetch to convert dataURL to blob for clipboard
-    fetch(dataUrl)
-      .then(r => r.blob())
-      .then(async blob => {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch {
-          // fallback: download
-          const a = document.createElement('a'); a.href = dataUrl; a.download = 'gel.png'; a.click();
-        }
+    
+    try {
+      const promise = fetch(dataUrl).then(r => r.blob());
+      const item = new window.ClipboardItem({ 'image/png': promise });
+      navigator.clipboard.write([item]).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(err => {
+        console.error("Clipboard write error:", err);
+        alert("Could not copy image directly to clipboard. You can right-click and save the canvas if needed.");
       });
+    } catch (err) {
+      console.error("ClipboardItem creation error:", err);
+      alert("Could not copy image directly to clipboard.");
+    }
   };
 
     return (
@@ -646,18 +652,28 @@ function WesternBlotTab() {
   const copyImage = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      alert("Clipboard API not supported on this device.");
+      return;
+    }
+
     const dataUrl = canvas.toDataURL('image/png');
-    fetch(dataUrl)
-      .then(r => r.blob())
-      .then(async blob => {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch {
-          const a = document.createElement('a'); a.href = dataUrl; a.download = 'western_blot.png'; a.click();
-        }
+    
+    try {
+      const promise = fetch(dataUrl).then(r => r.blob());
+      const item = new window.ClipboardItem({ 'image/png': promise });
+      navigator.clipboard.write([item]).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(err => {
+        console.error("Clipboard write error:", err);
+        alert("Could not copy image directly to clipboard. You can right-click and save the canvas if needed.");
       });
+    } catch (err) {
+      console.error("ClipboardItem creation error:", err);
+      alert("Could not copy image directly to clipboard.");
+    }
   };
 
   return (
@@ -865,13 +881,25 @@ export default function GelAndWBSimulator({ historyData }) {
 
   useEffect(() => {
     if (isRestoring) return;
+
     const debounce = setTimeout(() => {
       addHistoryItem({
         toolId: 'gel',
-        title: tab === 'dna' ? `DNA Gel (${dnaLanes.length} lanes)` : 'Western Blot',
-        data: { tab, selectedLadder, agarose, voltage, runtime, dnaLanes, excisedBands, laneColors }
+        toolName: 'Gel & WB Simulator',
+        data: {
+          preview: tab === 'dna' ? `DNA Gel (${dnaLanes.length} lanes)` : 'Western Blot',
+          tab,
+          selectedLadder,
+          agarose,
+          voltage,
+          runtime,
+          dnaLanes,
+          excisedBands,
+          laneColors,
+        }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
   }, [tab, selectedLadder, agarose, voltage, runtime, dnaLanes, excisedBands, laneColors, isRestoring, addHistoryItem]);
 

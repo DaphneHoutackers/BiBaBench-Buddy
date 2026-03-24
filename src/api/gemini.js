@@ -1,5 +1,6 @@
 /**
  * AI integration supporting multiple providers: Groq, Gemini, OpenAI, OpenRouter.
+ * Uses only user-provided API keys stored in settings.
  */
 
 const getSettings = () => {
@@ -13,46 +14,45 @@ const getSettings = () => {
 const PROVIDER_CONFIGS = {
   groq: {
     url: 'https://api.groq.com/openai/v1/chat/completions',
-    defaultModel: 'llama-3.3-70b-versatile'
+    defaultModel: 'llama-3.3-70b-versatile',
   },
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
-    defaultModel: 'gpt-4o'
+    defaultModel: 'gpt-4o',
   },
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/models/',
-    defaultModel: 'gemini-2.0-flash'
+    defaultModel: 'gemini-2.0-flash',
   },
   openrouter: {
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    defaultModel: 'google/gemini-2.0-flash-001'
-  }
+    defaultModel: 'google/gemini-2.0-flash-001',
+  },
 };
 
 /**
  * InvokeLLM — Routes requests to the selected AI provider.
+ * Uses only the API key the current user entered in Settings.
  */
 export async function InvokeLLM(args = {}) {
-  const { prompt, response_json_schema, file_urls } = args;
+  const { prompt, response_json_schema } = args;
   const settings = getSettings();
   const provider = settings.aiProvider || 'groq';
   const model = settings.aiModel || PROVIDER_CONFIGS[provider]?.defaultModel;
-  
-  const apiKey = 
-    settings[`${provider}ApiKey`] || 
-    (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env[`VITE_${provider.toUpperCase()}_API_KEY`] : undefined);
+  const apiKey = settings[`${provider}ApiKey`];
 
   if (!apiKey) {
     console.warn(`[AI] No API key set for ${provider}. Add your key in Settings > AI Settings.`);
-    return response_json_schema ? {} : `AI is not configured for ${provider.toUpperCase()}. Please add your API key in the Settings.`;
+    return response_json_schema
+      ? {}
+      : `AI is not configured for ${provider.toUpperCase()}. Please add your own API key in Settings > AI Settings.`;
   }
 
   if (provider === 'gemini') {
     return invokeGemini({ prompt, response_json_schema, apiKey, model });
-  } else {
-    // OpenAI, Groq, and OpenRouter share a similar schema
-    return invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, provider });
   }
+
+  return invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, provider });
 }
 
 async function invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, provider }) {
@@ -64,9 +64,9 @@ async function invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, 
       role: 'system',
       content: response_json_schema
         ? 'You are a helpful AI assistant. Respond with valid JSON only, no markdown, no code fences.'
-        : 'You are a helpful AI assistant.'
+        : 'You are a helpful AI assistant.',
     },
-    { role: 'user', content: prompt }
+    { role: 'user', content: prompt },
   ];
 
   if (response_json_schema) {
@@ -88,7 +88,7 @@ async function invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, 
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: model,
+        model,
         messages,
         temperature: 0.7,
         max_tokens: 4096,
@@ -145,7 +145,7 @@ async function invokeGemini({ prompt, response_json_schema, apiKey, model }) {
           temperature: 0.7,
           maxOutputTokens: 4096,
           ...(response_json_schema ? { responseMimeType: 'application/json' } : {}),
-        }
+        },
       }),
     });
 
@@ -180,7 +180,7 @@ async function invokeGemini({ prompt, response_json_schema, apiKey, model }) {
  */
 export async function ValidateApiKey({ provider, apiKey }) {
   const model = PROVIDER_CONFIGS[provider]?.defaultModel;
-  
+
   if (provider === 'gemini') {
     const url = `${PROVIDER_CONFIGS.gemini.url}${model}:generateContent?key=${apiKey}`;
     try {
@@ -189,32 +189,32 @@ export async function ValidateApiKey({ provider, apiKey }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: 'Say "ok"' }] }],
-          generationConfig: { maxOutputTokens: 5 }
+          generationConfig: { maxOutputTokens: 5 },
         }),
       });
       return { success: res.ok, status: res.status };
     } catch (err) {
       return { success: false, message: err.message };
     }
-  } else {
-    const url = PROVIDER_CONFIGS[provider].url;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [{ role: 'user', content: 'Say "ok"' }],
-          max_tokens: 5,
-        }),
-      });
-      return { success: res.ok, status: res.status };
-    } catch (err) {
-      return { success: false, message: err.message };
-    }
+  }
+
+  const url = PROVIDER_CONFIGS[provider].url;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'Say "ok"' }],
+        max_tokens: 5,
+      }),
+    });
+    return { success: res.ok, status: res.status };
+  } catch (err) {
+    return { success: false, message: err.message };
   }
 }
 
@@ -226,10 +226,12 @@ export async function FetchOpenRouterModels() {
     const res = await fetch('https://openrouter.ai/api/v1/models');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    return data.data.map(m => ({
-      id: m.id,
-      label: m.name || m.id
-    })).sort((a, b) => a.label.localeCompare(b.label));
+    return data.data
+      .map((m) => ({
+        id: m.id,
+        label: m.name || m.id,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   } catch (err) {
     console.error('[OpenRouter] Failed to fetch models:', err);
     return null;

@@ -246,26 +246,79 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
 
   // Save to history
   useEffect(() => {
-    if (isRestoring || tab === 'oepcr' || tab === 'product') return; 
+    if (isRestoring || tab === 'oepcr' || tab === 'product') return;
+
     const debounce = setTimeout(() => {
-      let title = 'PCR';
+      let preview = 'PCR calculation';
+
       if (tab === 'mix') {
-        title = productLength ? `PCR Mix (${productLength}bp)` : `PCR Mix`;
+        if (gradientMode) {
+          preview = productLength
+            ? `PCR mix, ${productLength} bp, gradient ×${Math.max(1, parseInt(gradientN) || 8)}`
+            : `PCR mix, gradient ×${Math.max(1, parseInt(gradientN) || 8)}`;
+        } else if (samples.length > 1) {
+          preview = productLength
+            ? `PCR mix, ${productLength} bp, ${samples.length} samples`
+            : `PCR mix, ${samples.length} samples`;
+        } else {
+          preview = productLength
+            ? `PCR mix, ${productLength} bp`
+            : 'PCR mix';
+        }
       } else if (tab === 'ta') {
-        title = taFwdPrimer ? `Ta Calc (Fwd: ${taFwdPrimer.slice(0, 5)}...)` : `Ta Calc`;
+        preview = taFwdPrimer
+          ? `Ta calculator, Fwd primer ${taFwdPrimer.slice(0, 8)}...`
+          : 'Ta calculator';
       }
 
       addHistoryItem({
         toolId: 'pcr',
-        title: title,
+        toolName: 'PCR Calculator',
         data: {
-          tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples,
-          primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc
+          preview,
+          tab,
+          productLength,
+          polymerase,
+          totalVolume,
+          primerConc,
+          useBetaine,
+          betaineVol,
+          extraReactions,
+          samples,
+          primersIdentical,
+          gradientMode,
+          gradientN,
+          taFwdPrimer,
+          taRevPrimer,
+          taTemplate,
+          taPolymerase,
+          taPrimerConc,
         }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
-  }, [tab, productLength, polymerase, totalVolume, primerConc, useBetaine, betaineVol, extraReactions, samples, primersIdentical, gradientMode, gradientN, taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc, isRestoring, addHistoryItem]);
+  }, [
+    tab,
+    productLength,
+    polymerase,
+    totalVolume,
+    primerConc,
+    useBetaine,
+    betaineVol,
+    extraReactions,
+    samples,
+    primersIdentical,
+    gradientMode,
+    gradientN,
+    taFwdPrimer,
+    taRevPrimer,
+    taTemplate,
+    taPolymerase,
+    taPrimerConc,
+    isRestoring,
+    addHistoryItem
+  ]);
 
   const poly = POLYMERASES[polymerase];
   const vol = parseFloat(totalVolume) || 50;

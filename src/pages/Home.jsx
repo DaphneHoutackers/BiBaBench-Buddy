@@ -241,20 +241,40 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
               <p className={`text-xs text-center p-4 italic ${isDark ? 'text-white/20' : 'text-slate-300'}`}>Empty</p>
             ) : (
               <div className="overflow-y-auto space-y-0.5 pr-1" style={{ maxHeight: '160px' }}>
-                {history.map(item => (
-                  <div key={item.id} className={`group flex items-start justify-between rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
-                    onClick={() => onRestoreHistory(item)}
-                  >
-                    <div className="flex-1 min-w-0 pr-2">
-                      <p className={`text-xs font-medium truncate ${isDark ? 'text-white/80' : 'text-slate-700'}`}>{item.title}</p>
-                      <p className={`text-[10px] truncate ${isDark ? 'text-white/40' : 'text-slate-400'}`}>{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                {history.map(item => {
+                  const displayTitle = item.data?.preview || item.toolName || item.toolId || 'History item';
+                  const displayDate = new Date(item.createdAt || item.timestamp);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`group flex items-start justify-between rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
+                      onClick={() => onRestoreHistory(item)}
+                    >
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className={`text-xs font-medium truncate ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
+                          {displayTitle}
+                        </p>
+                        <p className={`text-[10px] truncate ${isDark ? 'text-white/40' : 'text-slate-400'}`}>
+                          {displayDate.toLocaleDateString('nl-NL')} · {displayDate.toLocaleTimeString('nl-NL', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteHistoryItem(item.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5 text-slate-400 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
-                      className="opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5 text-slate-400 hover:text-red-500 transition-all">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -304,7 +324,9 @@ export default function Home() {
         .single();
 
       if (!error && data?.settings) {
-        setSettings(prev => ({ ...prev, ...data.settings }));
+        const mergedSettings = { ...DEFAULT_SETTINGS, ...data.settings };
+        setSettings(mergedSettings);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
       }
     } catch (err) {
       console.warn('Sync failed:', err);
@@ -334,9 +356,13 @@ export default function Home() {
 
   const handleRestoreHistory = item => {
     setActive(item.toolId);
-    if (item.tabId) handleSelectTab(item.toolId, item.tabId);
-    setHistoryData(item);
-  };
+
+    if (item.data?.tab) {
+      handleSelectTab(item.toolId, item.data.tab);
+    }
+
+  setHistoryData(item);
+};
 
   const getComponent = id => {
     const isAct = active === id;

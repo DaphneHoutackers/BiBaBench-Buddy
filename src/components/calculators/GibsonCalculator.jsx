@@ -55,19 +55,28 @@ export default function GibsonCalculator({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || fragments.length === 2 && !fragments[0].length && !fragments[1].length) return;
+    if (isRestoring || (fragments.length === 2 && !fragments[0].length && !fragments[1].length)) return;
+
     const debounce = setTimeout(() => {
       const vector = fragments.find(f => f.isVector);
-      const title = vector && vector.name && vector.name !== 'Vector' 
+      const preview =
+        vector && vector.name && vector.name !== 'Vector'
         ? `Gibson: ${vector.name} + ${fragments.length - 1} inserts`
         : `Gibson Assembly (${fragments.length} parts)`;
 
       addHistoryItem({
         toolId: 'gibson',
-        title: title,
-        data: { fragments, totalVolume, foldExcess, vectorNg }
+        toolName: 'Gibson Assembly',
+        data: {
+          preview,
+          fragments,
+          totalVolume,
+          foldExcess,
+          vectorNg,
+        }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
   }, [fragments, totalVolume, foldExcess, vectorNg, isRestoring, addHistoryItem]);
 

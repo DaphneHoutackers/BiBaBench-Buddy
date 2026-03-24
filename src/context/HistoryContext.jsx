@@ -2,131 +2,222 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 
 const HistoryContext = createContext(null);
+const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
+
+function makeId() {
+  return crypto.randomUUID();
+}
+
+function normalizeRemoteItem(row) {
+  return {
+    id: row.id,
+    toolId: row.tool_id,
+    toolName: row.tool_name,
+    timestamp: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    createdAt: row.created_at,
+    data: row.data,
+    synced: true,
+  };
+}
+
+function buildRemoteRow(item, userId) {
+  const createdAt = item.createdAt
+    ? item.createdAt
+    : item.timestamp
+    ? new Date(item.timestamp).toISOString()
+    : new Date().toISOString();
+
+  return {
+    id: item.id || makeId(),
+    user_id: userId,
+    tool_id: item.toolId,
+    tool_name: item.toolName,
+    created_at: createdAt,
+    data: item.data,
+    synced: true,
+  };
+}
 
 export function HistoryProvider({ children }) {
   const [history, setHistory] = useState(() => {
     try {
-      const saved = localStorage.getItem('bibabenchbuddy_tool_history');
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
 
-  const [lastSynced, setLastSynced] = useState(0);
+  const loadRemoteHistory = useCallback(async () => {
+    if (!isSyncEnabled()) return;
 
-  // Sync with Supabase on Login
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) return;
+
+    const { data, error } = await supabase
+      .from('tool_history')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error || !data) return;
+
+    const normalized = data.map(normalizeRemoteItem);
+
+    setHistory(normalized);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
+  }, []);
+
   useEffect(() => {
     if (!isSyncEnabled()) return;
 
-    const syncRemoteHistory = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+    loadRemoteHistory();
 
-      const { data, error } = await supabase
-        .from('tool_history')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(50);
-
-      if (!error && data) {
-        // Merge strategy: local + remote, remote wins for identical IDs
-        setHistory(prev => {
-          const merged = [...data];
-          const itemIds = new Set(data.map(i => i.id));
-          
-          prev.forEach(item => {
-            if (!itemIds.has(item.id)) {
-              merged.push(item);
-            }
-          });
-
-          return merged.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
-        });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadRemoteHistory();
       }
-    };
 
-    syncRemoteHistory();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') syncRemoteHistory();
       if (event === 'SIGNED_OUT') {
-        const local = localStorage.getItem('bibabenchbuddy_tool_history');
-        setHistory(local ? JSON.parse(local) : []);
+        try {
+          const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+          setHistory(local ? JSON.parse(local) : []);
+        } catch {
+          setHistory([]);
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadRemoteHistory]);
 
-  // Update localStorage and Remote on history change
   useEffect(() => {
-    localStorage.setItem('bibabenchbuddy_tool_history', JSON.stringify(history));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
 
     const syncTimeout = setTimeout(async () => {
       if (!isSyncEnabled()) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
 
-      // Deep sync: In a real app we'd batch this or use a more efficient upsert
-      // For this implementation, we upsert the latest items
-      const unsynced = history.filter(item => !item.synced);
-      if (unsynced.length > 0) {
-        const { error } = await supabase
-          .from('tool_history')
-          .upsert(unsynced.map(i => ({ ...i, user_id: session.user.id, synced: true })));
-        
-        if (!error) {
-          setHistory(prev => prev.map(item => ({ ...item, synced: true })));
-        }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user) return;
+
+      const unsynced = history.filter((item) => !item.synced);
+      if (unsynced.length === 0) return;
+
+      const rows = unsynced.map((item) => buildRemoteRow(item, session.user.id));
+
+      const { error } = await supabase
+        .from('tool_history')
+        .upsert(rows, { onConflict: 'id' });
+
+      if (!error) {
+        setHistory((prev) =>
+          prev.map((item) => {
+            if (!unsynced.some((u) => u.id === item.id)) return item;
+            const createdAt = item.createdAt
+              ? item.createdAt
+              : item.timestamp
+              ? new Date(item.timestamp).toISOString()
+              : new Date().toISOString();
+
+            return {
+              ...item,
+              createdAt,
+              timestamp: new Date(createdAt).getTime(),
+              synced: true,
+            };
+          })
+        );
       }
-    }, 2000);
+    }, 800);
 
     return () => clearTimeout(syncTimeout);
   }, [history]);
 
   const addHistoryItem = useCallback((item) => {
-    setHistory(prev => {
-      const isDuplicate = prev.length > 0 && 
-        prev[0].toolId === item.toolId && 
-        JSON.stringify(prev[0].data) === JSON.stringify(item.data);
-      
-      if (isDuplicate) return prev;
-
-      const newItem = {
-        ...item,
-        id: item.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
+    setHistory((prev) => {
+      const normalizedItem = {
+        id: item.id || makeId(),
+        toolId: item.toolId,
+        toolName: item.toolName,
+        data: item.data,
+        createdAt: item.createdAt || new Date().toISOString(),
         timestamp: item.timestamp || Date.now(),
         synced: false,
       };
-      
-      return [newItem, ...prev].slice(0, 50);
+
+      const existingIndex = prev.findIndex((entry) => entry.id === normalizedItem.id);
+
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          ...normalizedItem,
+        };
+
+        return updated.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+      }
+
+      return [normalizedItem, ...prev]
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 100);
     });
   }, []);
 
   const deleteHistoryItem = useCallback(async (id) => {
-    setHistory(prev => prev.filter(item => item.id !== id));
-    
-    if (isSyncEnabled()) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.from('tool_history').delete().eq('id', id).eq('user_id', session.user.id);
-      }
-    }
+    setHistory((prev) => prev.filter((item) => item.id !== id));
+
+    if (!isSyncEnabled()) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) return;
+
+    await supabase
+      .from('tool_history')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', session.user.id);
   }, []);
 
   const clearHistory = useCallback(async () => {
     setHistory([]);
-    if (isSyncEnabled()) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.from('tool_history').delete().eq('user_id', session.user.id);
-      }
-    }
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+
+    if (!isSyncEnabled()) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) return;
+
+    await supabase
+      .from('tool_history')
+      .delete()
+      .eq('user_id', session.user.id);
   }, []);
 
   return (
-    <HistoryContext.Provider value={{ history, addHistoryItem, deleteHistoryItem, clearHistory }}>
+    <HistoryContext.Provider
+      value={{
+        history,
+        addHistoryItem,
+        deleteHistoryItem,
+        clearHistory,
+        reloadHistory: loadRemoteHistory,
+      }}
+    >
       {children}
     </HistoryContext.Provider>
   );

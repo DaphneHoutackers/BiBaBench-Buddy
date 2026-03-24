@@ -304,6 +304,7 @@ export default function PlasmidAnalyzer({ historyData }) {
         if (d.primers !== undefined) setPrimers(d.primers);
         if (d.selectedEnzymes !== undefined) setSelectedEnzymes(d.selectedEnzymes);
         if (d.enzymeFilter !== undefined) setEnzymeFilter(d.enzymeFilter);
+        if (d.enzymeSearch !== undefined) setEnzymeSearch(d.enzymeSearch);
         if (d.activePanel !== undefined) setActivePanel(d.activePanel);
         if (d.viewMode !== undefined) setViewMode(d.viewMode);
       }
@@ -313,18 +314,46 @@ export default function PlasmidAnalyzer({ historyData }) {
 
   useEffect(() => {
     if (isRestoring || (!sequence && !rawInput)) return;
+
     const debounce = setTimeout(() => {
       addHistoryItem({
         toolId: 'plasmid',
-        title: `Plasmid: ${seqName || 'Unnamed'}${sequence ? ` (${sequence.length} bp)` : ''}`,
+        toolName: 'Sequence Analyzer',
         data: {
-          phase, seqName, rawInput, sequence, isCircular, features, primers,
-          selectedEnzymes, enzymeFilter, activePanel, viewMode
+          preview: `Plasmid: ${seqName || 'Unnamed'}${sequence ? ` (${sequence.length} bp)` : ''}`,
+          phase,
+          seqName,
+          rawInput,
+          sequence,
+          isCircular,
+          features,
+          primers,
+          selectedEnzymes,
+          enzymeFilter,
+          enzymeSearch,
+          activePanel,
+          viewMode,
         }
       });
     }, 1500);
+
     return () => clearTimeout(debounce);
-  }, [phase, seqName, rawInput, sequence, isCircular, features, primers, selectedEnzymes, enzymeFilter, activePanel, viewMode, isRestoring, addHistoryItem]);
+  }, [
+    phase,
+    seqName,
+    rawInput,
+    sequence,
+    isCircular,
+    features,
+    primers,
+    selectedEnzymes,
+    enzymeFilter,
+    enzymeSearch,
+    activePanel,
+    viewMode,
+    isRestoring,
+    addHistoryItem
+  ]);
 
   const seq = useMemo(() => sequence.toUpperCase().replace(/[^ATGCN]/g, ''), [sequence]);
 

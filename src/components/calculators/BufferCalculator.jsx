@@ -223,6 +223,7 @@ export default function BufferCalculator({ historyData }) {
         if (historyData.data.activeTab) setActiveTab(historyData.data.activeTab);
         if (historyData.data.selectedBuffer) setSelectedBuffer(historyData.data.selectedBuffer);
         if (historyData.data.desiredVolume) setDesiredVolume(historyData.data.desiredVolume);
+        if (historyData.data.showProtocol !== undefined) setShowProtocol(historyData.data.showProtocol);
       }
       setTimeout(() => setIsRestoring(false), 50);
     }
@@ -234,12 +235,19 @@ export default function BufferCalculator({ historyData }) {
     const timeout = setTimeout(() => {
       addHistoryItem({
         toolId: 'buffer',
-        title: `Buffer: ${selectedBuffer} (${desiredVolume}mL)`,
-        data: { activeTab, selectedBuffer, desiredVolume }
+        toolName: 'Buffer Preparation',
+        data: {
+          preview: `Buffer: ${selectedBuffer} (${desiredVolume} mL)`,
+          activeTab,
+          selectedBuffer,
+          desiredVolume,
+          showProtocol,
+        }
       });
     }, 1000);
+
     return () => clearTimeout(timeout);
-  }, [activeTab, selectedBuffer, desiredVolume, isRestoring, addHistoryItem]);
+  }, [activeTab, selectedBuffer, desiredVolume, showProtocol, isRestoring, addHistoryItem]);
 
   // ensure selectedBuffer exists in allBuffers (in case of deleted recipe)
   const safeSelected = allBuffers[selectedBuffer] ? selectedBuffer : 'TAE (50×)';
@@ -290,7 +298,10 @@ export default function BufferCalculator({ historyData }) {
           <TabsTrigger value="ai" className="gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-500"/> AI Assistant</TabsTrigger>
         </TabsList>
         <TabsContent value="ai" className="mt-0">
-          <AIBufferChat onSaveRecipe={handleSaveAiRecipe} historyData={historyData} />
+          <AIBufferChat
+            onSaveRecipe={handleSaveAiRecipe}
+            historyData={historyData?.data?.activeTab === 'ai' ? historyData : null}
+          />
         </TabsContent>
         <TabsContent value="lysis" className="mt-4">
           <Card className="border-0 shadow-sm bg-white/80">

@@ -157,16 +157,29 @@ function SingleLigation({ historyData }) {
 
   useEffect(() => {
     if (isRestoring.current) return;
+
     const timeout = setTimeout(() => {
       const allFilled = vectorConc && vectorLength && inserts.every(i => i.conc && i.length && i.ratio);
       if (allFilled) {
         addHistoryItem({
           toolId: 'ligation',
-          title: `Ligation: Vector + ${inserts.length} Insert${inserts.length > 1 ? 's' : ''}`,
-          data: { tab: 'single', vectorConc, vectorLength, vectorAmount, inserts, totalVolume, ligase, ligaseVol, usePEG }
+          toolName: 'Ligation',
+          data: {
+            preview: `Single ligation, ${inserts.length} insert${inserts.length > 1 ? 's' : ''}`,
+            tab: 'single',
+            vectorConc,
+            vectorLength,
+            vectorAmount,
+            inserts,
+            totalVolume,
+            ligase,
+            ligaseVol,
+            usePEG,
+          }
         });
       }
     }, 2000);
+
     return () => clearTimeout(timeout);
   }, [vectorConc, vectorLength, vectorAmount, inserts, totalVolume, ligase, ligaseVol, usePEG, addHistoryItem]);
 

@@ -93,22 +93,53 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   // Save history
   useEffect(() => {
     if (isRestoring.current) return;
+
     const timeout = setTimeout(() => {
       const hasSingle = tab === 'single' && dnaConc && desiredDna;
       const hasBatch = tab === 'batch' && batchSamples.some(s => s.conc);
+
       if (hasSingle || hasBatch) {
         addHistoryItem({
           toolId: 'digest',
-          tabId: tab,
-          title: tab === 'single' 
-            ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.join(', ') : 'Custom'}`
-            : `Batch Digest (${batchSamples.length} samples)`,
-          data: { tab, dnaConc, desiredDna, dnaRole, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType }
+          toolName: 'Restriction Digest',
+          data: {
+            preview:
+              tab === 'single'
+                ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.join(', ') : 'Custom'}`
+                : `Batch Digest (${batchSamples.length} samples)`,
+            tab,
+            dnaConc,
+            desiredDna,
+            dnaRole,
+            selectedEnzymes,
+            totalVolume,
+            enzymeVolume,
+            enzymeType,
+            batchSamples,
+            batchTotalVol,
+            batchEnzymeVol,
+            batchEnzymeType,
+          }
         });
       }
     }, 2000);
+
     return () => clearTimeout(timeout);
-  }, [tab, dnaConc, desiredDna, dnaRole, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType, addHistoryItem]);
+  }, [
+    tab,
+    dnaConc,
+    desiredDna,
+    dnaRole,
+    selectedEnzymes,
+    totalVolume,
+    enzymeVolume,
+    enzymeType,
+    batchSamples,
+    batchTotalVol,
+    batchEnzymeVol,
+    batchEnzymeType,
+    addHistoryItem
+  ]);
 
   // Filter enzymes based on selected enzyme type
   const getFilteredEnzymes = (type) => {

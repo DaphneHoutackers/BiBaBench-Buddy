@@ -93,28 +93,63 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || tab === 'standards' && standards.every(s => !s.abs) && unknowns.every(u => !u.abs)) return;
+    if (
+      isRestoring ||
+      (tab === 'standards' &&
+        standards.every(s => !s.abs) &&
+        unknowns.every(u => !u.abs))
+    ) return;
+
     const debounce = setTimeout(() => {
-      let title = 'Protein Conc: ';
-      
-      const numValidUnknowns = unknowns.filter(u => u.abs).length;
-      if (numValidUnknowns > 0) {
-        title += `${numValidUnknowns} samples calculated`;
-      } else {
+      let preview = 'Protein concentration calculation';
+
+      if (tab === 'standards') {
+        const numValidUnknowns = unknowns.filter(u => u.abs).length;
         const numValidStds = standards.filter(s => s.abs).length;
-        title += `Standard Curve (${numValidStds} points)`;
+
+        if (numValidUnknowns > 0) {
+          preview = `${numValidUnknowns} sample${numValidUnknowns > 1 ? 's' : ''} calculated`;
+        } else {
+          preview = `Standard curve, ${numValidStds} point${numValidStds !== 1 ? 's' : ''}`;
+        }
+      } else if (tab === 'prep') {
+        const prepCount = unknownResults.filter(r => r.lysateConc_ngul).length;
+        preview = prepCount > 0
+          ? `SDS-PAGE prep, ${prepCount} sample${prepCount > 1 ? 's' : ''}`
+          : 'SDS-PAGE sample prep';
       }
 
       addHistoryItem({
         toolId: 'protein',
-        title: title,
+        toolName: 'Protein Concentration Calculator',
         data: {
-          tab, wrVolume, sampleVolInWR, standards, unknowns, proteinLoad, sampleBufferX, prepTotalVol
+          preview,
+          tab,
+          wrVolume,
+          sampleVolInWR,
+          standards,
+          unknowns,
+          proteinLoad,
+          sampleBufferX,
+          prepTotalVol
         }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
-  }, [tab, wrVolume, sampleVolInWR, standards, unknowns, proteinLoad, sampleBufferX, prepTotalVol, isRestoring, addHistoryItem]);
+  }, [
+    tab,
+    wrVolume,
+    sampleVolInWR,
+    standards,
+    unknowns,
+    proteinLoad,
+    sampleBufferX,
+    prepTotalVol,
+    unknownResults,
+    isRestoring,
+    addHistoryItem
+  ]);
   const wrVol = parseFloat(wrVolume) || 1;
   const sVol = parseFloat(sampleVolInWR) || 10;
 
