@@ -1,7 +1,7 @@
 {
   "name": "bibabench-buddy",
   "private": false,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "author": "Daphne Houtackers",
   "categories": [
@@ -27,8 +27,6 @@
     "app:mac": "rm -rf dist dist-electron release && vite build && electron-builder --mac dmg"
   },
   "dependencies": {
-    "@base44/sdk": "^0.8.20",
-    "@base44/vite-plugin": "^1.0.4",
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",

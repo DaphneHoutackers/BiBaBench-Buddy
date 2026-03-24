@@ -1,6 +1,6 @@
 {
-  "name": "BiBaBench Buddy",
-  "short_name": "BiBaBench",
+  "name": "BiBaBench-Buddy",
+  "short_name": "BiBaBench-Buddy",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
