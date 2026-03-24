@@ -34,7 +34,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_AI_API_KEY: ${{ secrets.VITE_AI_API_KEY }}
         run: npm run app:build
 
       - name: Upload macOS artifact
