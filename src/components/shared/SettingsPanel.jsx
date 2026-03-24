@@ -79,6 +79,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
 
   React.useEffect(() => {
     if (settings.aiProvider === 'openrouter' && orModels.length === 0) {
@@ -269,6 +270,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     if (!isSyncEnabled()) return;
 
     setAuthError('');
+    setAuthMessage('');
     setAuthLoading(true);
 
     try {
@@ -278,7 +280,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
       } else {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        setAuthError('Account created. Check your email if confirmation is enabled.');
+
+        setAuthError('');
+        setAuthMessage('Account succesvol aangemaakt. Je kunt nu inloggen.');
+        setAuthMode('login');
       }
     } catch (err) {
       setAuthError(err.message || 'Authentication failed');
@@ -290,6 +295,9 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const handleOAuth = async () => {
     if (!isSyncEnabled()) return;
 
+    setAuthError('');
+    setAuthMessage('');
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
@@ -690,6 +698,9 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     {authError && (
                       <p className="text-[11px] text-center font-medium text-red-500">{authError}</p>
                     )}
+                    {authMessage && (
+                      <p className="text-[11px] text-center font-medium text-green-500">{authMessage}</p>
+                    )}
 
                     <Button type="submit" disabled={authLoading} className="w-full h-10 bg-teal-600 hover:bg-teal-700 rounded-xl gap-2 shadow-md shadow-teal-500/10">
                       {authLoading ? 'Processing...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
@@ -718,7 +729,11 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                   <p className="text-center text-xs text-slate-400">
                     {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}{' '}
                     <button
-                      onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                      onClick={() => {
+                        setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                        setAuthError('');
+                        setAuthMessage('');
+                      }}
                       className="text-teal-600 font-bold hover:underline"
                     >
                       {authMode === 'login' ? 'Sign Up' : 'Sign In'}
