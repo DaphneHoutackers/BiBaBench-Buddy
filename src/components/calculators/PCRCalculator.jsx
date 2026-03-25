@@ -7,11 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2 } from 'lucide-react';
+import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton from '@/components/shared/CopyTableButton';
+import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const POLYMERASES = {
   'Phusion High-Fidelity': {
@@ -173,22 +175,10 @@ function NumInput({ value, onChange, ...props }) {
   return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
 }
 
-function calcTemplateDilution(rawVol, totalVol) {
-  if (rawVol >= 0.5 || rawVol <= 0) return null;
-  const stockForDil = 2;
-  // Prefer 10× dilution if it gives ≥0.5 µL and fits within total volume
-  const df10Vol = rawVol * 10;
-  if (df10Vol <= totalVol * 0.4 && df10Vol >= 0.5) {
-    return { dilutionFactor: 10, dilutedVol: df10Vol.toFixed(2), stockVol: stockForDil.toFixed(1), mqVol: (stockForDil * 9).toFixed(1), newTemplateVol: df10Vol.toFixed(2), dilutedConc: null };
-  }
-  // Otherwise pick smallest df to get ≥0.5 µL
-  const minDf = Math.ceil(0.5 / rawVol);
-  const dfVol = rawVol * minDf;
-  return { dilutionFactor: minDf, dilutedVol: dfVol.toFixed(2), stockVol: stockForDil.toFixed(1), mqVol: (stockForDil * (minDf - 1)).toFixed(1), newTemplateVol: dfVol.toFixed(2), dilutedConc: null };
-}
 
 export default function PCRCalculator({ externalTab, onTabChange, historyData }) {
   const { addHistoryItem } = useHistory();
+  const tableRef = useRef(null);
   const [tab, setTab] = useState(externalTab || 'mix');
   const [isRestoring, setIsRestoring] = useState(false);
   useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
@@ -336,20 +326,13 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
   // Per-sample template calculations
   const sampleCalcs = samples.map(s => {
     const rawVol = s.conc && s.desiredNg ? parseFloat(s.desiredNg) / parseFloat(s.conc) : 1;
-    let dilution = calcTemplateDilution(rawVol, vol);
-    if (dilution && s.conc) {
-      dilution = { ...dilution, dilutedConc: (parseFloat(s.conc) / dilution.dilutionFactor).toFixed(2) };
-    }
-    const templateVol = dilution ? parseFloat(dilution.newTemplateVol) : rawVol;
+    const dilution = getDilutionSuggestion(s.conc, s.desiredNg, 0.5);
+    const templateVol = dilution ? parseFloat(dilution.newVol) : rawVol;
     const fixedVol = bufferVol + dntpVol + (primersIdentical ? primerVol * 2 : 0) + polyVol + betaineActualVol;
     const mqVol = vol - fixedVol - (!primersIdentical ? primerVol * 2 : 0) - templateVol;
     return { ...s, templateVol: templateVol > 0 ? templateVol : 1, rawTemplateVol: rawVol, dilution, mqVol: Math.max(0, mqVol) };
   });
 
-  // Gradient mode: treat all reactions as identical (same template), just multiple reactions
-  const effectiveSampleCalcs = gradientMode
-    ? [sampleCalcs[0]]
-    : sampleCalcs;
   const gradientNNum = Math.max(1, parseInt(gradientN) || 8);
 
   // MQ in mastermix: only if all template vols are identical and primers are in MM
@@ -364,8 +347,6 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
     extensionTime = Math.max(30, Math.ceil(kb * 30));
   }
 
-  // TA for mix tab (just display, no primer input needed)
-  const annealingTempMix = null;
 
   // ── Ta calculation ──
   useEffect(() => {
@@ -423,17 +404,6 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
     });
   }, [taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc]);
 
-  // Order: MQ, Template DNA, HF buffer, Betaine, dNTPs, DNA polymerase, Forward primer, Reverse primer
-  const componentOrder = [
-    { key: 'mq', label: 'MQ', inMM: mqInMM },
-    { key: 'template', label: 'Template DNA', inMM: allTemplatesIdentical, isTemplate: true },
-    { key: 'buffer', label: `${poly.buffer} (${poly.bufferX}×)`, vol: bufferVol, inMM: true },
-    ...(useBetaine ? [{ key: 'betaine', label: 'Betaine', vol: betaineActualVol, inMM: true }] : []),
-    { key: 'dntps', label: '10mM dNTPs', vol: dntpVol, inMM: true },
-    { key: 'poly', label: polymerase, vol: polyVol, inMM: true },
-    { key: 'fwd', label: `Forward Primer (${primerConc}µM)`, vol: primerVol, inMM: primersIdentical },
-    { key: 'rev', label: `Reverse Primer (${primerConc}µM)`, vol: primerVol, inMM: primersIdentical },
-  ];
 
   const hasMultiple = n > 1;
 
@@ -599,17 +569,6 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                 </Card>
               )}
 
-              {/* Dilution warnings */}
-              {sampleCalcs.some(s => s.dilution) && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
-                  {sampleCalcs.filter(s => s.dilution).map(s => (
-                    <div key={s.id}>
-                      ⚠ <strong>{s.name}</strong> requires only {s.rawTemplateVol.toFixed(2)} µL (&lt;0.5 µL) → dilute 1:{s.dilution.dilutionFactor}: {s.dilution.stockVol} µL stock + {s.dilution.mqVol} µL MQ → {s.dilution.dilutedConc} ng/µL; use <span className="text-rose-600 font-semibold">*{s.dilution.newTemplateVol} µL</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
@@ -617,38 +576,51 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                     <FlaskConical className="w-4 h-4 text-blue-600" />
                     PCR Mix{gradientMode ? ` (Gradient ×${gradientNNum}, MM ×${mmMultiplier})` : hasMultiple ? ` (${n} samples, MM ×${nMM})` : ''}
                     </CardTitle>
-                    <CopyTableButton getData={() => {
-                      if (!hasMultiple) {
-                        const rows = [['Component', 'Volume (µL)']];
-                        const sc = sampleCalcs[0];
-                        rows.push(['MQ', sc.mqVol.toFixed(2)]);
-                        rows.push([`Template DNA (${samples[0].desiredNg} ng)`, sc.templateVol.toFixed(2)]);
-                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, bufferVol.toFixed(2)]);
-                        if (useBetaine) rows.push(['Betaine', betaineActualVol.toFixed(2)]);
-                        rows.push(['10mM dNTPs', dntpVol.toFixed(2)]);
-                        rows.push([polymerase, polyVol.toFixed(2)]);
-                        rows.push([`Forward Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
-                        rows.push([`Reverse Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
-                        rows.push(['Total', vol]);
+                    <div className="flex items-center gap-2">
+                      <CopyTableButton getData={() => {
+                        if (!hasMultiple) {
+                          const rows = [['Component', 'Volume (µL)']];
+                          const sc = sampleCalcs[0];
+                          rows.push(['MQ', sc.mqVol.toFixed(2)]);
+                          rows.push([`Template DNA (${samples[0].desiredNg} ng)`, sc.templateVol.toFixed(2)]);
+                          rows.push([`${poly.buffer} (${poly.bufferX}×)`, bufferVol.toFixed(2)]);
+                          if (useBetaine) rows.push(['Betaine', betaineActualVol.toFixed(2)]);
+                          rows.push(['10mM dNTPs', dntpVol.toFixed(2)]);
+                          rows.push([polymerase, polyVol.toFixed(2)]);
+                          rows.push([`Forward Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
+                          rows.push([`Reverse Primer (${primerConc}µM)`, primerVol.toFixed(2)]);
+                          rows.push(['Total', vol]);
+                          return rows;
+                        }
+                        const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
+                        const rows = [header];
+                        rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
+                        rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
+                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
+                        if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
+                        rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
+                        rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
+                        rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                        rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                        rows.push(['Total', ...samples.map(() => vol), '']);
                         return rows;
-                      }
-                      const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
-                      const rows = [header];
-                      rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
-                      rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
-                      rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
-                      if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
-                      rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
-                      rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
-                      rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                      rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                      rows.push(['Total', ...samples.map(() => vol), '']);
-                      return rows;
-                    }} />
+                      }} />
+                      <CopyImageButton targetRef={tableRef} />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={tableRef}>
+                    {sampleCalcs.some(s => s.dilution) && (
+                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                        <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
+                        {sampleCalcs.filter(s => s.dilution).map(s => (
+                          <div key={s.id} className="font-medium">
+                            {generateDilutionWarning(samples.find(sm => sm.id === s.id)?.name || `Sample ${s.id}`, s.dilution, 0.5)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-blue-50">
@@ -733,7 +705,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                       </tbody>
                     </table>
                   </div>
-                  {sampleCalcs.some(s => s.dilution) && <p className="text-xs text-rose-600 mt-1">* Volume after dilution — see suggestion above.</p>}
+                  {sampleCalcs.some(s => s.dilution) && <p className="text-xs text-rose-600 mt-1">* Volume &lt;0.5 µL — see dilution suggestion above.</p>}
                   {extensionTime && (
                     <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
                       <p className="text-xs text-blue-700">
@@ -757,7 +729,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Forward Primer (5'→3') — full sequence incl. overhang</Label>
+                    <Label className="text-sm text-slate-600">Forward Primer (5&apos;→3&apos;) — full sequence incl. overhang</Label>
                     <Textarea
                       value={taFwdPrimer}
                       onChange={e => setTaFwdPrimer(e.target.value)}
@@ -767,7 +739,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Reverse Primer (5'→3') — full sequence incl. overhang</Label>
+                    <Label className="text-sm text-slate-600">Reverse Primer (5&apos;→3&apos;) — full sequence incl. overhang</Label>
                     <Textarea
                       value={taRevPrimer}
                       onChange={e => setTaRevPrimer(e.target.value)}

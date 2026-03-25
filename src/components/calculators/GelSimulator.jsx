@@ -7,107 +7,83 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Microscope, Plus, Trash2, Copy, Check, Search, X } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
+import {
+  RECOGNITION_SEQS,
+  searchEnzymes,
+  getEnzymeDisplayName,
+} from '@/lib/enzymes';
 
 // ── DNA Ladders ──
 const LADDERS = {
-  'GeneRuler 1kb Plus': [20000, 10000, 7000, 5000, 3000, 2000, 1500, 1000, 700, 500, 400, 300, 200, 75],
-  'GeneRuler 100bp Plus': [3000, 2000, 1500, 1200, 1031, 900, 800, 700, 600, 500, 400, 300, 200, 100],
-  'GeneRuler 1kb': [10000, 8000, 6000, 5000, 4000, 3000, 2500, 2000, 1500, 1000, 750, 500, 250],
-  'GeneRuler DNA Ladder Mix': [10000, 8000, 6000, 5000, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
-  'NEB 1kb Ladder': [10000, 8000, 6000, 5000, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
+  'GeneRuler 1kb Plus': [20000, 10000, 7000, 5000, 4000, 3000, 2000, 1500, 1000, 700, 500, 400, 300, 200, 75],
+  'GeneRuler 100bp Plus': [3000, 2000, 1500, 1200, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
+  'GeneRuler 100bp': [1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
+  'GeneRuler 1kb': [10000, 8000, 6000, 5000, 4000, 3500, 3000, 2500, 2000, 1500, 1000, 750, 500, 250],
+  'GeneRuler DNA Ladder Mix': [10000, 8000, 6000, 5000, 4000, 3500, 3000, 2500, 2000, 1500, 1200, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
+  'NEB 1kb Ladder': [10000, 8000, 6000, 5000, 4000, 3000, 2000, 1500, 1000, 500],
+  'NEB 1kb Plus Ladder': [10000, 8000, 6000, 5000, 4000, 3000, 2000, 1500, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
   'NEB 100bp Ladder': [1517, 1200, 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100],
-  "Thermo O'GeneRuler 1kb": [10000, 8000, 6000, 5000, 4000, 3000, 2500, 2000, 1500, 1000, 750, 500, 250],
+  "Thermo O'GeneRuler 1kb": [10000, 8000, 6000, 5000, 4000, 3500, 3000, 2500, 2000, 1500, 1000, 750, 500, 250],
 };
 // Red-colored bands per ladder (like real Thermo/NEB ladders)
 const LADDER_RED = {
   'GeneRuler 1kb Plus': [5000, 1500, 500],
-  'GeneRuler 100bp Plus': [1000, 500, 100],
+  'GeneRuler 100bp Plus': [1000, 500],
+  'GeneRuler 100bp': [500],
   'GeneRuler 1kb': [6000, 3000, 1000],
   'GeneRuler DNA Ladder Mix': [6000, 3000, 1000, 500],
-  'NEB 1kb Ladder': [10000, 3000, 1000],
-  'NEB 100bp Ladder': [1000, 500, 100],
+  'NEB 1kb Ladder': [3000],
+  'NEB 1kb Plus Ladder': [3000, 1000, 500],
+  'NEB 100bp Ladder': [1000, 500],
   "Thermo O'GeneRuler 1kb": [6000, 3000, 1000],
 };
 const LADDER_BOLD = {
-  'GeneRuler 1kb Plus': [10000, 3000, 1000, 500],
-  'GeneRuler 100bp Plus': [3000, 1000, 500, 100],
-  'GeneRuler 1kb': [10000, 3000, 1000, 500],
-  'GeneRuler DNA Ladder Mix': [10000, 3000, 1000, 500, 100],
-  'NEB 1kb Ladder': [10000, 3000, 1000, 500, 100],
-  'NEB 100bp Ladder': [1000, 500, 100],
-  "Thermo O'GeneRuler 1kb": [10000, 3000, 1000, 500],
+  'GeneRuler 1kb Plus': [5000, 1500, 500],
+  'GeneRuler 100bp Plus': [1000, 500],
+  'GeneRuler 1kb': [6000, 3000, 1000],
+  'GeneRuler 100bp': [500],
+  'GeneRuler DNA Ladder Mix': [6000, 3000, 1000, 500],
+  'NEB 1kb Ladder': [3000],
+  'NEB 1kb Plus Ladder': [3000, 1000, 500],
+  'NEB 100bp Ladder': [1000, 500],
+  "Thermo O'GeneRuler 1kb": [6000, 3000, 1000],
 };
 
 // ── Protein Ladders for WB ──
 const PROTEIN_LADDERS = {
-  'PageRuler™ Prestained': {
-    bands: [250, 130, 100, 70, 55, 40, 35, 25, 15, 10],
-    colors: { 250: '#2563eb', 130: '#2563eb', 100: '#2563eb', 70: '#ea580c', 55: '#2563eb', 40: '#2563eb', 35: '#2563eb', 25: '#2563eb', 15: '#2563eb', 10: '#16a34a' },
-    bold: [250, 70, 25, 10],
+  'PageRuler™ Prestained Protein Ladder': {
+    bands: [180, 130, 100, 70, 55, 40, 35, 25, 15, 10],
+    colors: { 180: '#2563eb', 130: '#2563eb', 100: '#2563eb', 70: '#ea580c', 55: '#2563eb', 40: '#2563eb', 35: '#2563eb', 25: '#2563eb', 15: '#2563eb', 10: '#16a34a' },
+    bold: [180, 70, 25, 10],
   },
-  'PageRuler™ Plus Prestained': {
-    bands: [250, 150, 100, 70, 50, 37, 25, 20, 15, 10],
-    colors: { 250: '#2563eb', 150: '#2563eb', 100: '#2563eb', 70: '#ea580c', 50: '#2563eb', 37: '#2563eb', 25: '#2563eb', 20: '#2563eb', 15: '#2563eb', 10: '#16a34a' },
+  'PageRuler™ Plus Prestained Protein Ladder': {
+    bands: [250, 130, 100, 70, 55, 35, 25, 15, 10],
+    colors: { 250: '#2563eb', 130: '#2563eb', 100: '#2563eb', 70: '#ea580c', 55: '#2563eb', 35: '#2563eb', 25: '#2563eb', 15: '#2563eb', 10: '#16a34a' },
     bold: [250, 70, 25, 10],
   },
   'BenchMark™ Protein Ladder': {
-    bands: [220, 160, 120, 100, 80, 60, 40, 30, 20, 10],
+    bands: [220, 160, 120, 100, 90, 80, 70, 60, 50, 40, 30, 25, 20, 15, 10],
     colors: {},
     bold: [220, 100, 60, 20],
   },
-  'NEB Broad Range Protein Marker': {
-    bands: [200, 116, 97, 66, 45, 31, 21, 14, 6],
-    colors: {},
-    bold: [200, 66, 21],
+  'BenchMark™ Prestained Protein Ladder': {
+    bands: [190, 120, 85, 60, 50, 40, 25, 20, 15, 10],
+    colors: {190: '#2563eb', 120: '#2563eb', 85: '#2563eb', 60: '#ea580c', 50: '#2563eb', 40: '#2563eb', 25: '#2563eb', 20: '#2563eb', 15: '#2563eb', 10: '#16a34a'},
+    bold: [60],
   },
-  'Precision Plus Protein™ Kaleidoscope': {
+  'Color Prestained Protein Standard, Broad Range': {
+    bands: [250, 180, 130, 95, 72, 55, 43, 34, 26, 17, 10],
+    colors: {250: '#2563eb', 180: '#2563eb', 130: '#2563eb', 95: '#2563eb', 72: '#ea580c', 55: '#2563eb', 43: '#2563eb', 34: '#2563eb', 26: '#16a34a', 17: '#2563eb', 10: '#2563eb'},
+    bold: [72, 10],
+  },
+  'Precision Plus Protein™ Kaleidoscope™ Prestained Protein Standard': {
     bands: [250, 150, 100, 75, 50, 37, 25, 20, 15, 10],
-    colors: {
-      250: '#e11d48', 150: '#dc2626', 100: '#16a34a', 75: '#2563eb',
-      50: '#e11d48', 37: '#2563eb', 25: '#2563eb', 20: '#f97316', 15: '#2563eb', 10: '#2563eb'
-    },
-    bold: [250, 100, 50, 25],
+    colors: {250: '#2563eb', 150: '#a51ac4', 100: '#2563eb', 75: '#e92ab6', 50: '#2563eb', 37: '#16a34a', 25: '#e92ab6', 20: '#2563eb', 15: '#2563eb', 10: '#f6f69e'},
+    bold: [150, 75, 25, 10],
   },
 };
 
-// ── Restriction enzyme recognition sequences ──
-const RECOGNITION_SEQS = {
-  'AatII': 'GACGTC', 'AclI': 'AACGTT', 'AfeI': 'AGCGCT', 'AflII': 'CTTAAG',
-  'AflIII': 'ACRYGT', 'AgeI': 'ACCGGT', 'AhdI': 'GACNNNNNGTC',
-  'ApaI': 'GGGCCC', 'ApaLI': 'GTGCAC', 'ApoI': 'RAATTY', 'AscI': 'GGCGCGCC',
-  'AseI': 'ATTAAT', 'AsiSI': 'GCGATCGC', 'AvaI': 'CYCGRG', 'AvaII': 'GGWCC',
-  'AvrII': 'CCTAGG', 'BamHI': 'GGATCC', 'BbsI': 'GAAGAC', 'BbvCI': 'CCTCAGC',
-  'BclI': 'TGATCA', 'BglII': 'AGATCT', 'BlpI': 'GCTNAGC', 'BmgBI': 'CACGTC',
-  'BmtI': 'GCTAGC', 'BsaBI': 'GATNNNNATC', 'BsaI': 'GGTCTC', 'BseYI': 'CCCAGC',
-  'BsgI': 'GTGCAG', 'BsiHKAI': 'GWGCWC', 'BsiWI': 'CGTACG', 'BsmBI': 'CGTCTC',
-  'BsmI': 'GAATGC', 'BspDI': 'ATCGAT', 'BspEI': 'TCCGGA', 'BspHI': 'TCATGA',
-  'BspQI': 'GCTCTTC', 'BsrBI': 'CCGCTC', 'BsrFI': 'RCCGGY', 'BsrGI': 'TGTACA',
-  'BssHII': 'GCGCGC', 'BssSI': 'CACGAG', 'BstBI': 'TTCGAA', 'BstEII': 'GGTNACC',
-  'BstNI': 'CCWGG', 'BstUI': 'CGCG', 'BstYI': 'RGATCY', 'BstZ17I': 'GTATAC',
-  'BshTI': 'ACCGGT', 'Eco31I': 'GGTCTC', 'Eco32I': 'GATATC',
-  'ClaI': 'ATCGAT', 'CviAII': 'CATG', 'CviQI': 'GTAC',
-  'DpnI': 'GATC', 'DpnII': 'GATC', 'DraI': 'TTTAAA',
-  'EagI': 'CGGCCG', 'EarI': 'CTCTTC', 'EcoNI': 'CCTNNNNNAGG', 'EcoRI': 'GAATTC',
-  'EcoRV': 'GATATC', 'EcoT22I': 'ATGCAT', 'FseI': 'GGCCGGCC', 'FspI': 'TGCGCA',
-  'HaeII': 'RGCGCY', 'HaeIII': 'GGCC', 'HincII': 'GTYRAC', 'HindII': 'GTYRAC',
-  'HindIII': 'AAGCTT', 'HinfI': 'GANTC', 'HpaI': 'GTTAAC', 'HpaII': 'CCGG',
-  'HphI': 'GGTGA', 'KasI': 'GGCGCC', 'KpnI': 'GGTACC',
-  'MboI': 'GATC', 'MfeI': 'CAATTG', 'MluCI': 'AATT', 'MluI': 'ACGCGT',
-  'MscI': 'TGGCCA', 'MseI': 'TTAA', 'MspI': 'CCGG',
-  'NarI': 'GGCGCC', 'NcoI': 'CCATGG', 'NdeI': 'CATATG', 'NgoMIV': 'GCCGGC',
-  'NheI': 'GCTAGC', 'NlaIII': 'CATG', 'NotI': 'GCGGCCGC',
-  'NruI': 'TCGCGA', 'NsiI': 'ATGCAT', 'NspI': 'RCATGY',
-  'PacI': 'TTAATTAA', 'PciI': 'ACATGT', 'PmeI': 'GTTTAAAC',
-  'PmlI': 'CACGTG', 'PspOMI': 'GGGCCC', 'PstI': 'CTGCAG',
-  'PvuI': 'CGATCG', 'PvuII': 'CAGCTG', 'RsrII': 'CGGWCCG',
-  'SacI': 'GAGCTC', 'SacII': 'CCGCGG', 'SalI': 'GTCGAC', 'SbfI': 'CCTGCAGG',
-  'ScaI': 'AGTACT', 'SfiI': 'GGCCNNNNNGGCC', 'SmaI': 'CCCGGG',
-  'SnaBI': 'TACGTA', 'SpeI': 'ACTAGT', 'SphI': 'GCATGC', 'SspI': 'AATATT',
-  'StuI': 'AGGCCT', 'SwaI': 'ATTTAAAT', 'TaqI': 'TCGA',
-  'XbaI': 'TCTAGA', 'XhoI': 'CTCGAG', 'XhoII': 'RGATCY', 'XmaI': 'CCCGGG',
-  'XmaIII': 'CGGCCG', 'XmnI': 'GAANNNNTTC',
-};
-const ALL_ENZYMES = Object.keys(RECOGNITION_SEQS).sort();
+
 
 // ── Utility functions ──
 function reverseComplement(seq) {
@@ -259,34 +235,71 @@ function NumInput({ value, onChange, ...props }) {
 
 function EnzymePickerInline({ selectedEnzymes, onAdd, onRemove }) {
   const [query, setQuery] = useState('');
-  const filtered = ALL_ENZYMES.filter(e =>
-    e.toLowerCase().includes(query.toLowerCase()) && !selectedEnzymes.includes(e)
-  );
+
+  const selectedDisplayNames = selectedEnzymes.map(getEnzymeDisplayName);
+
+  const filtered = searchEnzymes(query).filter(enzyme => {
+    const displayName = getEnzymeDisplayName(enzyme.name);
+    return !selectedDisplayNames.includes(displayName);
+  });
+
+  const uniqueFiltered = filtered.reduce((acc, enzyme) => {
+    const displayName = getEnzymeDisplayName(enzyme.name);
+    if (!acc.some(item => getEnzymeDisplayName(item.name) === displayName)) {
+      acc.push(enzyme);
+    }
+    return acc;
+  }, []);
+
   return (
     <div className="space-y-2">
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search enzymes..." className="pl-8 h-8 text-sm border-slate-200" />
+        <Input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search enzymes..."
+          className="pl-8 h-8 text-sm border-slate-200"
+        />
       </div>
+
       {query && (
         <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg bg-white divide-y divide-slate-50">
-          {filtered.length === 0
-            ? <p className="text-xs text-slate-400 text-center py-2">No enzymes found</p>
-            : filtered.slice(0, 20).map(e => (
-              <button key={e} onClick={() => { onAdd(e); setQuery(''); }}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-rose-50 flex items-center justify-between">
-                <span className="font-medium text-slate-700">{e}</span>
-                <span className="text-xs text-slate-400 font-mono">{RECOGNITION_SEQS[e]}</span>
+          {uniqueFiltered.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-2">No enzymes found</p>
+          ) : (
+            uniqueFiltered.slice(0, 20).map(enzyme => (
+              <button
+                key={enzyme.name}
+                onClick={() => {
+                  onAdd(enzyme.name);
+                  setQuery('');
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-rose-50 flex items-center justify-between"
+              >
+                <span className="font-medium text-slate-700">
+                  {getEnzymeDisplayName(enzyme.name)}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {enzyme.seq}
+                </span>
               </button>
-            ))}
+            ))
+          )}
         </div>
       )}
+
       {selectedEnzymes.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selectedEnzymes.map(e => (
-            <span key={e} className="flex items-center gap-1 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-full px-2 py-0.5 font-medium">
-              {e}
-              <button onClick={() => onRemove(e)} className="hover:text-red-700"><X className="w-3 h-3" /></button>
+            <span
+              key={e}
+              className="flex items-center gap-1 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-full px-2 py-0.5 font-medium"
+            >
+              {getEnzymeDisplayName(e)}
+              <button onClick={() => onRemove(e)} className="hover:text-red-700">
+                <X className="w-3 h-3" />
+              </button>
             </span>
           ))}
         </div>
@@ -344,41 +357,40 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
       ctx.stroke();
     });
     ctx.setLineDash([]);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '8px sans-serif';
+    ctx.fillStyle = '#475569';
+    ctx.font = '10px Inter';
     ctx.textAlign = 'right';
     ctx.fillText('bp', GEL_PADDING_LEFT - 4, GEL_TOP - 4);
 
     // ── Ladder lane ──
     const ladderX = GEL_PADDING_LEFT + Math.round(LANE_WIDTH * 0.5);
     ctx.fillStyle = '#475569';
-    ctx.font = 'bold 9px sans-serif';
+    ctx.font = 'bold 10px Inter';
     ctx.textAlign = 'center';
     ctx.fillText('Ladder', ladderX, GEL_TOP - 6);
 
-    const bw = Math.round(LANE_WIDTH * 0.72);
+    const bw = Math.round(LANE_WIDTH * 0.74);
     ladderBands.forEach(bp => {
       const y = bpToY(bp, 50, 20000, migFactor) * gelAreaH + GEL_TOP;
       const isBold = boldBands.includes(bp);
       const isRed = redBands.includes(bp);
-      const h = isBold ? BAND_H + 2 : BAND_H;
+      const h = isBold ? BAND_H + 0 : BAND_H;
       ctx.fillStyle = isRed ? '#dc2626' : '#1e293b';
       ctx.fillRect(ladderX - Math.round(bw / 2), Math.round(y - h / 2), bw, h);
       // Label ALL bands on the LEFT side only
       ctx.fillStyle = isRed ? '#dc2626' : '#334155';
-      ctx.font = isBold ? 'bold 8px monospace' : '8px monospace';
+      ctx.font = isBold ? 'bold 12px Inter' : '12px Inter';
       ctx.textAlign = 'right';
-      ctx.fillText(`${bp}`, ladderX - Math.round(bw / 2) - 3, y + 3.5);
+      ctx.fillText(`${bp}`, ladderX - Math.round(bw / 2) - 14, y + 4.5);
     });
 
     // ── Sample lanes ──
     const hits = [];
     activeLanes.forEach((lane, idx) => {
       const laneX = GEL_PADDING_LEFT + LANE_WIDTH * (idx + 1) + Math.round(LANE_WIDTH * 0.5);
-      const laneColor = (laneColors && laneColors[lane.id]) || LANE_COLORS[idx % LANE_COLORS.length];
 
       ctx.fillStyle = '#111827';
-      ctx.font = 'bold 11px sans-serif';
+      ctx.font = 'bold 12px Inter';
       ctx.textAlign = 'center';
       const lbl = lane.label || String(idx + 1);
       ctx.fillText(lbl.length > 10 ? lbl.slice(0, 10) + '…' : lbl, laneX, GEL_TOP - 6);
@@ -392,15 +404,15 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
         ctx.fillRect(laneX - Math.round(bw / 2), Math.round(y - BAND_H / 2), bw, BAND_H);
 
         ctx.fillStyle = '#64748b';
-        ctx.font = '7px monospace';
+        ctx.font = '8px Inter';
         ctx.textAlign = 'center';
-        ctx.fillText(`${bp}`, laneX, Math.round(y + BAND_H / 2) + 8);
+        ctx.fillText(`${bp}`, laneX, Math.round(y + BAND_H / 2) + 11);
 
         if (isExcised) {
           ctx.strokeStyle = '#ef4444';
           ctx.lineWidth = 1.5;
-          ctx.setLineDash([3, 2]);
-          ctx.strokeRect(laneX - Math.round(bw / 2) - 3, Math.round(y - BAND_H / 2) - 4, bw + 6, BAND_H + 8);
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(laneX - Math.round(bw / 2) - 3, Math.round(y - BAND_H / 2) - 4, bw + 6, BAND_H + 7);
           ctx.setLineDash([]);
         }
         hits.push({ x: laneX - Math.round(bw / 2) - 6, y: Math.round(y - BAND_H / 2) - 6, w: bw + 12, h: BAND_H + 12, laneId: lane.id, bp });
@@ -506,7 +518,7 @@ const WB_GEL_TYPES = {
 };
 
 function WesternBlotTab() {
-  const [selectedLadder, setSelectedLadder] = useState('PageRuler™ Prestained');
+  const [selectedLadder, setSelectedLadder] = useState('PageRuler™ Prestained Protein Ladder');
   const [gelType, setGelType] = useState('Tris-Glycine');
   const [gelPct, setGelPct] = useState('10');
   const [proteins, setProteins] = useState([
@@ -524,7 +536,6 @@ function WesternBlotTab() {
   // Get band Y positions from gel type/pct table or fall back to log scale
   const getBandY = (kda, wbAreaH, WB_TOP) => {
     const posMap = PAGruler_GEL_POSITIONS[gelType]?.[gelPct];
-    const ladderData = PROTEIN_LADDERS[selectedLadder] || PROTEIN_LADDERS['PageRuler™ Prestained'];
     if (posMap) {
       // Interpolate between known kda positions
       const kdas = Object.keys(posMap).map(Number).sort((a,b) => b-a); // high to low
@@ -564,15 +575,15 @@ function WesternBlotTab() {
     }));
   };
 
-  const ladderData = PROTEIN_LADDERS[selectedLadder] || PROTEIN_LADDERS['PageRuler™ Prestained'];
+  const ladderData = PROTEIN_LADDERS[selectedLadder] || PROTEIN_LADDERS['PageRuler™ Prestained Protein Ladder'];
 
-  const WB_HEIGHT = 520;
-  const WB_TOP = 36;
-  const WB_BOTTOM = WB_HEIGHT - 16;
+  const WB_HEIGHT = 500;
+  const WB_TOP = 34;
+  const WB_BOTTOM = WB_HEIGHT - 11;
   const wbAreaH = WB_BOTTOM - WB_TOP;
-  const WB_PAD_LEFT = 65;
+  const WB_PAD_LEFT = 35;
   const WB_PAD_RIGHT = 20;
-  const BAND_THICKNESS = 10;
+  const BAND_THICKNESS = 7;
   const totalLanes = 1 + proteins.length;
   const wbWidth = WB_PAD_LEFT + totalLanes * LANE_WIDTH + WB_PAD_RIGHT;
   const bw = Math.round(LANE_WIDTH * 0.72);
@@ -605,25 +616,25 @@ function WesternBlotTab() {
     });
     ctx.setLineDash([]);
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '8px sans-serif';
+    ctx.font = '9px Inter';
     ctx.textAlign = 'right';
     ctx.fillText('kDa', WB_PAD_LEFT - 4, WB_TOP - 4);
 
     const ladderX = WB_PAD_LEFT + Math.round(LANE_WIDTH * 0.5);
     ctx.fillStyle = '#374151';
-    ctx.font = 'bold 11px sans-serif';
+    ctx.font = 'bold 12px Inter';
     ctx.textAlign = 'center';
     ctx.fillText('Ladder', ladderX, WB_TOP - 8);
 
     ladderData.bands.forEach(kda => {
       const y = getBandY(kda, wbAreaH, WB_TOP);
       const isBold = ladderData.bold?.includes(kda);
-      const h = isBold ? BAND_THICKNESS + 3 : BAND_THICKNESS;
+      const h = isBold ? BAND_THICKNESS + 0 : BAND_THICKNESS;
       const bandColor = ladderData.colors?.[kda] || '#374151';
       ctx.fillStyle = bandColor;
       ctx.fillRect(ladderX - Math.round(bw / 2), Math.round(y - h / 2), bw, h);
       ctx.fillStyle = '#374151';
-      ctx.font = isBold ? 'bold 8px monospace' : '8px monospace';
+      ctx.font = isBold ? 'bold 10px Inter' : '10px Inter';
       ctx.textAlign = 'right';
       ctx.fillText(`${kda}`, ladderX - Math.round(bw / 2) - 3, y + 3.5);
     });
@@ -632,7 +643,7 @@ function WesternBlotTab() {
       const laneX = WB_PAD_LEFT + LANE_WIDTH * (idx + 1) + Math.round(LANE_WIDTH * 0.5);
       const color = prot.color || '#ef4444';
       ctx.fillStyle = '#111827';
-      ctx.font = 'bold 11px sans-serif';
+      ctx.font = 'bold 11px Inter';
       ctx.textAlign = 'center';
       const lbl = prot.name || `Protein ${idx + 1}`;
       ctx.fillText(lbl.length > 10 ? lbl.slice(0, 10) + '…' : lbl, laneX, WB_TOP - 8);
@@ -642,7 +653,7 @@ function WesternBlotTab() {
         ctx.fillStyle = color;
         ctx.fillRect(laneX - Math.round(bw / 2), Math.round(y - BAND_THICKNESS / 2), bw, BAND_THICKNESS);
         ctx.fillStyle = '#374151';
-        ctx.font = '7px monospace';
+        ctx.font = '10px Inter';
         ctx.textAlign = 'center';
         ctx.fillText(`${prot.kda} kDa`, laneX, Math.round(y + BAND_THICKNESS / 2) + 9);
       }
@@ -983,14 +994,14 @@ export default function GelAndWBSimulator({ historyData }) {
                         </div>
                         <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
                           <button onClick={() => updateLane(lane.id, 'type', 'manual')}
-                            className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
+                            className={`px-2 py-0.5 text-[11px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
                             Manual
                           </button>
                           <button onClick={() => updateLane(lane.id, 'type', 'sequence')}
                             className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'sequence' ? 'bg-white shadow-sm text-rose-600' : 'text-slate-500'}`}>
                             Digest
                           </button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-300 hover:text-red-500" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-400 hover:text-red-500" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
                             <X className="w-3 h-3" />
                           </Button>
                         </div>
@@ -998,14 +1009,14 @@ export default function GelAndWBSimulator({ historyData }) {
 
                       {lane.type === 'manual' ? (
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] text-slate-500 uppercase font-bold">DNA Fragments</Label>
+                          <Label className="text-[11px] text-slate-500 uppercase font-bold">DNA Fragments</Label>
                           <Input value={lane.manualFragments} onChange={e => updateLane(lane.id, 'manualFragments', e.target.value)}
                             className="h-8 text-sm border-slate-200 bg-white font-mono" placeholder="Fragment sizes bp (e.g. 500, 1200, 3000)" />
                         </div>
                       ) : (
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <Label className="text-[10px] text-slate-500 uppercase font-bold">DNA Sequence</Label>
+                            <Label className="text-[11px] text-slate-500 uppercase font-bold">DNA Sequence</Label>
                             <textarea value={lane.sequence} onChange={e => updateLane(lane.id, 'sequence', e.target.value)}
                               className="w-full h-16 text-[10px] font-mono border border-slate-200 rounded-md p-2 resize-none bg-white" placeholder="Paste DNA sequence..." />
                           </div>
@@ -1065,7 +1076,7 @@ export default function GelAndWBSimulator({ historyData }) {
                         <p className="font-bold text-slate-700">{lane.label}: {cache?.fragments?.length || 0} fragments</p>
                         {cache?.enzymeSites?.map((e, idx) => (
                           <p key={idx} className="text-slate-500 ml-2">
-                            <span className="text-rose-600 font-semibold">{e.enzyme}</span>: {e.sites.length} cuts
+                            <span className="text-rose-600 font-semibold">{getEnzymeDisplayName(e.enzyme)}</span>: {e.sites.length} cuts
                           </p>
                         ))}
                       </div>

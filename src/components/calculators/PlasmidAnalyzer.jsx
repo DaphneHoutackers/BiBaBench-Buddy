@@ -4,23 +4,26 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import {
-  Upload, Download, Plus, Trash2, Edit3, X, Check, Scissors, Dna,
-  Eye, EyeOff, Save, List, Library, Search
+  Upload, Download, Plus, Trash2, Edit3, X, Check,
+  Eye, EyeOff, Save, Library, Search, Dna
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
 import { useHistory } from '@/context/HistoryContext';
-import { ENZYME_DB } from '@/lib/enzymes';
+import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
 // ── Constants ─────────────────────────────────────────────────────────────────
-const COLOR_PALETTE = ['#3b82f6','#8b5cf6','#f59e0b','#ef4444','#10b981','#06b6d4','#6366f1','#f97316','#84cc16','#ec4899','#14b8a6','#f43f5e'];
 const FEATURE_DEFAULTS = { CDS:'#3b82f6', gene:'#8b5cf6', promoter:'#f59e0b', terminator:'#ef4444', rep_origin:'#10b981', primer_bind:'#06b6d4', misc_feature:'#6366f1', regulatory:'#f97316' };
 const RE_HIGHLIGHT_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f43f5e','#84cc16'];
 const PRIMER_COLORS = ['#f59e0b','#22c55e','#ec4899','#06b6d4','#f97316','#8b5cf6','#84cc16','#ef4444'];
 const RE_DB = Object.entries(ENZYME_DB)
-  .filter(([name, info]) => !info.fd && !name.endsWith('-HF'))
   .reduce((acc, [name, info]) => {
-    acc[name] = info.seq;
+    const displayName = getEnzymeDisplayName(name);
+
+    if (!acc[displayName]) {
+      acc[displayName] = info.seq;
+    }
+
     return acc;
   }, {});
 
@@ -40,8 +43,9 @@ function findCutSites(seq, recog) {
   return [...new Set(sites)].sort((a, b) => a - b);
 }
 
-function findPrimerSites(primerSeq, dnaSeq) {
-  const p = primerSeq.toUpperCase().replace(/[^ATGCN]/g, '');
+function findPrimerSites(primerSeq, dnaSeq, annealingSeq) {
+  const raw = (annealingSeq || primerSeq).toUpperCase().replace(/[^ATGCN]/g, '');
+  const p = raw;
   if (!p || p.length < 8) return [];
   const s = dnaSeq.toUpperCase();
   const sites = [];
@@ -50,6 +54,23 @@ function findPrimerSites(primerSeq, dnaSeq) {
   const rc = revComp(p);
   if (rc !== p) { i = 0; while ((i = s.indexOf(rc, i)) !== -1) { sites.push({ start: i, end: i + p.length, strand: -1 }); i++; } }
   return sites;
+}
+
+// Auto-detect annealing region: try successively shorter suffixes of full primer against the target DNA
+function detectAnnealing(fullSeq, dnaSeq) {
+  if (!fullSeq || !dnaSeq || dnaSeq.length < 10) return { overhang: '', annealing: fullSeq.toUpperCase() };
+  const p = fullSeq.toUpperCase().replace(/[^ATGCN]/g, '');
+  const s = dnaSeq.toUpperCase();
+  const MIN = 14;
+  for (let start = 0; start <= p.length - MIN; start++) {
+    const candidate = p.slice(start);
+    const rcCandidate = revComp(candidate);
+    if (s.includes(candidate) || s.includes(rcCandidate)) {
+      return { overhang: p.slice(0, start).toLowerCase(), annealing: candidate };
+    }
+  }
+  // No match found — treat whole primer as annealing (no overhang detected)
+  return { overhang: '', annealing: p };
 }
 
 function parseFasta(text) {
@@ -99,6 +120,25 @@ function parseGenBank(text) {
   }
   finishCur();
   return { name, sequence: sequence.toUpperCase().replace(/[^ATGCN]/g, ''), features, isCircular };
+}
+
+function parseFileContent(filename, content) {
+  const ext = filename.split('.').pop().toLowerCase();
+  
+  // Structure code so parsing can be extended later
+  switch (ext) {
+    case 'dna':
+    case 'fasta':
+    case 'fa':
+    case 'fna':
+    case 'gb':
+    case 'gbk':
+    case 'ape':
+    case 'txt':
+    default:
+      // Currently just load file content directly as raw input
+      return content;
+  }
 }
 
 // ── Circular Map ──────────────────────────────────────────────────────────────
@@ -152,42 +192,50 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeature
         return <path key={i} d={d} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.82} stroke={isSel ? '#1e293b' : 'white'} strokeWidth={isSel ? 1.5 : 0.5} cursor="pointer" onClick={(e) => { e.stopPropagation(); onFeatureClick ? onFeatureClick(e, feat, i) : onSelect(i === selectedIdx ? null : i); }} />;
       })}
       {(() => {
-        const labelR = R + 45;
-        const sortedFeatures = features.map((feat, i) => ({ ...feat, index: i, ma: ang((feat.start + feat.end) / 2) })).sort((a, b) => a.ma - b.ma);
-        const rightLabels = sortedFeatures.filter(f => Math.cos(f.ma) >= 0);
-        const leftLabels = sortedFeatures.filter(f => Math.cos(f.ma) < 0);
-        
-        const resolve = (labels, isRight) => {
-           let lastY = -Infinity;
-           labels.forEach(l => {
-             let ty = cy + labelR * Math.sin(l.ma);
-             if (ty < lastY + 16) ty = lastY + 16;
-             l.ly = ty;
-             l.lx = isRight ? cx + labelR + 10 : cx - labelR - 10;
-             lastY = ty;
-           });
-           if (labels.length > 0) {
-             const overflow = labels[labels.length - 1].ly - (cy + labelR + 70);
-             if (overflow > 0) {
-                const shift = overflow / labels.length;
-                labels.forEach((l, i) => l.ly -= shift * i);
-             }
+        const labelR = R + 40;
+        const sortedFeatures = features.map((feat, i) => {
+           let ma = ang((feat.start + feat.end) / 2);
+           while (ma < 0) ma += 2 * Math.PI;
+           return { ...feat, index: i, ma, labelAngle: ma };
+        }).sort((a, b) => a.ma - b.ma);
+
+        const minAngDist = 18 / labelR;
+        for (let iter = 0; iter < 10; iter++) {
+           for (let i = 0; i < sortedFeatures.length; i++) {
+              const curr = sortedFeatures[i];
+              const next = sortedFeatures[(i + 1) % sortedFeatures.length];
+              let diff = next.labelAngle - curr.labelAngle;
+              if (diff < 0 && i === sortedFeatures.length - 1) diff += 2 * Math.PI;
+              if (diff < minAngDist) {
+                 const push = (minAngDist - diff) / 2;
+                 curr.labelAngle -= push;
+                 next.labelAngle += push;
+              }
            }
-        };
-        resolve(rightLabels, true);
-        resolve(leftLabels, false);
-        
-        return [...rightLabels, ...leftLabels].sort((a,b) => a.index - b.index).map((l, idx) => {
-          const ma = l.ma, fx = cx + (l.strand === -1 ? R - 8 : R + 8) * Math.cos(ma), fy = cy + (l.strand === -1 ? R - 8 : R + 8) * Math.sin(ma);
-          const ox = cx + (R + 25) * Math.cos(ma), oy = cy + (R + 25) * Math.sin(ma);
-          const isRight = Math.cos(ma) >= 0;
+        }
+
+        return sortedFeatures.sort((a,b) => a.index - b.index).map((l, idx) => {
+          const ma = l.ma;
+          const la = l.labelAngle;
+          
+          const fx = cx + (l.strand === -1 ? R - 8 : R + 8) * Math.cos(ma);
+          const fy = cy + (l.strand === -1 ? R - 8 : R + 8) * Math.sin(ma);
+          
+          const ex = cx + labelR * Math.cos(la);
+          const ey = cy + labelR * Math.sin(la);
+          
+          const isRight = Math.cos(la) >= 0;
+          const lx = ex + (isRight ? 5 : -5);
+          const ly = ey;
+          
           const textW = l.label.length * 5.5 + 10;
-          const rectX = isRight ? l.lx : l.lx - textW;
+          const rectX = isRight ? lx : lx - textW;
+          
           return (
              <g key={`l${l.index}`} style={{ pointerEvents: 'none' }}>
-                <polyline points={`${fx},${fy} ${ox},${oy} ${isRight ? l.lx - 5 : l.lx + 5},${l.ly} ${l.lx},${l.ly}`} fill="none" stroke="#94a3b8" strokeWidth="1" />
-                <rect x={rectX} y={l.ly - 7} width={textW} height={14} rx={3} fill={l.color || '#e2e8f0'} fillOpacity={0.15} stroke={l.color || '#94a3b8'} strokeWidth="0.5" />
-                <text x={isRight ? l.lx + 5 : l.lx - 5} y={l.ly + 1} textAnchor={isRight ? 'start' : 'end'} dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{l.label}</text>
+                <polyline points={`${fx},${fy} ${ex},${ey} ${lx},${ly}`} fill="none" stroke="#94a3b8" strokeWidth="1" />
+                <rect x={rectX} y={ly - 7} width={textW} height={14} rx={3} fill={l.color || '#e2e8f0'} fillOpacity={0.15} stroke={l.color || '#94a3b8'} strokeWidth="0.5" />
+                <text x={isRight ? lx + 3 : lx - 3} y={ly + 1} textAnchor={isRight ? 'start' : 'end'} dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{l.label}</text>
              </g>
           );
         });
@@ -232,15 +280,36 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHo
         </g>);
       })}
       {(() => {
+        const placedTop = [];
+        const placedBottom = [];
         return features.map((feat, i) => {
           const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
           const midX = x1 + w / 2;
-          const isTop = feat.strand === -1;
-          const yBase = isTop ? trackY - 5 : trackY + FW + 5;
-          const offset = ((i % 3) + 1) * 16;
-          const lineY2 = isTop ? yBase - offset : yBase + offset;
           const textW = feat.label.length * 5.5 + 10;
+          
+          if (w >= textW + 4) {
+             return (
+               <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
+                 <text x={midX} y={feat.strand === -1 ? trackY + FW/2 + 1 : trackY - FW/2 + 1} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="9" fontWeight="700" style={{ textShadow: '0 0 2px rgba(0,0,0,0.5)' }}>{feat.label}</text>
+               </g>
+             );
+          }
+          
+          const isTop = feat.strand === 1;
+          const yBase = isTop ? trackY - FW - 5 : trackY + FW + 5;
+          const pad = 6;
           const rectX = midX - textW / 2;
+          const bounds = { x1: rectX - pad, x2: rectX + textW + pad };
+          
+          let track = 1;
+          const placed = isTop ? placedTop : placedBottom;
+          while (placed.some(p => p.track === track && !(bounds.x2 < p.x1 || bounds.x1 > p.x2))) {
+             track++;
+          }
+          placed.push({ track, x1: bounds.x1, x2: bounds.x2 });
+          
+          const offset = track * 16;
+          const lineY2 = isTop ? yBase - offset + 6 : yBase + offset - 6;
           const rectY = isTop ? lineY2 - 14 : lineY2;
           const textY = isTop ? lineY2 - 7 : lineY2 + 7;
 
@@ -262,10 +331,31 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHo
   );
 }
 
+// ── Tab helpers ────────────────────────────────────────────────────────────────
+const newEmptyTab = (name = '') => ({
+  id: `tab_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+  seqName: name,
+  rawInput: '',
+  sequence: '',
+  isCircular: true,
+  features: [],
+  primers: [],
+  selectedEnzymes: {},
+  viewMode: 'map',
+});
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PlasmidAnalyzer({ historyData }) {
   const { addHistoryItem } = useHistory();
-  const [phase, setPhase] = useState('input');
+  const [toolTab, setToolTab] = useState('analyzer');
+  const [phase, setPhase] = useState(() => loadLib().length > 0 ? 'library' : 'input');
+
+  // ── Per-plasmid state ─────────────────────────────────────────────────────────
+  const [openTabs, setOpenTabs] = useState(() => {
+    const first = newEmptyTab();
+    return [first];
+  });
+  const [activeTabId, setActiveTabId] = useState(() => openTabs[0].id);
   const [seqName, setSeqName] = useState('');
   const [rawInput, setRawInput] = useState('');
   const [sequence, setSequence] = useState('');
@@ -273,7 +363,10 @@ export default function PlasmidAnalyzer({ historyData }) {
   const [features, setFeatures] = useState([]);
   const [primers, setPrimers] = useState([]);
   const [selectedEnzymes, setSelectedEnzymes] = useState({});
-  const [enzymeFilter, setEnzymeFilter] = useState('single');
+  const [viewMode, setViewMode] = useState('map');
+
+  // ── Shared UI state ───────────────────────────────────────────────────────────
+  const [enzymeFilter, setEnzymeFilter] = useState('all_db');
   const [enzymeSearch, setEnzymeSearch] = useState('');
   const [activePanel, setActivePanel] = useState('features');
   const [library, setLibrary] = useState(loadLib);
@@ -282,13 +375,84 @@ export default function PlasmidAnalyzer({ historyData }) {
   const [showAddFeature, setShowAddFeature] = useState(false);
   const [newFeature, setNewFeature] = useState({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   const [showAddPrimer, setShowAddPrimer] = useState(false);
-  const [newPrimer, setNewPrimer] = useState({ name: '', seq: '', color: '#f59e0b' });
+  const [newPrimerName, setNewPrimerName] = useState('');
+  const [newPrimerRaw, setNewPrimerRaw] = useState('');
+  const [newPrimerColor, setNewPrimerColor] = useState(PRIMER_COLORS[0]);
+  const [expandedPrimerId, setExpandedPrimerId] = useState(null);
   const [popupData, setPopupData] = useState(null);
   const mapRef = useRef(null);
   const fileRef = useRef(null);
-  const [viewMode, setViewMode] = useState('map');
 
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // ── Tab helpers ───────────────────────────────────────────────────────────────
+  const switchToTab = (tabId) => {
+    const tab = openTabs.find(t => t.id === tabId);
+    if (!tab || tabId === activeTabId) return;
+    // Save current tab state first
+    setOpenTabs(prev => prev.map(t => t.id === activeTabId
+      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, selectedEnzymes, viewMode }
+      : t
+    ));
+    setActiveTabId(tabId);
+    setSeqName(tab.seqName);
+    setSequence(tab.sequence);
+    setRawInput(tab.rawInput || tab.sequence);
+    setIsCircular(tab.isCircular);
+    setFeatures(tab.features);
+    setPrimers(tab.primers);
+    setSelectedEnzymes(tab.selectedEnzymes);
+    setViewMode(tab.viewMode || 'map');
+    setSelectedFeatureIdx(null);
+    setEditingFeatureIdx(null);
+    setPhase('map');
+  };
+
+  const closeTab = (tabId, e) => {
+    e?.stopPropagation();
+    setOpenTabs(prev => {
+      const next = prev.filter(t => t.id !== tabId);
+      if (next.length === 0) {
+        const fresh = newEmptyTab();
+        setActiveTabId(fresh.id);
+        setSeqName(''); setSequence(''); setRawInput(''); setFeatures([]); setPrimers([]); setSelectedEnzymes({});
+        setPhase('library');
+        return [fresh];
+      }
+      if (activeTabId === tabId) {
+        const idx = Math.max(0, prev.findIndex(t => t.id === tabId) - 1);
+        const target = next[idx];
+        setActiveTabId(target.id);
+        setSeqName(target.seqName); setSequence(target.sequence); setRawInput(target.rawInput || '');
+        setIsCircular(target.isCircular); setFeatures(target.features); setPrimers(target.primers);
+        setSelectedEnzymes(target.selectedEnzymes); setViewMode(target.viewMode || 'map');
+        setPhase(target.sequence ? 'map' : 'input');
+      }
+      return next;
+    });
+  };
+
+  const openNewTab = () => {
+    const tab = newEmptyTab();
+    setOpenTabs(prev => [...prev, tab]);
+    // Save current before switching
+    setOpenTabs(prev => prev.map(t => t.id === activeTabId
+      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, selectedEnzymes, viewMode }
+      : t
+    ));
+    setActiveTabId(tab.id);
+    setSeqName(''); setRawInput(''); setSequence('');
+    setFeatures([]); setPrimers([]); setSelectedEnzymes({});
+    setPhase('input');
+  };
+
+  const seq = useMemo(() => sequence.toUpperCase().replace(/[^ATGCN]/g, ''), [sequence]);
+
+  // Auto-detect annealing for the primer being added
+  const newPrimerDetected = useMemo(() => {
+    if (!newPrimerRaw) return { overhang: '', annealing: '' };
+    return detectAnnealing(newPrimerRaw, seq);
+  }, [newPrimerRaw, seq]);
 
   useEffect(() => {
     if (historyData && historyData.toolId === 'plasmid') {
@@ -307,6 +471,7 @@ export default function PlasmidAnalyzer({ historyData }) {
         if (d.enzymeSearch !== undefined) setEnzymeSearch(d.enzymeSearch);
         if (d.activePanel !== undefined) setActivePanel(d.activePanel);
         if (d.viewMode !== undefined) setViewMode(d.viewMode);
+        if (d.toolTab !== undefined) setToolTab(d.toolTab);
       }
       setTimeout(() => setIsRestoring(false), 50);
     }
@@ -333,6 +498,7 @@ export default function PlasmidAnalyzer({ historyData }) {
           enzymeSearch,
           activePanel,
           viewMode,
+          toolTab,
         }
       });
     }, 1500);
@@ -351,11 +517,12 @@ export default function PlasmidAnalyzer({ historyData }) {
     enzymeSearch,
     activePanel,
     viewMode,
+    toolTab,
     isRestoring,
     addHistoryItem
   ]);
 
-  const seq = useMemo(() => sequence.toUpperCase().replace(/[^ATGCN]/g, ''), [sequence]);
+
 
   const allCutSites = useMemo(() => {
     if (!seq) return {};
@@ -364,7 +531,7 @@ export default function PlasmidAnalyzer({ historyData }) {
     return res;
   }, [seq]);
 
-  const filteredEnzymes = useMemo(() => {
+  const _filteredEnzymes = useMemo(() => {
     return Object.entries(RE_DB).map(([name]) => ({ name, count: (allCutSites[name] || []).length }))
       .filter(({ name, count }) => {
         const mf = enzymeFilter === 'all' ? count > 0 : enzymeFilter === 'single' ? count === 1 : enzymeFilter === 'double' ? count === 2 : count === 0;
@@ -385,7 +552,7 @@ export default function PlasmidAnalyzer({ historyData }) {
     const primerFeats = primers
       .filter(p => p.visible && p.seq && seq)
       .flatMap(p => {
-        const sites = findPrimerSites(p.seq, seq);
+        const sites = findPrimerSites(p.seq, seq, p.annealing || p.seq);
         return sites.map(s => ({ label: p.name, start: s.start, end: s.end, strand: s.strand, color: p.color, type: 'primer' }));
       });
     return [...visibleFeats, ...primerFeats];
@@ -395,7 +562,9 @@ export default function PlasmidAnalyzer({ historyData }) {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      setRawInput(ev.target.result);
+      const content = ev.target.result;
+      const parsedContent = parseFileContent(file.name, content);
+      setRawInput(parsedContent);
       if (!seqName) setSeqName(file.name.replace(/\.[^.]+$/, ''));
     };
     reader.readAsText(file); e.target.value = '';
@@ -433,13 +602,28 @@ export default function PlasmidAnalyzer({ historyData }) {
       return updated;
     });
     setPhase('map');
+    setViewMode('sequence');
   };
 
   const loadFromLibrary = (entry) => {
+    // Check if already open in a tab
+    const existing = openTabs.find(t => t.seqName === entry.name && t.sequence === entry.sequence);
+    if (existing) { switchToTab(existing.id); return; }
+    // Save current tab state
+    setOpenTabs(prev => prev.map(t => t.id === activeTabId
+      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, selectedEnzymes, viewMode }
+      : t
+    ));
+    // Open in new tab
+    const tab = newEmptyTab(entry.name);
+    const feats = (entry.features || []).map(f => ({ ...f, visible: f.visible ?? true }));
+    const newTab = { ...tab, seqName: entry.name, sequence: entry.sequence, rawInput: entry.sequence, features: feats, isCircular: entry.isCircular ?? true, selectedEnzymes: {}, primers: [], viewMode: 'map' };
+    setOpenTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
     setSeqName(entry.name);
     setSequence(entry.sequence);
     setRawInput(entry.sequence);
-    setFeatures((entry.features || []).map(f => ({ ...f, visible: f.visible ?? true })));
+    setFeatures(feats);
     setIsCircular(entry.isCircular ?? true);
     setSelectedEnzymes({});
     setPrimers([]);
@@ -450,12 +634,13 @@ export default function PlasmidAnalyzer({ historyData }) {
     setLibrary(prev => { const u = prev.filter(e => e.id !== id); saveLib(u); return u; });
   };
 
-  const toggleEnzyme = (name) => {
+  const toggleEnzyme = (name, color) => {
     setSelectedEnzymes(prev => {
-      if (prev[name]) { const { [name]: _, ...rest } = prev; return rest; }
+      if (prev[name] && color === undefined) { const { [name]: _, ...rest } = prev; return rest; }
+      if (prev[name] && color !== undefined) return { ...prev, [name]: { ...prev[name], color } };
       const usedColors = Object.values(prev).map(v => v.color);
-      const color = RE_HIGHLIGHT_COLORS.find(c => !usedColors.includes(c)) || RE_HIGHLIGHT_COLORS[0];
-      return { ...prev, [name]: { color } };
+      const autoColor = RE_HIGHLIGHT_COLORS.find(c => !usedColors.includes(c)) || RE_HIGHLIGHT_COLORS[0];
+      return { ...prev, [name]: { color: color || autoColor } };
     });
   };
 
@@ -466,13 +651,44 @@ export default function PlasmidAnalyzer({ historyData }) {
     setNewFeature({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   };
 
+  const handleDeleteRegion = (start, end) => {
+    if (start >= end) return;
+    const newSeq = sequence.slice(0, start) + sequence.slice(end);
+    const delLen = end - start;
+    const newFeats = features.map(f => {
+      if (f.start >= end) return { ...f, start: f.start - delLen, end: f.end - delLen };
+      if (f.end <= start) return f;
+      if (f.start >= start && f.end <= end) return null;
+      const newS = f.start < start ? f.start : start;
+      const newE = f.end > end ? f.end - delLen : start;
+      return { ...f, start: newS, end: newE };
+    }).filter(Boolean);
+    setSequence(newSeq);
+    setRawInput(newSeq);
+    setFeatures(newFeats);
+  };
+
+  const handleAddFeatureFromSelection = (start, end) => {
+    setActivePanel('features');
+    setNewFeature({ label: 'Nieuwe Feature', type: 'misc_feature', color: '#3b82f6', start: start + 1, end: end, strand: 1 });
+    setShowAddFeature(true);
+  };
+
   const updateFeature = (idx, updates) => setFeatures(prev => prev.map((f, i) => i === idx ? { ...f, ...updates } : f));
   const deleteFeature = (idx) => { setFeatures(prev => prev.filter((_, i) => i !== idx)); if (selectedFeatureIdx === idx) setSelectedFeatureIdx(null); };
 
   const addPrimer = () => {
-    if (!newPrimer.name || !newPrimer.seq) return;
-    setPrimers(prev => [...prev, { ...newPrimer, id: `p_${Date.now()}`, visible: true }]);
-    setNewPrimer({ name: '', seq: '', color: PRIMER_COLORS[(primers.length + 1) % PRIMER_COLORS.length] });
+    if (!newPrimerName || !newPrimerRaw) return;
+    const { overhang, annealing } = newPrimerDetected;
+    const fullSeq = overhang + annealing;
+    setPrimers(prev => [...prev, {
+      id: `p_${Date.now()}`, name: newPrimerName,
+      seq: fullSeq, overhang, annealing,
+      color: newPrimerColor, visible: true,
+    }]);
+    setNewPrimerName('');
+    setNewPrimerRaw('');
+    setNewPrimerColor(PRIMER_COLORS[(primers.length + 1) % PRIMER_COLORS.length]);
     setShowAddPrimer(false);
   };
 
@@ -508,22 +724,13 @@ export default function PlasmidAnalyzer({ historyData }) {
     const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `${seqName || 'sequence'}_map.png`; a.click();
   };
 
-  const navItems = [
-    { id: 'features', icon: List, label: 'Features', badge: features.length },
-    { id: 'enzymes', icon: Scissors, label: 'RE Sites', badge: Object.keys(selectedEnzymes).length || null },
-    { id: 'primers', icon: Dna, label: 'Primers', badge: primers.length },
-  ];
-
   const handleFeatureClick = (e, feature, idx) => {
     e.stopPropagation();
     setPopupData({ x: e.clientX, y: e.clientY, feature, idx });
     setSelectedFeatureIdx(idx);
     setActivePanel('features');
   };
-
-  const handleMapClick = () => {
-    setPopupData(null);
-  };
+  const handleMapClick = () => { setPopupData(null); };
 
   return (
     <div className="space-y-4 relative" onClick={handleMapClick}>
@@ -543,18 +750,32 @@ export default function PlasmidAnalyzer({ historyData }) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow">
-          <Dna className="w-5 h-5" />
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow">
+            {toolTab === 'alignment' ? <div className="w-5 h-5 flex items-center justify-center font-bold text-sm">🧬</div> : <Dna className="w-5 h-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Sequence Analyzer</h2>
+              <div className="flex bg-slate-100 rounded-lg p-1">
+                {[['analyzer','Analyzer'], ['alignment','Alignment']].map(([id,label])=>(
+                  <button key={id} onClick={() => setToolTab(id)}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${toolTab === id ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-slate-500">
+              {toolTab === 'alignment' ? 'Pairwise sequence alignment' : 'Visualize DNA maps, features, restriction sites & primers'}
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Sequence Analyzer</h2>
-          <p className="text-sm text-slate-500">Visualize DNA maps, features, restriction sites &amp; primers</p>
-        </div>
-        {phase === 'map' && seq && (
+        {toolTab === 'analyzer' && phase === 'map' && seq && (
           <div className="flex gap-1.5 flex-wrap items-center">
             <div className="flex bg-slate-100 rounded-lg p-0.5 mr-2">
-              {[['map','Map'],['sequence','Sequence'],['alignment','Alignment']].map(([id,label])=>(
+              {[['map','Map'],['sequence','Sequence']].map(([id,label])=>(
                 <button key={id} onClick={()=>setViewMode(id)}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${viewMode===id?'bg-white text-teal-700 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>
                   {label}
@@ -568,8 +789,68 @@ export default function PlasmidAnalyzer({ historyData }) {
         )}
       </div>
 
+      {toolTab === 'alignment' && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <AlignmentView library={library} seq={seq} seqName={seqName} />
+        </div>
+      )}
+
+      {/* ── Library Phase ── */}
+      {toolTab === 'analyzer' && phase === 'library' && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h3 className="text-lg font-semibold text-slate-700">Mijn Sequenties</h3>
+            <div className="flex gap-2">
+              <Button onClick={() => setPhase('input')} className="bg-teal-600 hover:bg-teal-700 gap-1.5 h-9">
+                <Plus className="w-4 h-4" /> Nieuw
+              </Button>
+              <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-1.5 h-9">
+                <Upload className="w-4 h-4" /> Import sequence
+              </Button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {library.map(entry => (
+              <div key={entry.id} onClick={() => loadFromLibrary(entry)} className="group relative flex flex-col p-4 border border-slate-200 rounded-xl bg-white hover:border-teal-300 hover:shadow-md cursor-pointer transition-all text-left">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="p-2 rounded-lg bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+                    <Dna className="w-5 h-5" />
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); deleteFromLibrary(entry.id); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-all">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <h3 className="font-semibold text-slate-800 truncate mb-1" title={entry.name}>{entry.name}</h3>
+                <div className="flex items-center text-xs text-slate-500 gap-2">
+                  <span>{entry.sequence.length.toLocaleString()} bp</span>
+                  <span>•</span>
+                  <span className="capitalize">{entry.isCircular ? 'circulair' : 'lineair'}</span>
+                </div>
+              </div>
+            ))}
+            {library.length === 0 && (
+              <div className="col-span-full py-8 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                <p className="text-sm text-slate-500 mb-4">Nog geen opgeslagen sequenties.</p>
+                <div className="flex justify-center gap-3">
+                  <Button onClick={() => setPhase('input')} className="bg-teal-600 hover:bg-teal-700 gap-1.5">
+                    <Plus className="w-4 h-4" /> Nieuwe sequentie
+                  </Button>
+                  <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-1.5">
+                    <Upload className="w-4 h-4" /> Import sequence
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Global hidden file input */}
+      <input ref={fileRef} type="file" accept=".dna,.fasta,.fa,.fna,.gb,.gbk,.ape,.txt" className="hidden" onChange={handleFile} />
+
       {/* ── Input phase ── */}
-      {phase === 'input' && (
+      {toolTab === 'analyzer' && phase === 'input' && (
         <div className="grid md:grid-cols-3 gap-4">
           <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-3">
             <h3 className="text-base font-semibold text-slate-700">Sequentie laden</h3>
@@ -588,9 +869,8 @@ export default function PlasmidAnalyzer({ historyData }) {
             />
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-1.5">
-                <Upload className="w-4 h-4" /> Importeer bestand
+                <Upload className="w-4 h-4" /> Import sequence
               </Button>
-              <input ref={fileRef} type="file" accept=".fasta,.fa,.fna,.gb,.gbk,.ape" className="hidden" onChange={handleFile} />
               <Button onClick={handleSave} disabled={!rawInput.trim()} className="flex-1 bg-teal-600 hover:bg-teal-700 gap-1.5">
                 <Save className="w-4 h-4" /> Opslaan &amp; Visualiseren
               </Button>
@@ -623,27 +903,45 @@ export default function PlasmidAnalyzer({ historyData }) {
         </div>
       )}
 
-      {/* ── Map phase ── */}
-      {phase === 'map' && seq && (
-        <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ minHeight: 560 }}>
+      {toolTab === 'analyzer' && phase === 'map' && seq && (
+        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ minHeight: 560 }}>
 
-          {/* Left sidebar */}
-          <div className="w-44 flex-shrink-0 border-r flex flex-col bg-slate-50">
-            <div className="p-2.5 border-b bg-white">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1">Lagen</p>
-              {navItems.map(({ id, icon: Icon, label, badge }) => (
-                <button key={id} onClick={() => setActivePanel(id)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors mb-0.5 text-left ${activePanel === id ? 'bg-teal-100 text-teal-700' : 'text-slate-600 hover:bg-white'}`}>
-                  <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="flex-1">{label}</span>
-                  {(badge !== null && badge !== undefined) && (
-                    <span className={`text-xs rounded-full px-1.5 py-0.5 leading-none ${activePanel === id ? 'bg-teal-200 text-teal-700' : 'bg-slate-200 text-slate-500'}`}>{badge}</span>
-                  )}
-                </button>
-              ))}
+          {/* Plasmid tab bar */}
+          <div className="flex items-center border-b bg-slate-50 px-2 overflow-x-auto" style={{ minHeight: 38 }}>
+            {openTabs.filter(t => t.sequence || t.id === activeTabId).map(tab => (
+              <button key={tab.id} onClick={() => switchToTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors mr-0.5 ${
+                  tab.id === activeTabId
+                    ? 'border-teal-500 text-teal-700 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-white'
+                }`}>
+                <Dna className="w-3 h-3 opacity-60" />
+                <span>{tab.seqName || 'Nieuw'}</span>
+                {openTabs.length > 1 && (
+                  <span onClick={e => closeTab(tab.id, e)} className="ml-1 p-0.5 rounded hover:bg-red-100 hover:text-red-500 text-slate-300">
+                    <X className="w-2.5 h-2.5" />
+                  </span>
+                )}
+              </button>
+            ))}
+            <button onClick={openNewTab} className="ml-auto flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-teal-600 hover:bg-white rounded-md transition-colors flex-shrink-0">
+              <Plus className="w-3.5 h-3.5" /> Nieuw
+            </button>
+          </div>
+
+          {/* Sidebar + map row */}
+          <div className="flex flex-1 overflow-hidden">
+
+          <div className="w-40 flex-shrink-0 border-r flex flex-col bg-slate-50">
+            {/* Library / Startscherm at top */}
+            <div className="p-2 border-b bg-white">
+              <button onClick={() => setPhase('library')} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors">
+                <Library className="w-4 h-4 flex-shrink-0" /> Library
+              </button>
             </div>
+            {/* Library entry list */}
             <div className="flex-1 overflow-y-auto p-2">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1">Library</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1">Opgeslagen</p>
               {library.map(entry => (
                 <div key={entry.id}
                   className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 border ${entry.sequence === sequence ? 'bg-teal-50 border-teal-200 text-teal-700' : 'hover:bg-white border-transparent text-slate-600 hover:border-slate-200'}`}
@@ -657,6 +955,7 @@ export default function PlasmidAnalyzer({ historyData }) {
               ))}
               {library.length === 0 && <p className="text-xs text-slate-400 px-1">Leeg</p>}
             </div>
+            {/* Bewerken at bottom */}
             <div className="border-t p-2 bg-white">
               <button onClick={() => setPhase('input')} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-50 border border-slate-200 text-left">
                 <Edit3 className="w-3.5 h-3.5 flex-shrink-0" /> Bewerken
@@ -674,14 +973,13 @@ export default function PlasmidAnalyzer({ historyData }) {
                 }
               </div>
             )}
-            {viewMode === 'sequence' && <SequenceView seq={seq} features={mapFeatures} />}
-            {viewMode === 'alignment' && <AlignmentView seq={seq} seqName={seqName} />}
+            {viewMode === 'sequence' && <SequenceView seq={seq} features={mapFeatures} onDelete={handleDeleteRegion} onAddFeature={handleAddFeatureFromSelection} cutSites={activeCutSites} />}
           </div>
 
           {/* Right panel */}
           <div className="border-l flex flex-col bg-white" style={{ width: 272, flexShrink: 0, display: viewMode === 'alignment' ? 'none' : undefined }}>
             <div className="flex border-b bg-slate-50">
-              {[{ id: 'features', label: 'Features' }, { id: 'enzymes', label: 'RE Sites' }, { id: 'primers', label: 'Primers' }].map(({ id, label }) => (
+              {[{ id: 'features', label: 'Features' }, { id: 'enzymes', label: 'Enzymen' }, { id: 'primers', label: 'Primers' }].map(({ id, label }) => (
                 <button key={id} onClick={() => setActivePanel(id)}
                   className={`flex-1 py-2.5 text-xs font-medium transition-colors ${activePanel === id ? 'border-b-2 border-teal-500 text-teal-700 bg-white' : 'text-slate-500 hover:text-slate-700'}`}>
                   {label}
@@ -772,7 +1070,7 @@ export default function PlasmidAnalyzer({ historyData }) {
               {activePanel === 'enzymes' && (
                 <>
                   <div className="flex gap-1 flex-wrap">
-                    {[['single', '1×'], ['double', '2×'], ['all', 'Alles'], ['none', 'Geen']].map(([f, l]) => (
+                    {[['all_db', 'Alle'], ['single', '1×'], ['double', '2×'], ['none_cut', '0×'], ['triple_plus', '3×+'], ['all', 'Op kaart']].map(([f, l]) => (
                       <button key={f} onClick={() => setEnzymeFilter(f)}
                         className={`text-xs px-2 py-1 rounded-full border transition-colors ${enzymeFilter === f ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 text-slate-600 hover:border-rose-300'}`}>
                         {l}
@@ -783,21 +1081,84 @@ export default function PlasmidAnalyzer({ historyData }) {
                     <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                     <Input value={enzymeSearch} onChange={e => setEnzymeSearch(e.target.value)} placeholder="Zoek enzym…" className="h-7 text-xs border-slate-200 pl-7" />
                   </div>
-                  <div className="space-y-0.5 max-h-80 overflow-y-auto">
-                    {filteredEnzymes.map(({ name, count }) => {
-                      const isSel = !!selectedEnzymes[name];
-                      const color = isSel ? selectedEnzymes[name].color : null;
-                      return (
-                        <button key={name} onClick={() => toggleEnzyme(name)}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors text-left ${isSel ? 'bg-rose-50 border border-rose-200' : 'hover:bg-slate-50 border border-transparent'}`}>
-                          {isSel && <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />}
-                          <span className={`font-medium flex-1 ${isSel ? 'text-rose-700' : 'text-slate-700'}`}>{name}</span>
-                          <span className="text-slate-400 font-mono text-xs">{(RE_DB[name] || '').slice(0, 8)}</span>
-                          <span className={`font-bold flex-shrink-0 ${isSel ? 'text-rose-600' : 'text-slate-500'}`}>{count}×</span>
-                        </button>
-                      );
-                    })}
-                    {filteredEnzymes.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Geen enzymen gevonden</p>}
+                  <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-white z-10">
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left py-1.5 px-2 text-slate-500 font-semibold">Enzym</th>
+                          <th className="text-center py-1.5 px-1 text-slate-500 font-semibold w-10">Cuts</th>
+                          <th className="text-left py-1.5 px-1 text-slate-500 font-semibold">Type</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const allEnzymeNames = Object.keys(RE_DB);
+                          const withCounts = allEnzymeNames.map(name => {
+                            const motif = RE_DB[name];
+                            const count = seq ? (() => {
+                              const re = new RegExp(motif.replace(/N/g,'[ATGC]').replace(/R/,'[AG]').replace(/Y/,'[CT]').replace(/W/,'[AT]').replace(/M/,'[AC]').replace(/K/,'[GT]').replace(/S/,'[GC]').replace(/B/,'[CGT]').replace(/D/,'[AGT]').replace(/H/,'[ACT]').replace(/V/,'[ACG]'), 'gi');
+                              return (seq.match(re) || []).length;
+                            })() : 0;
+                            // Determine cut type based on recognition sequence pattern
+                            const isBlunt = (() => {
+                              const bluntSeqs = ['GGCC','CCCGGG','GATATC','AATATT','TTTAAA','AGCGCT','AGGCCT','TCGCGA','AGTACT'];
+                              return bluntSeqs.includes(motif) || motif === 'GATATC';
+                            })();
+                            const cutType = isBlunt ? 'Blunt' : 'Sticky';
+                            return { name, count, cutType, motif };
+                          });
+
+                          const filtered = withCounts.filter(({ name, count }) => {
+                            const q = enzymeSearch.toLowerCase();
+                            if (q && !name.toLowerCase().includes(q)) return false;
+                            if (enzymeFilter === 'single') return count === 1;
+                            if (enzymeFilter === 'double') return count === 2;
+                            if (enzymeFilter === 'none_cut') return count === 0;
+                            if (enzymeFilter === 'triple_plus') return count >= 3;
+                            if (enzymeFilter === 'all') return count > 0 || !!selectedEnzymes[name]; // only shown on map
+                            return true; // 'all_db' - show everything
+                          });
+
+                          if (filtered.length === 0) return (
+                            <tr><td colSpan={3} className="text-center text-slate-400 py-6 text-xs">Geen enzymen gevonden</td></tr>
+                          );
+
+                          return filtered.map(({ name, count, cutType }) => {
+                            const isSel = !!selectedEnzymes[name];
+                            const color = isSel ? selectedEnzymes[name].color : null;
+                            return (
+                              <tr key={name}
+                                className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-rose-50' : 'hover:bg-slate-50'}`}>
+                                <td className="py-1 px-2" onClick={() => toggleEnzyme(name)}>
+                                  <div className="flex items-center gap-1.5">
+                                    {isSel
+                                      ? <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
+                                          <input type="color" value={color} onChange={e => toggleEnzyme(name, e.target.value)}
+                                            className="w-4 h-4 rounded-full border-none cursor-pointer p-0" style={{ WebkitAppearance: 'none' }} />
+                                        </label>
+                                      : <div className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-300" />}
+                                    <span className={`font-medium ${isSel ? 'text-rose-700' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
+                                  </div>
+                                </td>
+                                <td className="py-1 px-1 text-center" onClick={() => toggleEnzyme(name)}>
+                                  <span className={`font-bold font-mono text-xs px-1.5 py-0.5 rounded ${
+                                    count === 0 ? 'bg-slate-100 text-slate-400' :
+                                    count === 1 ? 'bg-emerald-100 text-emerald-700' :
+                                    count === 2 ? 'bg-amber-100 text-amber-700' :
+                                    'bg-rose-100 text-rose-700'
+                                  }`}>{count}×</span>
+                                </td>
+                                <td className="py-1 px-1" onClick={() => toggleEnzyme(name)}>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                                    cutType === 'Blunt' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-600'
+                                  }`}>{cutType}</span>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
                   {Object.keys(selectedEnzymes).length > 0 && (
                     <div className="pt-2 border-t border-slate-100">
@@ -805,7 +1166,7 @@ export default function PlasmidAnalyzer({ historyData }) {
                       <div className="flex flex-wrap gap-1">
                         {Object.entries(selectedEnzymes).map(([name, { color }]) => (
                           <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: color + '22', color, border: `1px solid ${color}55` }}>
-                            {name}<button onClick={() => toggleEnzyme(name)}><X className="w-2.5 h-2.5" /></button>
+                            {getEnzymeDisplayName(name)}<button onClick={() => toggleEnzyme(name)}><X className="w-2.5 h-2.5" /></button>
                           </span>
                         ))}
                       </div>
@@ -825,49 +1186,104 @@ export default function PlasmidAnalyzer({ historyData }) {
                   </div>
                   {showAddPrimer && (
                     <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
-                      <Input value={newPrimer.name} onChange={e => setNewPrimer(p => ({ ...p, name: e.target.value }))} placeholder="Primer naam" className="h-7 text-xs border-slate-200" />
-                      <textarea value={newPrimer.seq} onChange={e => setNewPrimer(p => ({ ...p, seq: e.target.value }))} placeholder="Primer sequentie (5'→3')" className="w-full h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" />
-                      <div className="flex gap-1 flex-wrap">
-                        {PRIMER_COLORS.map(c => (
-                          <button key={c} onClick={() => setNewPrimer(p => ({ ...p, color: c }))} style={{ background: c }} className={`w-4 h-4 rounded-full border-2 ${newPrimer.color === c ? 'border-slate-700' : 'border-transparent'}`} />
-                        ))}
+                      <Input value={newPrimerName} onChange={e => setNewPrimerName(e.target.value)} placeholder="Primer naam" className="h-7 text-xs border-slate-200" />
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Volledige sequentie <span className="normal-case font-normal">(5'→ 3')</span></p>
+                        <textarea value={newPrimerRaw}
+                          onChange={e => setNewPrimerRaw(e.target.value.toUpperCase().replace(/[^ATGCN\s]/g, ''))}
+                          placeholder="ATGCATGC..." className="w-full h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" />
+                      </div>
+                      {newPrimerRaw && (
+                        <div className="font-mono text-xs break-all leading-5 bg-white border border-slate-100 rounded p-1.5">
+                          {newPrimerDetected.overhang && <span className="text-red-500">{newPrimerDetected.overhang.toLowerCase()}</span>}
+                          <span className="text-slate-800 font-semibold">{newPrimerDetected.annealing}</span>
+                          {!newPrimerDetected.overhang && !seq && <span className="text-slate-400 italic text-[10px]"> (laad een sequentie om overhang te detecteren)</span>}
+                          {!newPrimerDetected.overhang && seq && <span className="text-emerald-600 text-[10px] ml-1">✓ geen overhang</span>}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <label className="cursor-pointer flex-shrink-0">
+                          <input type="color" value={newPrimerColor} onChange={e => setNewPrimerColor(e.target.value)}
+                            className="w-6 h-6 rounded-full cursor-pointer border border-slate-200 p-0" style={{ WebkitAppearance: 'none' }} />
+                        </label>
+                        <div className="flex gap-1 flex-wrap flex-1">
+                          {PRIMER_COLORS.map(c => (
+                            <button key={c} onClick={() => setNewPrimerColor(c)} style={{ background: c }}
+                              className={`w-4 h-4 rounded-full border-2 ${newPrimerColor === c ? 'border-slate-700' : 'border-transparent'}`} />
+                          ))}
+                        </div>
                       </div>
                       <div className="flex gap-1.5">
-                        <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addPrimer} disabled={!newPrimer.name || !newPrimer.seq}>Toevoegen</Button>
+                        <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addPrimer} disabled={!newPrimerName || !newPrimerRaw}>Toevoegen</Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddPrimer(false)}>Annuleren</Button>
                       </div>
                     </div>
                   )}
                   <div className="space-y-1.5 max-h-96 overflow-y-auto">
                     {primers.map((p) => {
-                      const sites = seq ? findPrimerSites(p.seq, seq) : [];
+                      const annealingSeq = p.annealing || p.seq;
+                      const sites = seq ? findPrimerSites(p.seq, seq, annealingSeq) : [];
+                      const isExpanded = expandedPrimerId === p.id;
                       return (
-                        <div key={p.id} className="p-2 rounded-lg border border-slate-200 bg-slate-50">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: p.color }} />
+                        <div key={p.id}
+                          className={`rounded-lg border transition-colors cursor-pointer ${isExpanded ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200 hover:border-teal-200'}`}
+                          onClick={() => setExpandedPrimerId(isExpanded ? null : p.id)}>
+                          <div className="flex items-center gap-2 p-2">
+                            <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
+                              <input type="color" value={p.color}
+                                onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color: e.target.value } : x))}
+                                className="w-4 h-4 rounded-full cursor-pointer border-none p-0" style={{ WebkitAppearance: 'none', width: 14, height: 14 }} />
+                            </label>
                             <span className="text-xs font-medium text-slate-700 flex-1 truncate">{p.name}</span>
-                            <button onClick={() => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, visible: !x.visible } : x))}
+                            <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, visible: !x.visible } : x)); }}
                               className={`p-0.5 flex-shrink-0 ${p.visible ? 'text-slate-500' : 'text-slate-300'}`}>
                               {p.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                             </button>
-                            <button onClick={() => setPrimers(prev => prev.filter(x => x.id !== p.id))} className="text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0">
+                            <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.filter(x => x.id !== p.id)); }} className="text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
-                          <p className="font-mono text-xs text-slate-400 mt-1 truncate">{p.seq.toUpperCase()}</p>
-                          <p className="text-xs mt-0.5">
-                            {sites.length === 0
-                              ? <span className="text-slate-400">Niet gevonden in sequentie</span>
-                              : <span className="text-teal-600 font-medium">{sites.length}× gevonden · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
-                            }
-                          </p>
+                          {isExpanded ? (
+                            <div className="px-2 pb-2 space-y-1.5" onClick={e => e.stopPropagation()}>
+                              <Input value={p.name} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))} className="h-7 text-xs border-slate-200" placeholder="Naam" />
+                              <div>
+                                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Overhang</p>
+                                <textarea value={p.overhang || ''} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, overhang: e.target.value.toLowerCase(), seq: e.target.value.toLowerCase() + (x.annealing || '') } : x))}
+                                  className="w-full h-8 text-xs font-mono border border-amber-200 rounded-md p-1 resize-none bg-amber-50 text-amber-700" placeholder="overhang..." />
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Annealing</p>
+                                <textarea value={p.annealing || p.seq} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, annealing: e.target.value.toUpperCase(), seq: (x.overhang || '') + e.target.value.toUpperCase() } : x))}
+                                  className="w-full h-12 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none bg-white" placeholder="ATGCATGC..." />
+                              </div>
+                              <p className="text-xs">
+                                {sites.length === 0
+                                  ? <span className="text-slate-400">Niet gevonden</span>
+                                  : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
+                                }
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="px-2 pb-2">
+                              <p className="font-mono text-xs truncate">
+                                {p.overhang && <span className="text-amber-500 italic">{p.overhang.toLowerCase()}</span>}
+                                <span className="text-slate-700 font-semibold">{(p.annealing || p.seq).toUpperCase()}</span>
+                              </p>
+                              <p className="text-xs mt-0.5">
+                                {sites.length === 0
+                                  ? <span className="text-slate-400">Niet gevonden</span>
+                                  : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
+                                }
+                              </p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                     {primers.length === 0 && (
                       <div className="text-center py-6 text-slate-400">
                         <p className="text-xs">Nog geen primers toegevoegd.</p>
-                        <p className="text-xs mt-0.5 opacity-70">Voeg primers toe om ze op de kaart te visualiseren.</p>
+                        <p className="text-xs mt-0.5 opacity-70">Klik op een primer om de sequentie te bewerken.</p>
                       </div>
                     )}
                   </div>
@@ -875,6 +1291,7 @@ export default function PlasmidAnalyzer({ historyData }) {
               )}
 
             </div>
+          </div>
           </div>
         </div>
       )}

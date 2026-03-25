@@ -5,25 +5,27 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
+import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table, AlertTriangle } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
-import { ENZYME_DB } from '@/lib/enzymes';
+import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
+import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const LOW_VOL = 0.5; // µL warning threshold
 
 const FASTAP_VOL = 1; // µL
 
 function calcMix(dnaConc, desiredDna, totalVol, enzymeVol, numEnzymes, enzymeType, isVector = false) {
-  const dnaVolume = parseFloat(desiredDna) / parseFloat(dnaConc);
+  const rawDnaVol = parseFloat(desiredDna) / parseFloat(dnaConc);
+  const dilution = getDilutionSuggestion(dnaConc, desiredDna, LOW_VOL);
+  const dnaVolume = dilution ? parseFloat(dilution.newVol) : rawDnaVol;
   const bufferVol = parseFloat(totalVol) / 10;
   const totalEnzymeVol = numEnzymes * parseFloat(enzymeVol);
   const fastApVol = isVector ? FASTAP_VOL : 0;
   const waterVol = parseFloat(totalVol) - dnaVolume - bufferVol - totalEnzymeVol - fastApVol;
-  const dnaLow = dnaVolume > 0 && dnaVolume < LOW_VOL;
-  return { dnaVolume, bufferVol, totalEnzymeVol, waterVol, isValid: waterVol >= 0, dnaLow, fastApVol };
+  return { dnaVolume, bufferVol, totalEnzymeVol, waterVol, isValid: waterVol >= 0, dnaLow: !!dilution, fastApVol, dilution };
 }
 
 // Number input that blocks scroll and allows only typing/arrows
@@ -105,7 +107,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
           data: {
             preview:
               tab === 'single'
-                ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.join(', ') : 'Custom'}`
+                ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.map(getEnzymeDisplayName).join(', ') : 'Custom'}`
                 : `Batch Digest (${batchSamples.length} samples)`,
             tab,
             dnaConc,
@@ -144,16 +146,25 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   // Filter enzymes based on selected enzyme type
   const getFilteredEnzymes = (type) => {
     const result = {};
+
     Object.entries(ENZYME_DB).forEach(([name, info]) => {
+      const displayName = getEnzymeDisplayName(name);
+
       if (type === 'FastDigest' && info.fd) {
-        const newName = name.replace(/^FastDigest /, '');
-        result[newName] = info;
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
       } else if (type === 'HF' && name.endsWith('-HF')) {
-        result[name] = info;
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
       } else if (type === 'Standard' && !info.fd && !name.endsWith('-HF')) {
-        result[name] = info;
-      }
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
+        }
     });
+
     return result;
   };
 
@@ -206,7 +217,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
       ['Buffer (µL)', ...batchResults.map(r => r.bufferVol.toFixed(2))],
       ...Array.from({ length: maxEnz }, (_, i) => [
         `RE${i + 1} (${batchEnzymeVol}µL)`,
-        ...batchResults.map(r => r.enzymes[i] || '–')
+        ...batchResults.map(r => r.enzymes[i] ? getEnzymeDisplayName(r.enzymes[i]) : '–')
       ]),
       ['FastAP (µL)', ...batchResults.map(r => r.fastApVol > 0 ? r.fastApVol.toFixed(1) : '–')],
       ['Total (µL)', ...batchResults.map(() => batchTotalVol)],
@@ -218,32 +229,14 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
   const bufferLabel = enzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : (getOptimalBuffer() || 'CutSmart (10×)');
 
-  // Dilution suggestion for low DNA volume
-  const getDilutionSuggestion = (dnaConc, desiredNg) => {
-    const vol = parseFloat(desiredNg) / parseFloat(dnaConc);
-    if (vol >= LOW_VOL || vol <= 0) return null;
-    const targetVol = 1.0;
-    const df = targetVol / vol;
-    const stockVol = 2;
-    return {
-      dilutionFactor: df.toFixed(1),
-      dilutedConc: (parseFloat(dnaConc) / df).toFixed(2),
-      stockVol: stockVol.toFixed(1),
-      mqVol: (stockVol * df - stockVol).toFixed(1),
-      newVol: targetVol.toFixed(1),
-    };
-  };
-
-  const dilutionSuggestion = results?.dnaLow && dnaConc && desiredDna ? getDilutionSuggestion(dnaConc, desiredDna) : null;
-
   // Table rows — MQ first
   const singleRows = results ? [
     { label: 'MQ', vol: Math.max(0, results.waterVol).toFixed(2), isMQ: true },
     { label: `DNA`, vol: results.dnaVolume.toFixed(2), mass: desiredDna + ' ng', isDna: true, isLow: results.dnaLow },
     { label: bufferLabel, vol: results.bufferVol.toFixed(2) },
     ...(selectedEnzymes.length > 0
-      ? selectedEnzymes.map(e => ({ label: e, vol: enzymeVolume }))
-      : [{ label: 'Restriction Enzyme', vol: enzymeVolume }]),
+      ? selectedEnzymes.map(e => ({ label: getEnzymeDisplayName(e), vol: enzymeVolume }))
+      : [{ label: 'Restriction Enzyme', vol: enzymeVolume }]),  
     ...(dnaRole === 'vector' ? [{ label: 'FastAP (thermosensitive AP)', vol: FASTAP_VOL.toFixed(1) }] : []),
   ] : [];
 
@@ -333,15 +326,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
             </Card>
 
             <div className="space-y-4">
-              {dilutionSuggestion && (
+              {results?.dilution && (
                 <Card className="shadow-sm bg-amber-50 border border-amber-200">
-                  <CardContent className="p-4 text-sm text-amber-800">
-                    <div className="font-medium mb-1">⚠ DNA volume too low (&lt;0.5 µL)</div>
-                    <div className="mt-2 bg-white/70 rounded-lg p-2 text-xs space-y-0.5">
-                      <div><strong>Dilute:</strong> {dilutionSuggestion.stockVol} µL stock + {dilutionSuggestion.mqVol} µL MQ</div>
-                      <div><strong>New conc:</strong> {dilutionSuggestion.dilutedConc} ng/µL (1:{dilutionSuggestion.dilutionFactor})</div>
-                      <div><strong>Use <span className="text-rose-600">*{dilutionSuggestion.newVol} µL</span></strong> of dilution in digest</div>
-                    </div>
+                  <CardContent className="p-4 text-sm text-amber-800 font-medium">
+                    {generateDilutionWarning('DNA', results.dilution, LOW_VOL)}
                   </CardContent>
                 </Card>
               )}
@@ -359,7 +347,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           rows.push(['MQ', Math.max(0, results.waterVol).toFixed(2)]);
                           rows.push([`DNA (${desiredDna} ng)`, results.dnaVolume.toFixed(2)]);
                           rows.push([bufferLabel, results.bufferVol.toFixed(2)]);
-                          selectedEnzymes.forEach(e => rows.push([e, enzymeVolume]));
+                          selectedEnzymes.forEach(e => rows.push([getEnzymeDisplayName(e), enzymeVolume]));
                           if (selectedEnzymes.length === 0) rows.push(['Restriction Enzyme', enzymeVolume]);
                           rows.push(['Total', totalVolume]);
                           return rows;
@@ -403,9 +391,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           </tr>
                         </tbody>
                       </table>
-                      {dilutionSuggestion && (
-                        <p className="text-xs text-rose-600 mt-1">* Volume after dilution — see dilution suggestion above.</p>
-                      )}
                       <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
                         <p className="text-xs text-blue-700"><strong>Protocol:</strong> {results.protocol}</p>
                       </div>
@@ -512,7 +497,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     </CardTitle>
                     <div className="flex gap-2">
                       <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
-                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         {copied ? 'Copied!' : 'Copy Table'}
                       </button>
                       <CopyImageButton targetRef={batchTableRef} />
@@ -521,6 +506,17 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={batchTableRef}>
+                    {/* Dilution warnings moved inside batch tableRef for image copy */}
+                    {batchResults.some(r => r.dnaLow) && (
+                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                        <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
+                        {batchResults.filter(r => r.dnaLow).map(r => (
+                          <div key={r.id} className="font-medium">
+                            {generateDilutionWarning(r.name, r.dilution, LOW_VOL)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-blue-50">
@@ -555,7 +551,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                             {batchResults.map((r, i) => (
                               <td key={i} className="text-right py-2 px-3 font-mono text-sm">
                                 {r.enzymes[j] ? (
-                                  <span className="text-rose-700 font-semibold">{r.enzymes[j]}</span>
+                                  <span className="text-rose-700 font-semibold">{getEnzymeDisplayName(r.enzymes[j])}</span>
                                 ) : (
                                   <span className="text-slate-300">–</span>
                                 )}
@@ -576,8 +572,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       </tbody>
                     </table>
                   </div>
-                  {batchResults.some(r => r.dnaLow) && <p className="text-xs text-rose-600 mt-2">* Volume &lt;0.5 µL — consider diluting DNA first.</p>}
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-2">
                     Buffer: {batchEnzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : 'CutSmart / recommended buffer (10×)'}
                     {batchEnzymeType === 'FastDigest' && ' · Protocol: 37°C, 5-15 min'}
                     {batchEnzymeType !== 'FastDigest' && ' · Protocol: 37°C, 1-2 hours'}

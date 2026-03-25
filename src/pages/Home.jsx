@@ -22,7 +22,6 @@ import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
-import appLogo from '@/assets/icon-512.png';
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
 
@@ -46,7 +45,7 @@ const CALCULATORS = [
   { id: 'gibson', name: 'Gibson Assembly', icon: GitMerge, gradient: 'from-emerald-500 to-teal-500', description: 'Multi-fragment assembly' },
   { id: 'pcr', name: 'PCR', icon: Dna, gradient: 'from-blue-500 to-indigo-500', description: 'Master mix & Ta calculator' },
   { id: 'dilution', name: 'Dilutions', icon: Droplets, gradient: 'from-cyan-500 to-blue-500', description: 'C1V1 & serial dilutions' },
-  { id: 'protein', name: 'Protein Concentration', icon: BarChart2, gradient: 'from-pink-500 to-rose-500', description: 'Standard curve & SDS-PAGE prep' },
+  { id: 'protein', name: 'Protein Conc.', icon: BarChart2, gradient: 'from-pink-500 to-rose-500', description: 'Standard curve & SDS-PAGE prep' },
 ];
 // Tools with their sub-tabs (for sidebar navigation)
 const TOOL_TABS = {
@@ -71,7 +70,7 @@ const TOOL_TABS = {
     { id: 'lysis', label: 'Custom Lysis Buffer' },
   ],
   protein: [
-    { id: 'standards', label: 'Protein Concentration' },
+    { id: 'standards', label: 'Protein Conc.' },
     { id: 'prep', label: 'SDS-PAGE Prep' },
   ],
 };
@@ -417,7 +416,7 @@ export default function Home() {
               </button>
 
               <div className="flex items-center cursor-pointer" onClick={goHome}>
-                <img src={appLogo} alt="BiBaBenchBuddy Logo" className="w-9 h-9 object-contain" />
+                <img src="/icon-512.png" alt="BiBaBenchBuddy Logo" className="w-9 h-9 object-contain" />
               </div>
 
               {!isHome && (

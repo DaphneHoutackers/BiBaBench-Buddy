@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -31,7 +32,6 @@ const LIGASES = {
   'Blunt/TA Ligase': { buffer: 'Blunt/TA Ligase Buffer (2×)', bufferFraction: 2, temp: '25°C for 15 min' },
 };
 
-const MIN_VOL = 0.5;
 
 const LIGATION_COLORS = [
   { header: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' },
@@ -57,21 +57,20 @@ function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalV
     const insertKb = parseFloat(ins.length) / 1000;
     const insertAmount = (parseFloat(vectorAmount) * insertKb * parseFloat(ins.ratio)) / vectorKb;
     const insertVol = insertAmount / parseFloat(ins.conc);
-    const needsDilution = insertVol < MIN_VOL && insertVol > 0;
-    let dilution = null;
-    if (needsDilution) {
-      const dilutedConc = 10;
-      const dilutionVol = 5;
-      const stockVol = (dilutedConc * dilutionVol) / parseFloat(ins.conc);
-      const mqVol = dilutionVol - stockVol;
-      const newInsertVol = insertAmount / dilutedConc;
-      dilution = { stockVol: stockVol.toFixed(2), mqVol: mqVol.toFixed(2), dilutedConc, dilutionTotalVol: dilutionVol, newInsertVol: newInsertVol.toFixed(2) };
-    }
-    return { ...ins, insertAmount: insertAmount.toFixed(1), insertVol: insertVol.toFixed(2), needsDilution, dilution };
+    const dilution = getDilutionSuggestion(ins.conc, insertAmount, 0.5);
+    const needsDilution = !!dilution;
+
+    return {
+      ...ins,
+      insertAmount: insertAmount.toFixed(1),
+      insertVol: insertVol.toFixed(2),
+      needsDilution,
+      dilution
+    };
   });
 
   const totalInsertVol = insertResults.reduce((sum, ins) => {
-    if (ins.needsDilution && ins.dilution) return sum + parseFloat(ins.dilution.newInsertVol);
+    if (ins.needsDilution && ins.dilution) return sum + parseFloat(ins.dilution.newVol);
     return sum + parseFloat(ins.insertVol);
   }, 0);
 
@@ -205,7 +204,7 @@ function SingleLigation({ historyData }) {
     rows.push(['MQ', results.waterVol, results.controlWaterVol]);
     rows.push(['Vector DNA', results.vectorVolume, results.vectorVolume]);
     results.insertResults.forEach(ins => {
-      const vol = ins.needsDilution && ins.dilution ? ins.dilution.newInsertVol : ins.insertVol;
+      const vol = ins.needsDilution && ins.dilution ? ins.dilution.newVol : ins.insertVol;
       rows.push([ins.name, vol, '—']);
     });
     rows.push([results.bufferName, results.bufferVol, results.bufferVol]);
@@ -318,20 +317,9 @@ function SingleLigation({ historyData }) {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {results?.insertResults?.some(i => i.needsDilution) && (
-          <Card className="shadow-sm bg-amber-50 border border-amber-200">
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-center gap-2 text-amber-700 font-medium text-xs"><AlertTriangle className="w-3.5 h-3.5" /> Dilution suggested</div>
-              {results.insertResults.filter(i => i.needsDilution).map(ins => (
-                <div key={ins.id} className="text-xs text-amber-800 bg-white/70 rounded-lg p-2">
-                  <strong>{ins.name}</strong>: {ins.dilution.stockVol} µL stock + {ins.dilution.mqVol} µL MQ → use <strong>{ins.dilution.newInsertVol} µL</strong>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
 
+
+      <div className="space-y-3">
         <Card className={`border-0 shadow-sm ${results?.isValid ? 'bg-gradient-to-br from-violet-50 to-purple-50' : 'bg-white/80'}`}>
           <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
@@ -361,6 +349,18 @@ function SingleLigation({ historyData }) {
           <CardContent className="pt-0 pb-3">
             {results ? (
               <div className="space-y-2 bg-white p-4 rounded-lg" ref={tableRef}>
+                {results.insertResults?.some(i => i.dilution) && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs font-medium space-y-1 mb-2">
+                    <div className="flex items-center gap-2 mb-1 text-sm text-amber-800">
+                      <AlertTriangle className="w-4 h-4" /> Dilution suggested
+                    </div>
+                    {results.insertResults.filter(i => i.dilution).map(ins => (
+                      <div key={ins.id}>
+                        {generateDilutionWarning(ins.name, ins.dilution, 0.5)}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {!results.isValid && <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">⚠ Volumes exceed total. Adjust parameters.</div>}
                 <table className="w-full text-sm">
                   <thead>
@@ -382,7 +382,7 @@ function SingleLigation({ historyData }) {
                       <td className="py-1.5 px-3 text-right font-mono text-red-600 font-semibold">{results.vectorVolume}</td>
                     </tr>
                     {results.insertResults.map(ins => {
-                      const vol = ins.needsDilution && ins.dilution ? ins.dilution.newInsertVol : ins.insertVol;
+                      const vol = ins.needsDilution && ins.dilution ? ins.dilution.newVol : ins.insertVol;
                       return (
                         <tr key={ins.id} className="border-b border-slate-100">
                           <td className="py-1.5 px-3 text-slate-600">{ins.name} <span className="text-rose-600 font-semibold">({ins.insertAmount} ng)</span>{ins.needsDilution && <span className="text-rose-600 text-xs ml-1">*</span>}</td>
@@ -473,27 +473,15 @@ function MultiLigation({ historyData }) {
   useEffect(() => {
     if (isRestoring.current) return;
     const timeout = setTimeout(() => {
-      const anyFilled = ligations.some(
-        lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio)
-      );
-
+      const anyFilled = ligations.some(lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio));
       if (anyFilled) {
         addHistoryItem({
           toolId: 'ligation',
-          toolName: 'Ligation',
-          data: {
-            preview: `Multi ligation, ${ligations.length} reaction${ligations.length > 1 ? 's' : ''}`,
-            tab: 'multi',
-            ligations,
-            totalVolume,
-            ligase,
-            ligaseVol,
-            usePEG,
-          }
+          title: `Multi-Ligation (${ligations.length} rxns)`,
+          data: { tab: 'multi', ligations, totalVolume, ligase, ligaseVol, usePEG }
         });
       }
     }, 2000);
-
     return () => clearTimeout(timeout);
   }, [ligations, totalVolume, ligase, ligaseVol, usePEG, addHistoryItem]);
 
@@ -532,11 +520,7 @@ function MultiLigation({ historyData }) {
   };
 
   const allResults = ligations.map(lig => {
-    const allFilled =
-      Number(lig.vectorConc) > 0 &&
-      Number(lig.vectorLength) > 0 &&
-      Number(lig.vectorAmount) > 0 &&
-      lig.inserts.every(i => Number(i.conc) > 0 && Number(i.length) > 0 && Number(i.ratio) > 0);
+    const allFilled = lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio);
     if (!allFilled) return null;
     return calcLigationMix(lig.vectorConc, lig.vectorLength, lig.inserts, lig.vectorAmount, totalVolume, ligase, ligaseVol, usePEG ? String(pegVol) : '0');
   });
@@ -564,7 +548,7 @@ function MultiLigation({ historyData }) {
         cells: allResults.map((r) => {
           if (!r || insIdx >= r.insertResults.length) return ['—', '—'];
           const ins = r.insertResults[insIdx];
-          const vol = ins.needsDilution && ins.dilution ? ins.dilution.newInsertVol : ins.insertVol;
+          const vol = ins.needsDilution && ins.dilution ? ins.dilution.newVol : ins.insertVol;
           return [vol, '—'];
         }),
         isDna: true,
@@ -576,6 +560,7 @@ function MultiLigation({ historyData }) {
       cells: allResults.map(r => r ? [r.bufferVol, r.bufferVol] : ['—', '—'])
     });
     rows.push({
+      
       label: ligase,
       cells: allResults.map(r => r ? [ligaseVol, ligaseVol] : ['—', '—'])
     });
@@ -735,6 +720,20 @@ function MultiLigation({ historyData }) {
         </CardHeader>
         <CardContent className="pb-3">
           <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={tableRef}>
+            {/* MultiLigation Dilution Warnings moved inside tableRef */}
+            {allResults.some(r => r && r.insertResults.some(i => i.dilution)) && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
+                {allResults.map((r, i) => {
+                  if (!r) return null;
+                  return r.insertResults.filter(ins => ins.dilution).map(ins => (
+                    <div key={`${i}-${ins.id}`} className="font-medium">
+                      {generateDilutionWarning(`[${ligations[i].label}] ${ins.name}`, ins.dilution, 0.5)}
+                    </div>
+                  ));
+                })}
+              </div>
+            )}
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr>
@@ -796,25 +795,27 @@ export default function LigationCalculator({ historyData }) {
   }, [historyData]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
-          <Link2 className="w-5 h-5" />
+    <TooltipProvider>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
+            <Link2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Ligation</h2>
+            <p className="text-sm text-slate-500">Single or multiple ligation mixes with molar ratio calculations</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Ligation</h2>
-          <p className="text-sm text-slate-500">Single or multiple ligation mixes with molar ratio calculations</p>
-        </div>
-      </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="bg-slate-100">
-          <TabsTrigger value="single">Single Ligation</TabsTrigger>
-          <TabsTrigger value="multi">Multiple Ligations</TabsTrigger>
-        </TabsList>
-        <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} /></TabsContent>
-        <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} /></TabsContent>
-      </Tabs>
-    </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="bg-slate-100">
+            <TabsTrigger value="single">Single Ligation</TabsTrigger>
+            <TabsTrigger value="multi">Multiple Ligations</TabsTrigger>
+          </TabsList>
+          <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} /></TabsContent>
+          <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} /></TabsContent>
+        </Tabs>
+      </div>
+    </TooltipProvider>
   );
 }

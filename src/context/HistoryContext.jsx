@@ -5,7 +5,11 @@ const HistoryContext = createContext(null);
 const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
 
 function makeId() {
-  return crypto.randomUUID();
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `hist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeRemoteItem(row) {
@@ -69,7 +73,11 @@ export function HistoryProvider({ children }) {
     const normalized = data.map(normalizeRemoteItem);
 
     setHistory(normalized);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
+    } catch (err) {
+      console.warn('Failed to persist remote history locally:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -98,7 +106,11 @@ export function HistoryProvider({ children }) {
   }, [loadRemoteHistory]);
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    } catch (err) {
+      console.warn('Failed to persist history locally:', err);
+    }
 
     const syncTimeout = setTimeout(async () => {
       if (!isSyncEnabled()) return;

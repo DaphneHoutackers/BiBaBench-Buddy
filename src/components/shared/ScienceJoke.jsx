@@ -1,212 +1,45 @@
 import { useEffect, useRef, useState } from 'react';
+import { SCIENCE_JOKES } from '@/lib/jokes';
 
-const FALLBACK_JOKES = [
-  'What did the asteroid say when asked a question? "No comet."',
-  'Who was the smartest pig? Ein-swine.',
-  'What does a magician shout during an experiment? Labracadabra!',
-  'Who was the first electricity detective? Sherlock Ohms.',
-  'What did the bartender say to the neutron? "For you, no charge."',
-  'Why did the biology student break up with the physics student? There was no chemistry.',
-  'I tried to come up with a chemistry joke... but all the good ones Argon.',
-  "Why can't you trust an atom? They make up everything.",
-  'What do you call an acid with an attitude? A-mean-o acid.',
-  'Why did the cell phone go to school? To improve its cell culture.',
-  "Helium walks into a bar. Bartender: \"We don't serve noble gases.\" He doesn't react.",
-  "What's a pirate's favorite amino acid? Arrr-ginine!",
-  "What is a physicist's favorite food? Fission chips.",
-  "How does a mathematician fix a flat tire? With a multi-plyer.",
-  "What do you do with a dead chemist? You barium.",
-  "Why did the bacteria cross the microscope? To get to the other slide.",
-  "Oxygen, Magnesium, Sulfur, and Silver walked into a bar. O Mg S Ag!",
-  "Organic chemistry is difficult. Those who study it have alkynes of trouble.",
-  "If the silver surfer and iron man teamed up, they'd be alloys.",
-  "Why are chemists great at solving problems? Because they have all the solutions.",
-];
-
-const CACHE_POOL_KEY = 'bibabenchbuddy_science_jokes_pool';
-const SEEN_KEY = 'bibabenchbuddy_science_jokes_seen';
 const CURRENT_JOKE_KEY = 'bibabenchbuddy_science_joke_current';
 const LAST_ROTATED_KEY = 'bibabenchbuddy_science_joke_last_rotated';
-const REPLENISHING_KEY = 'bibabenchbuddy_science_jokes_replenishing';
+const SEEN_JOKES_KEY = 'bibabenchbuddy_science_jokes_seen';
 
-const ROTATE_MS = 60 * 60 * 1000;
-const MIN_POOL_SIZE = 12;
-const TARGET_POOL_SIZE = 24;
-
-const SCIENCE_TERMS = [
-  'atom', 'molecule', 'electron', 'proton', 'neutron', 'chemistry', 'physics',
-  'biology', 'cell', 'enzyme', 'gene', 'dna', 'rna', 'protein', 'lab',
-  'microscope', 'bacteria', 'quantum', 'entropy', 'acid', 'base', 'nucleus',
-  'react', 'reaction', 'polymerase', 'primer', 'culture', 'petri', 'pipette',
-  'centrifuge', 'spectrometer', 'mitochondria', 'photon', 'genome',
-];
-
-
-function shuffle(array) {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function safeReadJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function safeWriteJson(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
-
-function normalizeJoke(joke) {
-  return String(joke || '')
-    .replace(/\s+/g, ' ')
-    .replace(/^["“]|["”]$/g, '')
-    .trim();
-}
-
-function isShortJoke(joke) {
-  if (!joke) return false;
-  const wordCount = joke.split(/\s+/).length;
-  const lineCount = joke.split('\n').length;
-  // Limit to max 3 lines, 35 words, and 200 characters to ensure jokes don't span large blocks.
-  return lineCount <= 3 && wordCount <= 35 && joke.length <= 200;
-}
-
-function uniqueJokes(jokes) {
-  const seen = new Set();
-  const result = [];
-
-  for (const joke of jokes) {
-    const normalized = normalizeJoke(joke);
-    if (!normalized) continue;
-
-    // Filter out long jokes (max ~3 lines)
-    if (!isShortJoke(normalized)) continue;
-
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    result.push(normalized);
-  }
-
-  return result;
-}
-
-
-function extractJokesFromJokeApiPayload(payload) {
-  if (!payload || payload.error) return [];
-
-  if (Array.isArray(payload.jokes)) {
-    return payload.jokes
-      .map(item => {
-        if (item.type === 'single') return item.joke;
-        if (item.type === 'twopart') return `${item.setup} ... ${item.delivery}`;
-        return null;
-      })
-      .filter(Boolean);
-  }
-
-  if (payload.type === 'single' && payload.joke) return [payload.joke];
-  if (payload.type === 'twopart' && payload.setup && payload.delivery) {
-    return [`${payload.setup} ... ${payload.delivery}`];
-  }
-
-  return [];
-}
-
-function looksSciencey(joke) {
-  const text = joke.toLowerCase();
-  return SCIENCE_TERMS.some(term => text.includes(term));
-}
-
-async function fetchJokeApiBatch() {
-  const urls = [
-    'https://v2.jokeapi.dev/joke/Pun,Miscellaneous?amount=6&type=single,twopart&blacklistFlags=nsfw,religious,political,racist,sexist,explicit',
-    'https://v2.jokeapi.dev/joke/Pun?amount=6&type=single,twopart&blacklistFlags=nsfw,religious,political,racist,sexist,explicit',
-    'https://v2.jokeapi.dev/joke/Miscellaneous?amount=6&type=single,twopart&blacklistFlags=nsfw,religious,political,racist,sexist,explicit',
-  ];
-
-  const settled = await Promise.allSettled(
-    urls.map(url => fetch(url).then(res => res.json()))
-  );
-
-  const all = settled.flatMap(result =>
-    result.status === 'fulfilled' ? extractJokesFromJokeApiPayload(result.value) : []
-  );
-
-  const cleaned = uniqueJokes(all);
-  const scienceFirst = cleaned.filter(looksSciencey);
-  const rest = cleaned.filter(j => !looksSciencey(j));
-
-  return [...scienceFirst, ...rest];
-}
-
-async function replenishPool() {
-  if (localStorage.getItem(REPLENISHING_KEY) === '1') return;
-
-  const pool = safeReadJson(CACHE_POOL_KEY, []);
-  if (pool.length >= MIN_POOL_SIZE) return;
-
-  localStorage.setItem(REPLENISHING_KEY, '1');
-
-  try {
-    const current = normalizeJoke(localStorage.getItem(CURRENT_JOKE_KEY) || '');
-    const seen = safeReadJson(SEEN_KEY, []);
-
-    const [apiJokes] = await Promise.allSettled([fetchJokeApiBatch()]);
-    const fetched = apiJokes.status === 'fulfilled' ? apiJokes.value : [];
-    const merged = uniqueJokes([
-      ...pool,
-      ...fetched,
-      ...shuffle(FALLBACK_JOKES),
-    ]).filter(j => j !== current && !seen.includes(j));
-
-    safeWriteJson(CACHE_POOL_KEY, merged.slice(0, TARGET_POOL_SIZE));
-  } finally {
-    localStorage.removeItem(REPLENISHING_KEY);
-  }
-}
+const ROTATE_MS = 60 * 60 * 1000; // 1 hour
 
 function getNextJoke() {
-  const current = normalizeJoke(localStorage.getItem(CURRENT_JOKE_KEY) || '');
-  const seen = safeReadJson(SEEN_KEY, []);
-  let pool = uniqueJokes(safeReadJson(CACHE_POOL_KEY, []));
+  const current = localStorage.getItem(CURRENT_JOKE_KEY) || '';
+  let seen = [];
+  try {
+    const rawSeen = localStorage.getItem(SEEN_JOKES_KEY);
+    if (rawSeen) seen = JSON.parse(rawSeen);
+  } catch (e) {}
 
-  if (!pool.length) {
-    pool = uniqueJokes([
-      ...shuffle(FALLBACK_JOKES)
-    ]);
+  // If we've seen almost all jokes, reset the seen list
+  if (seen.length >= SCIENCE_JOKES.length - 2) {
+    seen = [];
   }
 
-  let candidates = pool.filter(j => !seen.includes(j) && j !== current);
+  // Filter out the current joke and recently seen jokes
+  let pool = SCIENCE_JOKES.filter(j => j !== current && !seen.includes(j));
 
-  if (!candidates.length) {
-    safeWriteJson(SEEN_KEY, current ? [current] : []);
-    candidates = pool.filter(j => j !== current);
-  }
+  // Fallback if pool is empty
+  if (pool.length === 0) pool = SCIENCE_JOKES.filter(j => j !== current);
 
-  const next =
-    candidates[Math.floor(Math.random() * candidates.length)] ||
-    pool.find(j => j !== current) ||
-    FALLBACK_JOKES[0];
+  // Pick random
+  const next = pool[Math.floor(Math.random() * pool.length)];
 
-  const nextSeen = uniqueJokes([...safeReadJson(SEEN_KEY, []), next]);
-  const nextPool = pool.filter(j => j !== next);
-
-  safeWriteJson(SEEN_KEY, nextSeen);
-  safeWriteJson(CACHE_POOL_KEY, nextPool);
+  // Update seen
+  seen.push(next);
+  localStorage.setItem(SEEN_JOKES_KEY, JSON.stringify(seen));
   localStorage.setItem(CURRENT_JOKE_KEY, next);
   localStorage.setItem(LAST_ROTATED_KEY, String(Date.now()));
+
+  // Cleanup old obsolete keys from the previous API-based version
+  try {
+    localStorage.removeItem('bibabenchbuddy_science_jokes_pool');
+    localStorage.removeItem('bibabenchbuddy_science_jokes_replenishing');
+  } catch (e) {}
 
   return next;
 }
@@ -216,23 +49,20 @@ export default function ScienceJoke({ isDark = false }) {
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    const rotateJoke = async () => {
+    const rotateJoke = () => {
       const next = getNextJoke();
       setJoke(next);
-      replenishPool().catch(() => {});
     };
 
     const lastRotated = Number(localStorage.getItem(LAST_ROTATED_KEY) || 0);
     const storedJoke = localStorage.getItem(CURRENT_JOKE_KEY);
 
-    // Only rotate if no joke exists or 1 hour has passed
-    if (!storedJoke || Date.now() - lastRotated >= ROTATE_MS) {
+    // Only rotate if no joke exists, 1 hour has passed, or current joke isn't in our new vetted list (legacy clear)
+    if (!storedJoke || Date.now() - lastRotated >= ROTATE_MS || !SCIENCE_JOKES.includes(storedJoke)) {
       rotateJoke();
     } else {
       // Use existing joke so it persists across refreshes
-      setJoke(normalizeJoke(storedJoke));
-      // Replenish the pool in background if needed
-      replenishPool().catch(() => {});
+      setJoke(storedJoke);
     }
 
     intervalRef.current = setInterval(() => {
@@ -249,7 +79,7 @@ export default function ScienceJoke({ isDark = false }) {
 
   return (
     <p className={`max-w-xl mx-auto text-sm italic text-center ${isDark ? 'text-white/50' : 'text-slate-500'}`}>
-      &quot;{joke || FALLBACK_JOKES[0]}&quot;
+      &quot;{joke || SCIENCE_JOKES[0]}&quot;
     </p>
   );
 }

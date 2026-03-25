@@ -17,6 +17,11 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
     setIsCapturing(true);
     const element = targetRef.current;
     
+    // Add temporary identifier to locate in cloned DOM
+    element.setAttribute('data-html2canvas-target', 'true');
+    const scrollWidth = element.scrollWidth;
+    const scrollHeight = element.scrollHeight;
+    
     try {
       const promise = new Promise((resolve, reject) => {
         html2canvas(element, {
@@ -24,11 +29,26 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
           scale: 2,
           logging: false,
           useCORS: true,
-          width: element.scrollWidth,
-          height: element.scrollHeight,
-          windowWidth: element.scrollWidth,
-          windowHeight: element.scrollHeight
+          width: scrollWidth + 10, // Add slight padding to prevent edge clipping
+          height: scrollHeight,
+          windowWidth: scrollWidth + 10,
+          windowHeight: scrollHeight,
+          onclone: (clonedDoc) => {
+            const clonedTarget = clonedDoc.querySelector('[data-html2canvas-target="true"]');
+            if (clonedTarget) {
+              clonedTarget.style.width = 'max-content';
+              clonedTarget.style.overflow = 'visible';
+              // Force all scrollable children to be fully expanded
+              const scrollables = clonedTarget.querySelectorAll('.overflow-x-auto, .overflow-hidden, .overflow-auto');
+              scrollables.forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.width = 'max-content';
+                el.style.maxWidth = 'none';
+              });
+            }
+          }
         }).then(canvas => {
+          element.removeAttribute('data-html2canvas-target');
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob);
@@ -37,6 +57,7 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
             }
           }, 'image/png');
         }).catch(err => {
+          element.removeAttribute('data-html2canvas-target');
           console.error("html2canvas error:", err);
           reject(err);
         });
