@@ -216,23 +216,4 @@ export const APP_THEMES = {
     bodyClass: 'pink-theme',
     iconStyle: { background: 'linear-gradient(135deg, #ff85c0 0%, #f759ab 100%)' },
   },
-  macos26: {
-    label: 'macOS 26 Tahoe',
-    emoji: '🏔️',
-    group: 'special',
-    bg: 'linear-gradient(145deg, #dce3ed 0%, #c9d4e3 50%, #b8c6d8 100%)',
-    cardBg: 'bg-white/18 backdrop-blur-3xl',
-    cardBorder: 'border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.08)]',
-    textPrimary: 'text-slate-900',
-    textSecondary: 'text-slate-500',
-    headerClass: 'macos26-theme',
-    bodyClass: 'macos26-theme',
-    isGlass: true,
-    iconStyle: {
-      background: 'rgba(255,255,255,0.3)',
-      backdropFilter: 'blur(20px)',
-      border: '1px solid rgba(255,255,255,0.6)',
-      boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.8)',
-    },
-  }
 };
