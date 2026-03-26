@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,24 +9,17 @@ import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
+import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const MAX_DNA_VOL = 5;
 const LOW_VOL_GIBSON = 0.3;
 
-function NumInput({ value, onChange, ...props }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const handler = e => e.preventDefault();
-    el.addEventListener('wheel', handler, { passive: false });
-    return () => el.removeEventListener('wheel', handler);
-  }, []);
-  return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
-}
 
-export default function GibsonCalculator({ historyData }) {
+
+export default function GibsonCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   const [fragments, setFragments] = useState([
     { id: 1, name: 'Vector', concentration: '', length: '', isVector: true },
@@ -55,19 +48,29 @@ export default function GibsonCalculator({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || fragments.length === 2 && !fragments[0].length && !fragments[1].length) return;
+    if (isRestoring || (fragments.length === 2 && !fragments[0].length && !fragments[1].length) || !isActive) return;
+
     const debounce = setTimeout(() => {
       const vector = fragments.find(f => f.isVector);
-      const title = vector && vector.name && vector.name !== 'Vector' 
+      const preview =
+        vector && vector.name && vector.name !== 'Vector'
         ? `Gibson: ${vector.name} + ${fragments.length - 1} inserts`
         : `Gibson Assembly (${fragments.length} parts)`;
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'gibson',
-        title: title,
-        data: { fragments, totalVolume, foldExcess, vectorNg }
+        toolName: 'Gibson Assembly',
+        data: {
+          preview,
+          fragments,
+          totalVolume,
+          foldExcess,
+          vectorNg,
+        }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
   }, [fragments, totalVolume, foldExcess, vectorNg, isRestoring, addHistoryItem]);
 
@@ -94,7 +97,10 @@ export default function GibsonCalculator({ historyData }) {
     if (!vector || !vector.concentration || !vector.length) { setResults(null); return; }
 
     const targetVectorNg = parseFloat(vectorNg) > 0 ? parseFloat(vectorNg) : 100;
-    const finalVectorVol = targetVectorNg / parseFloat(vector.concentration);
+    const finalVectorVolUnadjusted = targetVectorNg / parseFloat(vector.concentration);
+    const vectorLow = finalVectorVolUnadjusted > 0 && finalVectorVolUnadjusted < LOW_VOL_GIBSON;
+    const vectorDilution = vectorLow ? getDilutionSuggestion(vector.concentration, targetVectorNg, LOW_VOL_GIBSON) : null;
+    const finalVectorVol = vectorDilution ? parseFloat(vectorDilution.newVol) : finalVectorVolUnadjusted;
 
     // pmol of vector
     const vectorPmol = targetVectorNg / (parseFloat(vector.length) * 650 / 1000);
@@ -104,23 +110,9 @@ export default function GibsonCalculator({ historyData }) {
       const insertNg = insertPmol * parseFloat(ins.length) * 650 / 1000;
       const insertVol = insertNg / parseFloat(ins.concentration);
       const isLow = insertVol > 0 && insertVol < LOW_VOL_GIBSON;
-      let dilution = null;
-      if (isLow) {
-        const targetVol = 1.0;
-        const df = targetVol / insertVol;
-        const dilutedConc = parseFloat(ins.concentration) / df;
-        const stockVol = 2; // use 2 µL stock
-        const mqVolDil = stockVol * (df - 1);
-        dilution = {
-          dilutionFactor: df.toFixed(1),
-          dilutedConc: dilutedConc.toFixed(2),
-          newVol: targetVol.toFixed(1),
-          stockVol: stockVol.toFixed(1),
-          mqVol: mqVolDil.toFixed(1),
-          rawVol: insertVol.toFixed(2),
-        };
-      }
-      return { name: ins.name, amount: insertNg.toFixed(1), volume: isLow ? 1 : insertVol, displayVol: isLow ? 1 : insertVol, isLow, dilution };
+      const dilution = isLow ? getDilutionSuggestion(ins.concentration, insertNg, LOW_VOL_GIBSON) : null;
+      const volumeToUse = dilution ? parseFloat(dilution.newVol) : insertVol;
+      return { name: ins.name, amount: insertNg.toFixed(1), volume: volumeToUse, displayVol: volumeToUse, isLow, dilution };
     });
 
     const totalInsertVol = insertResults.reduce((s, i) => s + i.volume, 0);
@@ -137,11 +129,11 @@ export default function GibsonCalculator({ historyData }) {
     const masterMixVol = usedTotalVol / 2;
     const waterVol = usedTotalVol - masterMixVol - totalDnaVol;
 
-    const vectorLow = finalVectorVol > 0 && finalVectorVol < LOW_VOL_GIBSON;
     setResults({
       vectorAmount: targetVectorNg.toFixed(1),
       vectorVolume: finalVectorVol.toFixed(2),
       vectorLow,
+      vectorDilution,
       inserts: insertResults.map(i => ({ ...i, volume: i.volume.toFixed(2) })),
       masterMixVolume: masterMixVol.toFixed(2),
       waterVolume: Math.max(0, waterVol).toFixed(2),
@@ -175,7 +167,7 @@ export default function GibsonCalculator({ historyData }) {
           <GitMerge className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Gibson Assembly</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Gibson Assembly</h2>
           <p className="text-sm text-slate-500">Optimal amounts with ≤5 µL total DNA</p>
         </div>
       </div>
@@ -294,9 +286,9 @@ export default function GibsonCalculator({ historyData }) {
                 {/* Dilution warnings */}
                 {(results.vectorLow || results.inserts.some(i => i.isLow)) && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs space-y-1">
-                    {results.vectorLow && <div>⚠ Vector volume is very low (&lt;0.3 µL). Consider diluting vector to a lower concentration.</div>}
+                    {results.vectorDilution && <div className="font-medium text-amber-700">{generateDilutionWarning(fragments.find(f => f.isVector)?.name || 'Vector', results.vectorDilution, LOW_VOL_GIBSON)}</div>}
                     {results.inserts.filter(i => i.isLow).map((ins, idx) => (
-                      <div key={idx}>⚠ <strong>{ins.name}</strong> requires only {ins.dilution?.rawVol} µL (&lt;0.3 µL) → dilute 1:{ins.dilution?.dilutionFactor}: {ins.dilution?.stockVol} µL stock + {ins.dilution?.mqVol} µL MQ → {ins.dilution?.dilutedConc} ng/µL; use <span className="text-rose-600 font-semibold">*{ins.dilution?.newVol} µL</span></div>
+                      <div key={idx} className="font-medium text-amber-700">{generateDilutionWarning(ins.name, ins.dilution, LOW_VOL_GIBSON)}</div>
                     ))}
                   </div>
                 )}

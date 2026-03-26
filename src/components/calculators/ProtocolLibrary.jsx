@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useRef } from 'react';
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, Search, ChevronDown, ChevronUp, FlaskConical, Sparkles } from 'lucide-react';
 import ProtocolAIChat from '@/components/calculators/ProtocolAIChat';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
+
 
 const PROTOCOLS = [
   {
@@ -504,8 +506,9 @@ function ProtocolCard({ protocol }) {
   );
 }
 
-export default function ProtocolLibrary({ historyData }) {
+export default function ProtocolLibrary({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeTab, setActiveTab] = useState('library');
@@ -526,9 +529,10 @@ export default function ProtocolLibrary({ historyData }) {
   }, [historyData]);
 
   React.useEffect(() => {
-    if (isRestoring || activeTab === 'ai' || (!search && selectedCategory === 'All' && activeTab === 'library')) return;
+    if (isRestoring || activeTab === 'ai' || (!search && selectedCategory === 'All' && activeTab === 'library') || !isActive) return;
     const debounce = setTimeout(() => {
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'protocol',
         title: `Protocol Library${search ? ` (Search: ${search})` : ''}`,
         data: { search, selectedCategory, activeTab }
@@ -553,7 +557,7 @@ export default function ProtocolLibrary({ historyData }) {
           <BookOpen className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Protocol Library</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Protocol Library</h2>
           <p className="text-sm text-slate-500">Standard workflows with scaling calculators and safety notes</p>
         </div>
       </div>

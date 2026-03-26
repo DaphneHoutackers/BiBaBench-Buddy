@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -45,7 +45,7 @@ function needlemanWunsch(s1, s2, match = 1, mismatch = -1, gap = -2) {
 }
 
 // ── AlignmentView ─────────────────────────────────────────────────────────────
-export default function AlignmentView({ seq, seqName }) {
+export default function AlignmentView({ seq, seqName, library = [] }) {
   const [seq1, setSeq1] = useState(seq || '');
   const [seq2, setSeq2] = useState('');
   const [name1, setName1] = useState(seqName || 'Sequence 1');
@@ -138,10 +138,26 @@ export default function AlignmentView({ seq, seqName }) {
           <label className="text-xs font-medium text-slate-600 mb-1 block">
             Sequentie 1 {seq1 && <span className="text-slate-400">({clean(seq1).length} bp)</span>}
           </label>
-          <input
-            value={name1} onChange={e => setName1(e.target.value)}
-            placeholder="Naam..." className="w-full mb-1 px-2 py-1 text-xs border border-slate-200 rounded-md"
-          />
+          <div className="flex gap-1 mb-1">
+            <input
+              value={name1} onChange={e => setName1(e.target.value)}
+              placeholder="Naam..." className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded-md"
+            />
+            {library.length > 0 && (
+              <select 
+                className="w-28 px-1 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-600 truncate"
+                onChange={e => {
+                  const entry = library.find(l => l.id === e.target.value);
+                  if (entry) { setSeq1(entry.sequence); setName1(entry.name); }
+                  e.target.value = "";
+                }}
+                defaultValue=""
+              >
+                <option value="" disabled>Uit library...</option>
+                {library.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
+          </div>
           <Textarea
             value={seq1} onChange={e => setSeq1(e.target.value)}
             placeholder="Plak DNA sequentie of FASTA..."
@@ -152,10 +168,26 @@ export default function AlignmentView({ seq, seqName }) {
           <label className="text-xs font-medium text-slate-600 mb-1 block">
             Sequentie 2 {seq2 && <span className="text-slate-400">({clean(seq2).length} bp)</span>}
           </label>
-          <input
-            value={name2} onChange={e => setName2(e.target.value)}
-            placeholder="Naam..." className="w-full mb-1 px-2 py-1 text-xs border border-slate-200 rounded-md"
-          />
+          <div className="flex gap-1 mb-1">
+            <input
+              value={name2} onChange={e => setName2(e.target.value)}
+              placeholder="Naam..." className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded-md"
+            />
+            {library.length > 0 && (
+              <select 
+                className="w-28 px-1 py-1 text-xs border border-slate-200 rounded-md bg-white text-slate-600 truncate"
+                onChange={e => {
+                  const entry = library.find(l => l.id === e.target.value);
+                  if (entry) { setSeq2(entry.sequence); setName2(entry.name); }
+                  e.target.value = "";
+                }}
+                defaultValue=""
+              >
+                <option value="" disabled>Uit library...</option>
+                {library.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
+          </div>
           <Textarea
             value={seq2} onChange={e => setSeq2(e.target.value)}
             placeholder="Plak DNA sequentie of FASTA..."

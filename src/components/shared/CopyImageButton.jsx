@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Image, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -7,35 +7,74 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
   const [copied, setCopied] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  const handleCopyImage = async () => {
+  const handleCopyImage = () => {
     if (!targetRef.current || isCapturing) return;
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      alert("Clipboard API not supported on this device.");
+      return;
+    }
     
     setIsCapturing(true);
+    const element = targetRef.current;
+    
+    // Add temporary identifier to locate in cloned DOM
+    element.setAttribute('data-html2canvas-target', 'true');
+    const scrollWidth = element.scrollWidth;
+    const scrollHeight = element.scrollHeight;
+    
     try {
-      const canvas = await html2canvas(targetRef.current, {
-        backgroundColor: '#ffffff', // Ensure white background for tables
-        scale: 2, // Higher resolution
-        logging: false,
-        useCORS: true
+      const promise = new Promise((resolve, reject) => {
+        html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          width: scrollWidth + 10, // Add slight padding to prevent edge clipping
+          height: scrollHeight,
+          windowWidth: scrollWidth + 10,
+          windowHeight: scrollHeight,
+          onclone: (clonedDoc) => {
+            const clonedTarget = clonedDoc.querySelector('[data-html2canvas-target="true"]');
+            if (clonedTarget) {
+              clonedTarget.style.width = 'max-content';
+              clonedTarget.style.overflow = 'visible';
+              // Force all scrollable children to be fully expanded
+              const scrollables = clonedTarget.querySelectorAll('.overflow-x-auto, .overflow-hidden, .overflow-auto');
+              scrollables.forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.width = 'max-content';
+                el.style.maxWidth = 'none';
+              });
+            }
+          }
+        }).then(canvas => {
+          element.removeAttribute('data-html2canvas-target');
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Canvas conversion failed'));
+            }
+          }, 'image/png');
+        }).catch(err => {
+          element.removeAttribute('data-html2canvas-target');
+          console.error("html2canvas error:", err);
+          reject(err);
+        });
       });
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) throw new Error('Canvas conversion failed');
-        
-        try {
-          const item = new window.ClipboardItem({ 'image/png': blob });
-          await navigator.clipboard.write([item]);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch (clipboardErr) {
-          console.error("Clipboard API error:", clipboardErr);
-          // Fallback if Clipboard API fails or is not supported for images
-          alert("Could not copy image directly to clipboard. You can right-click and save the canvas if needed.");
-        }
-      }, 'image/png');
+      const item = new window.ClipboardItem({ 'image/png': promise });
+      navigator.clipboard.write([item]).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(clipboardErr => {
+        console.error("Clipboard API error:", clipboardErr);
+        alert("Could not copy image directly to clipboard. You can right-click and save the canvas if needed.");
+      }).finally(() => {
+        setIsCapturing(false);
+      });
     } catch (err) {
-      console.error("html2canvas error:", err);
-    } finally {
+      console.error("Error creating clipboard item:", err);
       setIsCapturing(false);
     }
   };

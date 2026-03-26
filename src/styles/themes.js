@@ -1,3 +1,6 @@
+
+import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2 } from 'lucide-react';
+
 export const FONT_SIZES = [
   { label: 'Small', value: '14px' },
   { label: 'Medium', value: '16px' },
@@ -9,7 +12,7 @@ export const APP_THEMES = {
   // ── Curated ──
   default: {
     label: 'Lab Default',
-    emoji: '🧪',
+    icon: FlaskConical,
     group: 'special',
     bg: 'linear-gradient(135deg, #f0f4f8 0%, #e8edf5 40%, #eef2f7 100%)',
     cardBg: 'bg-white/80 backdrop-blur',
@@ -21,11 +24,11 @@ export const APP_THEMES = {
     iconStyle: null,
   },
   notes: {
-    label: 'Notes / Paper',
-    emoji: '📓',
+    label: 'Notes',
+    icon: NotebookText,
     group: 'special',
     bg: '#faf8f3',
-    cardBg: 'bg-[#fffef7]',
+    cardBg: 'bg-[##d4b4238f)]',
     cardBorder: 'border-amber-200/80',
     textPrimary: 'text-stone-800',
     textSecondary: 'text-stone-500',
@@ -35,7 +38,7 @@ export const APP_THEMES = {
   },
   monochrome: {
     label: 'Monochrome',
-    emoji: '⬛',
+    icon: LucideDotSquare,
     group: 'special',
     bg: '#f2f2f2',
     cardBg: 'bg-white',
@@ -48,7 +51,7 @@ export const APP_THEMES = {
   },
   minimal: {
     label: 'Minimal White',
-    emoji: '◻️',
+    icon: Snowflake,
     group: 'special',
     bg: '#ffffff',
     cardBg: 'bg-gray-50',
@@ -61,7 +64,7 @@ export const APP_THEMES = {
   },
   modern: {
     label: 'Modern Dark',
-    emoji: '⚡',
+    icon: Zap,
     group: 'special',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
     cardBg: 'bg-white/5 backdrop-blur-xl',
@@ -75,7 +78,7 @@ export const APP_THEMES = {
   },
   macosGlass: {
     label: 'MacOS Glass',
-    emoji: '🪟',
+    icon: Glasses,
     group: 'special',
     bg: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%)',
     cardBg: 'bg-white/30 backdrop-blur-2xl',
@@ -104,7 +107,7 @@ export const APP_THEMES = {
   },
   highContrast: {
     label: 'Black/White',
-    emoji: '🏁',
+    icon: Columns2,
     group: 'special',
     bg: '#ffffff',
     cardBg: 'bg-white',
@@ -118,7 +121,6 @@ export const APP_THEMES = {
   // ── Muted tones ─────────────────────────────────────────────────────────────
   steel: {
     label: 'Steel Blue',
-    emoji: '🩵',
     group: 'muted',
     bg: '#e8f0f3',
     cardBg: 'bg-[#f4f8fa]',
@@ -131,7 +133,6 @@ export const APP_THEMES = {
   },
   ash: {
     label: 'Ash Gray',
-    emoji: '🌫️',
     group: 'muted',
     bg: '#e9ebea',
     cardBg: 'bg-[#f5f6f5]',
@@ -144,7 +145,6 @@ export const APP_THEMES = {
   },
   charcoal: {
     label: 'Charcoal',
-    emoji: '🪨',
     group: 'muted',
     bg: '#d8dfe2',
     cardBg: 'bg-[#edf0f1]',
@@ -157,7 +157,6 @@ export const APP_THEMES = {
   },
   sage: {
     label: 'Sage',
-    emoji: '🌿',
     group: 'muted',
     bg: '#e4ebe6',
     cardBg: 'bg-[#f2f6f3]',
@@ -170,7 +169,6 @@ export const APP_THEMES = {
   },
   dusk: {
     label: 'Dusk',
-    emoji: '🌆',
     group: 'muted',
     bg: '#e5e3ee',
     cardBg: 'bg-[#f3f2f8]',
@@ -183,7 +181,6 @@ export const APP_THEMES = {
   },
   sand: {
     label: 'Sand',
-    emoji: '🏜️',
     group: 'muted',
     bg: '#ede8de',
     cardBg: 'bg-[#f7f4ee]',
@@ -196,7 +193,6 @@ export const APP_THEMES = {
   },
   dark: {
     label: 'Dark',
-    emoji: '🌑',
     group: 'muted',
     bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
     cardBg: 'bg-slate-800/80 backdrop-blur',
@@ -210,7 +206,6 @@ export const APP_THEMES = {
   },
   girlyPink: {
     label: 'Girly Pink',
-    emoji: '🎀',
     group: 'muted',
     bg: '#fff0f6',
     cardBg: 'bg-white/90',

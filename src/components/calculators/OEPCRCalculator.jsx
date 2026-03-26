@@ -4,10 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, FlaskConical, AlertTriangle, Plus, Trash2, Info } from 'lucide-react';
+import { Copy, Dna, Check, FlaskConical, AlertTriangle, Plus, Trash2, Info } from 'lucide-react';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
+import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
+import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -30,10 +33,12 @@ function formatTime(sec) {
   return sec >= 60 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} min` : `${sec}s`;
 }
 
-export default function OEPCRCalculator({ historyData }) {
+export default function OEPCRCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   
+  const [isRestoring, setIsRestoring] = useState(false);
   const [fragments, setFragments] = useState(DEFAULT_FRAGMENTS);
   const [refNg, setRefNg] = useState('50');
   const [totalVolume, setTotalVolume] = useState('50');
@@ -41,6 +46,22 @@ export default function OEPCRCalculator({ historyData }) {
   const [extensionTime, setExtensionTime] = useState('20'); // seconds, editable
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  // Restore from history
+  useEffect(() => {
+    if (historyData && historyData.toolId === 'oepcr') {
+      setIsRestoring(true);
+      const d = historyData.data;
+      if (d) {
+        if (d.fragments) setFragments(d.fragments);
+        if (d.refNg) setRefNg(d.refNg);
+        if (d.totalVolume) setTotalVolume(d.totalVolume);
+        if (d.extensionRate) setExtensionRate(d.extensionRate);
+        if (d.extensionTime) setExtensionTime(d.extensionTime);
+      }
+      setTimeout(() => setIsRestoring(false), 50);
+    }
+  }, [historyData]);
 
   const addFragment = () => {
     const newId = Math.max(...fragments.map(f => f.id)) + 1;
@@ -64,6 +85,22 @@ export default function OEPCRCalculator({ historyData }) {
     const autoTime = Math.max(15, Math.round((longestBp / 1000) * rate));
     setExtensionTime(String(autoTime));
   }, [fragments.map(f => f.length).join(','), extensionRate]);
+
+  // Save to history
+  useEffect(() => {
+    if (isRestoring) return;
+    const hasData = fragments.some(f => f.length || f.concentration);
+    if (!hasData || !isActive) return;
+    const debounce = setTimeout(() => {
+      addHistoryItem({
+        id: sessionId.current,
+        toolId: 'oepcr',
+        toolName: 'OE-PCR Calculator',
+        data: { fragments, refNg, totalVolume, extensionRate, extensionTime }
+      });
+    }, 1000);
+    return () => clearTimeout(debounce);
+  }, [fragments, refNg, totalVolume, extensionRate, extensionTime, addHistoryItem]);
 
   // Main calculation
   useEffect(() => {
@@ -90,13 +127,20 @@ export default function OEPCRCalculator({ historyData }) {
       const conc = parseFloat(f.concentration);
       const ng = fmol * len * 650 / 1e6;
       const vol = ng / conc;
-      const needsDilution = vol > 0 && vol < 0.5;
-      let dilutionNote = null;
-      if (needsDilution) {
-        const factor = Math.ceil(0.5 / vol);
-        dilutionNote = `Verdun 1:${factor} (neem ${(vol).toFixed(2)} µL + ${(vol * (factor - 1)).toFixed(2)} µL MQ → gebruik 1 µL)`;
-      }
-      return { name: f.name, length: len, concentration: conc, ng: ng.toFixed(2), vol, needsDilution, dilutionNote };
+      const dilution = getDilutionSuggestion(conc, ng, 0.5);
+      const isLow = !!dilution;
+      const volumeToUse = dilution ? parseFloat(dilution.newVol) : vol;
+      
+      return { 
+        name: f.name, 
+        length: len, 
+        concentration: conc, 
+        ng: ng.toFixed(2), 
+        vol: volumeToUse,
+        rawVol: vol,
+        isLow, 
+        dilution 
+      };
     });
 
     const totalDnaVol = fragResults.reduce((s, f) => s + f.vol, 0);
@@ -114,7 +158,7 @@ export default function OEPCRCalculator({ historyData }) {
       primerEach,
       isValid: waterVol >= 0,
       extTimeSec: extSec,
-      hasLowVol: fragResults.some(f => f.needsDilution),
+      hasLowVol: fragResults.some(f => f.isLow),
       largestFragName: largestFrag.name,
       fmol: fmol.toFixed(1),
     });
@@ -143,7 +187,7 @@ export default function OEPCRCalculator({ historyData }) {
           <Dna className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">OE-PCR Calculator</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">OE-PCR Calculator</h2>
           <p className="text-sm text-slate-500">Overlap Extension PCR — equimolar template DNA + volledige PCR mix</p>
         </div>
       </div>
@@ -264,9 +308,12 @@ export default function OEPCRCalculator({ historyData }) {
                     </div>
                   )}
                   {results.hasLowVol && (
-                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs flex items-start gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                      Eén of meer fragmentvolumes zijn &lt;0.5 µL. Zie verdunningssuggestie per fragment.
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs space-y-1">
+                      {results.fragments.filter(f => f.isLow).map((f, idx) => (
+                        <div key={idx} className="font-medium text-amber-700">
+                          {generateDilutionWarning(f.name, f.dilution, 0.5)}
+                        </div>
+                      ))}
                     </div>
                   )}
                   <table className="w-full text-sm">
@@ -292,19 +339,12 @@ export default function OEPCRCalculator({ historyData }) {
                       {results.fragments.map((f, i) => (
                         <React.Fragment key={i}>
                           <tr className="border-b border-slate-100">
-                            <td className={`py-2 px-3 ${f.needsDilution ? 'text-amber-700' : 'text-slate-600'}`}>
+                            <td className={`py-2 px-3 ${f.isLow ? 'text-amber-700' : 'text-slate-600'}`}>
                               {f.name} <span className="text-xs text-slate-400">({f.ng} ng)</span>
-                              {f.needsDilution && <span className="text-amber-500 text-xs ml-1">*</span>}
+                              {f.isLow && <span className="text-amber-500 text-xs ml-1">*</span>}
                             </td>
-                            <td className={`py-2 px-3 text-right font-mono font-semibold ${f.needsDilution ? 'text-amber-600' : ''}`}>{f.vol}</td>
+                            <td className={`py-2 px-3 text-right font-mono font-semibold ${f.isLow ? 'text-amber-600' : ''}`}>{f.vol}</td>
                           </tr>
-                          {f.needsDilution && f.dilutionNote && (
-                            <tr className="border-b border-slate-100">
-                              <td colSpan={2} className="py-1.5 px-3 bg-amber-50 text-amber-700 text-xs italic">
-                                ↳ {f.dilutionNote}
-                              </td>
-                            </tr>
-                          )}
                         </React.Fragment>
                       ))}
                       <tr className="border-b border-slate-100">

@@ -8,6 +8,7 @@ import { Beaker, FlaskConical, AlertTriangle, ChevronDown, ChevronUp, Trash2, Sp
 import LysisBufferBuilder from '@/components/calculators/LysisBufferBuilder';
 import AIBufferChat from '@/components/calculators/AIBufferChat';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 
 // ── Buffer definitions ──
 // component order: by required addition order, or largest to smallest if order doesn't matter
@@ -202,8 +203,9 @@ function NumInput({ value, onChange, ...props }) {
   return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
 }
 
-export default function BufferCalculator({ historyData }) {
+export default function BufferCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const [savedRecipes, setSavedRecipes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('bibabenchbuddy_custom_buffers')) || {}; } catch { return {}; }
   });
@@ -223,23 +225,32 @@ export default function BufferCalculator({ historyData }) {
         if (historyData.data.activeTab) setActiveTab(historyData.data.activeTab);
         if (historyData.data.selectedBuffer) setSelectedBuffer(historyData.data.selectedBuffer);
         if (historyData.data.desiredVolume) setDesiredVolume(historyData.data.desiredVolume);
+        if (historyData.data.showProtocol !== undefined) setShowProtocol(historyData.data.showProtocol);
       }
       setTimeout(() => setIsRestoring(false), 50);
     }
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || activeTab === 'ai') return;
+    if (isRestoring || activeTab === 'ai' || !isActive) return;
 
     const timeout = setTimeout(() => {
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'buffer',
-        title: `Buffer: ${selectedBuffer} (${desiredVolume}mL)`,
-        data: { activeTab, selectedBuffer, desiredVolume }
+        toolName: 'Buffer Preparation',
+        data: {
+          preview: `Buffer: ${selectedBuffer} (${desiredVolume} mL)`,
+          activeTab,
+          selectedBuffer,
+          desiredVolume,
+          showProtocol,
+        }
       });
     }, 1000);
+
     return () => clearTimeout(timeout);
-  }, [activeTab, selectedBuffer, desiredVolume, isRestoring, addHistoryItem]);
+  }, [activeTab, selectedBuffer, desiredVolume, showProtocol, isRestoring, addHistoryItem]);
 
   // ensure selectedBuffer exists in allBuffers (in case of deleted recipe)
   const safeSelected = allBuffers[selectedBuffer] ? selectedBuffer : 'TAE (50×)';
@@ -278,7 +289,7 @@ export default function BufferCalculator({ historyData }) {
           <Beaker className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Buffer Preparation</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Buffer Preparation</h2>
           <p className="text-sm text-slate-500">Recipes, component functions & complete protocols</p>
         </div>
       </div>
@@ -290,12 +301,15 @@ export default function BufferCalculator({ historyData }) {
           <TabsTrigger value="ai" className="gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-500"/> AI Assistant</TabsTrigger>
         </TabsList>
         <TabsContent value="ai" className="mt-0">
-          <AIBufferChat onSaveRecipe={handleSaveAiRecipe} historyData={historyData} />
+          <AIBufferChat
+            onSaveRecipe={handleSaveAiRecipe}
+            historyData={historyData?.data?.activeTab === 'ai' ? historyData : null}
+          />
         </TabsContent>
         <TabsContent value="lysis" className="mt-4">
           <Card className="border-0 shadow-sm bg-white/80">
             <CardContent className="p-5">
-              <LysisBufferBuilder historyData={historyData} />
+              <LysisBufferBuilder historyData={historyData} isActive={isActive} sessionId={sessionId.current} />
             </CardContent>
           </Card>
         </TabsContent>

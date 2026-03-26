@@ -1,122 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table } from 'lucide-react';
+import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table, AlertTriangle } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
-const ENZYMES = {
-  'AatII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AclI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AfeI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AflII': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AgeI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AhdI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'ApaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'ApaLI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AscI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AvaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'AvrII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'BamHI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'BbsI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'BclI': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 60, time: '1 hr', fd: false },
-  'BglII': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'BmtI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'BsaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'BsiWI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 55, time: '1 hr', fd: false },
-  'BsmBI': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 55, time: '1 hr', fd: false },
-  'BsmI': { buffers: ['NEBuffer 2.1'], optimal: 'NEBuffer 2.1', temp: 65, time: '1 hr', fd: false },
-  'BsrGI': { buffers: ['NEBuffer 2.1'], optimal: 'NEBuffer 2.1', temp: 37, time: '1 hr', fd: false },
-  'BstBI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 65, time: '1 hr', fd: false },
-  'BstEII': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 60, time: '1 hr', fd: false },
-  'ClaI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'DpnI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'DpnII': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 37, time: '1 hr', fd: false },
-  'EcoRI': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'EcoRV': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'FseI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'HindIII': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'KpnI': { buffers: ['CutSmart', 'NEBuffer 1.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'MluI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NcoI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NdeI': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NheI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NotI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'NruI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NsiI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PacI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PmeI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PstI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'PvuI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PvuII': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SacI': { buffers: ['CutSmart', 'NEBuffer 1.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'SacII': { buffers: ['NEBuffer 4'], optimal: 'NEBuffer 4', temp: 37, time: '1 hr', fd: false },
-  'SalI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'ScaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SfiI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 50, time: '1 hr', fd: false },
-  'SmaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 25, time: '1 hr', fd: false },
-  'SpeI': { buffers: ['CutSmart', 'NEBuffer 2.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'SphI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SspI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'TaqI': { buffers: ['NEBuffer 3.1'], optimal: 'NEBuffer 3.1', temp: 65, time: '1 hr', fd: false },
-  'XbaI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'XhoI': { buffers: ['CutSmart', 'NEBuffer 3.1'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: true },
-  'XmaI': { buffers: ['NEBuffer 4'], optimal: 'NEBuffer 4', temp: 37, time: '1 hr', fd: false },
-  'XmnI': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  // Thermo FastDigest enzymes
-  'BshTI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'Eco31I': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'Eco32I': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest EcoRI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest BamHI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest HindIII': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest XbaI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest SalI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest PstI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NotI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest XhoI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NdeI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NcoI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest KpnI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest SacI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest BglII': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest SpeI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest NheI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'FastDigest DpnI': { buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
-  'BamHI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'EcoRI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'HindIII-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'KpnI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NcoI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NheI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'NotI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'PstI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SacI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SalI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SpeI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'SphI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'XbaI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-  'XhoI-HF': { buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
-};
+import { makeId } from '@/utils/makeId';
+import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
+import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const LOW_VOL = 0.5; // µL warning threshold
 
 const FASTAP_VOL = 1; // µL
 
 function calcMix(dnaConc, desiredDna, totalVol, enzymeVol, numEnzymes, enzymeType, isVector = false) {
-  const dnaVolume = parseFloat(desiredDna) / parseFloat(dnaConc);
+  const rawDnaVol = parseFloat(desiredDna) / parseFloat(dnaConc);
+  const dilution = getDilutionSuggestion(dnaConc, desiredDna, LOW_VOL);
+  const dnaVolume = dilution ? parseFloat(dilution.newVol) : rawDnaVol;
   const bufferVol = parseFloat(totalVol) / 10;
   const totalEnzymeVol = numEnzymes * parseFloat(enzymeVol);
   const fastApVol = isVector ? FASTAP_VOL : 0;
   const waterVol = parseFloat(totalVol) - dnaVolume - bufferVol - totalEnzymeVol - fastApVol;
-  const dnaLow = dnaVolume > 0 && dnaVolume < LOW_VOL;
-  return { dnaVolume, bufferVol, totalEnzymeVol, waterVol, isValid: waterVol >= 0, dnaLow, fastApVol };
+  return { dnaVolume, bufferVol, totalEnzymeVol, waterVol, isValid: waterVol >= 0, dnaLow: !!dilution, fastApVol, dilution };
 }
 
 // Number input that blocks scroll and allows only typing/arrows
@@ -137,7 +47,7 @@ function DnaMass({ ng }) {
   return <span className="text-rose-600 font-semibold">({ng} ng)</span>;
 }
 
-export default function DigestCalculator({ externalTab, onTabChange, historyData }) {
+export default function DigestCalculator({ externalTab, onTabChange, historyData, isActive }) {
   const singleTableRef = useRef(null);
   const batchTableRef = useRef(null);
   const [tab, setTab] = useState(externalTab || 'single');
@@ -159,6 +69,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const [copied, setCopied] = useState(false);
 
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const isRestoring = useRef(false);
 
   // Restore from history
@@ -186,45 +97,89 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   // Save history
   useEffect(() => {
     if (isRestoring.current) return;
+
     const timeout = setTimeout(() => {
+      if (!isActive) return;
       const hasSingle = tab === 'single' && dnaConc && desiredDna;
       const hasBatch = tab === 'batch' && batchSamples.some(s => s.conc);
+
       if (hasSingle || hasBatch) {
         addHistoryItem({
+          id: sessionId.current,
           toolId: 'digest',
-          tabId: tab,
-          title: tab === 'single' 
-            ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.join(', ') : 'Custom'}`
-            : `Batch Digest (${batchSamples.length} samples)`,
-          data: { tab, dnaConc, desiredDna, dnaRole, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType }
+          toolName: 'Restriction Digest',
+          data: {
+            preview:
+              tab === 'single'
+                ? `Digest: ${selectedEnzymes.length > 0 ? selectedEnzymes.map(getEnzymeDisplayName).join(', ') : 'Custom'}`
+                : `Batch Digest (${batchSamples.length} samples)`,
+            tab,
+            dnaConc,
+            desiredDna,
+            dnaRole,
+            selectedEnzymes,
+            totalVolume,
+            enzymeVolume,
+            enzymeType,
+            batchSamples,
+            batchTotalVol,
+            batchEnzymeVol,
+            batchEnzymeType,
+          }
         });
       }
     }, 2000);
+
     return () => clearTimeout(timeout);
-  }, [tab, dnaConc, desiredDna, dnaRole, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType, addHistoryItem]);
+  }, [
+    tab,
+    dnaConc,
+    desiredDna,
+    dnaRole,
+    selectedEnzymes,
+    totalVolume,
+    enzymeVolume,
+    enzymeType,
+    batchSamples,
+    batchTotalVol,
+    batchEnzymeVol,
+    batchEnzymeType,
+    addHistoryItem
+  ]);
 
   // Filter enzymes based on selected enzyme type
   const getFilteredEnzymes = (type) => {
     const result = {};
-    Object.entries(ENZYMES).forEach(([name, info]) => {
-      if (type === 'FastDigest' && (name.startsWith('FastDigest ') || info.optimal === 'FastDigest Buffer')) {
-        result[name] = info;
+
+    Object.entries(ENZYME_DB).forEach(([name, info]) => {
+      const displayName = getEnzymeDisplayName(name);
+
+      if (type === 'FastDigest' && info.fd) {
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
       } else if (type === 'HF' && name.endsWith('-HF')) {
-        result[name] = info;
-      } else if (type === 'Standard' && !name.startsWith('FastDigest ') && !name.endsWith('-HF') && info.optimal !== 'FastDigest Buffer') {
-        result[name] = info;
-      }
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
+      } else if (type === 'Standard' && !info.fd && !name.endsWith('-HF')) {
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
+        }
     });
+
     return result;
   };
 
+  const singleFilteredEnzymes = getFilteredEnzymes(enzymeType);
   const batchFilteredEnzymes = getFilteredEnzymes(batchEnzymeType);
   const batchMaxEnzymes = Math.max(1, ...batchSamples.map(s => s.enzymes.length));
 
   const getOptimalBuffer = () => {
     if (enzymeType === 'FastDigest') return 'FastDigest Buffer (10×)';
     if (selectedEnzymes.length === 0) return null;
-    const allBuffers = selectedEnzymes.map(e => ENZYMES[e]?.buffers || ['CutSmart']);
+    const allBuffers = selectedEnzymes.map(e => singleFilteredEnzymes[e]?.buffers || ['CutSmart']);
     const common = allBuffers.reduce((a, b) => a.filter(c => b.includes(c)));
     if (common.includes('CutSmart')) return 'CutSmart (10×)';
     return common[0] ? `${common[0]} (10×)` : 'CutSmart (check compatibility)';
@@ -233,7 +188,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const getProtocol = () => {
     if (enzymeType === 'FastDigest') return '37°C for 5-15 min (FastDigest)';
     if (selectedEnzymes.length === 0) return '37°C for 1-2 hours';
-    const temps = selectedEnzymes.map(e => ENZYMES[e]?.temp || 37);
+    const temps = selectedEnzymes.map(e => singleFilteredEnzymes[e]?.temp || 37);
     return `${Math.max(...temps)}°C for 1-2 hours`;
   };
 
@@ -266,7 +221,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
       ['Buffer (µL)', ...batchResults.map(r => r.bufferVol.toFixed(2))],
       ...Array.from({ length: maxEnz }, (_, i) => [
         `RE${i + 1} (${batchEnzymeVol}µL)`,
-        ...batchResults.map(r => r.enzymes[i] || '–')
+        ...batchResults.map(r => r.enzymes[i] ? getEnzymeDisplayName(r.enzymes[i]) : '–')
       ]),
       ['FastAP (µL)', ...batchResults.map(r => r.fastApVol > 0 ? r.fastApVol.toFixed(1) : '–')],
       ['Total (µL)', ...batchResults.map(() => batchTotalVol)],
@@ -278,32 +233,14 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
   const bufferLabel = enzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : (getOptimalBuffer() || 'CutSmart (10×)');
 
-  // Dilution suggestion for low DNA volume
-  const getDilutionSuggestion = (dnaConc, desiredNg) => {
-    const vol = parseFloat(desiredNg) / parseFloat(dnaConc);
-    if (vol >= LOW_VOL || vol <= 0) return null;
-    const targetVol = 1.0;
-    const df = targetVol / vol;
-    const stockVol = 2;
-    return {
-      dilutionFactor: df.toFixed(1),
-      dilutedConc: (parseFloat(dnaConc) / df).toFixed(2),
-      stockVol: stockVol.toFixed(1),
-      mqVol: (stockVol * df - stockVol).toFixed(1),
-      newVol: targetVol.toFixed(1),
-    };
-  };
-
-  const dilutionSuggestion = results?.dnaLow && dnaConc && desiredDna ? getDilutionSuggestion(dnaConc, desiredDna) : null;
-
   // Table rows — MQ first
   const singleRows = results ? [
     { label: 'MQ', vol: Math.max(0, results.waterVol).toFixed(2), isMQ: true },
     { label: `DNA`, vol: results.dnaVolume.toFixed(2), mass: desiredDna + ' ng', isDna: true, isLow: results.dnaLow },
     { label: bufferLabel, vol: results.bufferVol.toFixed(2) },
     ...(selectedEnzymes.length > 0
-      ? selectedEnzymes.map(e => ({ label: e, vol: enzymeVolume }))
-      : [{ label: 'Restriction Enzyme', vol: enzymeVolume }]),
+      ? selectedEnzymes.map(e => ({ label: getEnzymeDisplayName(e), vol: enzymeVolume }))
+      : [{ label: 'Restriction Enzyme', vol: enzymeVolume }]),  
     ...(dnaRole === 'vector' ? [{ label: 'FastAP (thermosensitive AP)', vol: FASTAP_VOL.toFixed(1) }] : []),
   ] : [];
 
@@ -314,7 +251,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
           <Scissors className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Restriction Digest</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Restriction Digest</h2>
           <p className="text-sm text-slate-500">Single or batch digest mix calculator</p>
         </div>
       </div>
@@ -385,7 +322,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     selectedEnzymes={selectedEnzymes}
                     onAdd={(e) => setSelectedEnzymes(prev => prev.includes(e) ? prev : [...prev, e])}
                     onRemove={(e) => setSelectedEnzymes(prev => prev.filter(x => x !== e))}
-                    enzymes={ENZYMES}
+                    enzymes={singleFilteredEnzymes}
                     enzymeType={enzymeType}
                   />
                 </div>
@@ -393,15 +330,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
             </Card>
 
             <div className="space-y-4">
-              {dilutionSuggestion && (
+              {results?.dilution && (
                 <Card className="shadow-sm bg-amber-50 border border-amber-200">
-                  <CardContent className="p-4 text-sm text-amber-800">
-                    <div className="font-medium mb-1">⚠ DNA volume too low (&lt;0.5 µL)</div>
-                    <div className="mt-2 bg-white/70 rounded-lg p-2 text-xs space-y-0.5">
-                      <div><strong>Dilute:</strong> {dilutionSuggestion.stockVol} µL stock + {dilutionSuggestion.mqVol} µL MQ</div>
-                      <div><strong>New conc:</strong> {dilutionSuggestion.dilutedConc} ng/µL (1:{dilutionSuggestion.dilutionFactor})</div>
-                      <div><strong>Use <span className="text-rose-600">*{dilutionSuggestion.newVol} µL</span></strong> of dilution in digest</div>
-                    </div>
+                  <CardContent className="p-4 text-sm text-amber-800 font-medium">
+                    {generateDilutionWarning('DNA', results.dilution, LOW_VOL)}
                   </CardContent>
                 </Card>
               )}
@@ -419,7 +351,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           rows.push(['MQ', Math.max(0, results.waterVol).toFixed(2)]);
                           rows.push([`DNA (${desiredDna} ng)`, results.dnaVolume.toFixed(2)]);
                           rows.push([bufferLabel, results.bufferVol.toFixed(2)]);
-                          selectedEnzymes.forEach(e => rows.push([e, enzymeVolume]));
+                          selectedEnzymes.forEach(e => rows.push([getEnzymeDisplayName(e), enzymeVolume]));
                           if (selectedEnzymes.length === 0) rows.push(['Restriction Enzyme', enzymeVolume]);
                           rows.push(['Total', totalVolume]);
                           return rows;
@@ -463,9 +395,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           </tr>
                         </tbody>
                       </table>
-                      {dilutionSuggestion && (
-                        <p className="text-xs text-rose-600 mt-1">* Volume after dilution — see dilution suggestion above.</p>
-                      )}
                       <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
                         <p className="text-xs text-blue-700"><strong>Protocol:</strong> {results.protocol}</p>
                       </div>
@@ -572,7 +501,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     </CardTitle>
                     <div className="flex gap-2">
                       <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
-                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         {copied ? 'Copied!' : 'Copy Table'}
                       </button>
                       <CopyImageButton targetRef={batchTableRef} />
@@ -581,6 +510,17 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={batchTableRef}>
+                    {/* Dilution warnings moved inside batch tableRef for image copy */}
+                    {batchResults.some(r => r.dnaLow) && (
+                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                        <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
+                        {batchResults.filter(r => r.dnaLow).map(r => (
+                          <div key={r.id} className="font-medium">
+                            {generateDilutionWarning(r.name, r.dilution, LOW_VOL)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-blue-50">
@@ -615,7 +555,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                             {batchResults.map((r, i) => (
                               <td key={i} className="text-right py-2 px-3 font-mono text-sm">
                                 {r.enzymes[j] ? (
-                                  <span className="text-rose-700 font-semibold">{r.enzymes[j]}</span>
+                                  <span className="text-rose-700 font-semibold">{getEnzymeDisplayName(r.enzymes[j])}</span>
                                 ) : (
                                   <span className="text-slate-300">–</span>
                                 )}
@@ -636,8 +576,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       </tbody>
                     </table>
                   </div>
-                  {batchResults.some(r => r.dnaLow) && <p className="text-xs text-rose-600 mt-2">* Volume &lt;0.5 µL — consider diluting DNA first.</p>}
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-2">
                     Buffer: {batchEnzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : 'CutSmart / recommended buffer (10×)'}
                     {batchEnzymeType === 'FastDigest' && ' · Protocol: 37°C, 5-15 min'}
                     {batchEnzymeType !== 'FastDigest' && ' · Protocol: 37°C, 1-2 hours'}

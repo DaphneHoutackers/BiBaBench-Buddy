@@ -23,7 +23,7 @@ const createWindow = () => {
       contextIsolation: false,
     },
     titleBarStyle: 'hiddenInset',
-    icon: process.platform === 'win32' || process.platform === 'linux' ? pngIconPath : undefined,
+    icon: pngIconPath  
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Beaker, Plus, Trash2, TrendingUp, FlaskConical, Copy, Check } from 'luc
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 
 function linearRegression(points) {
   const n = points.length;
@@ -41,8 +42,63 @@ const DEFAULT_STD_CONCS = [0, 0.25, 0.5, 1, 2, 5, 10, 20, 40];
 // BSA stock = 2 mg/mL = 2000 µg/mL → µL needed per 1 mL WR = conc / 2000 * 1000
 const bsaVolForStd = (conc) => (conc / 2000 * 1000); // µL per 1 mL WR
 
-export default function ProteinConcCalculator({ externalTab, onTabChange, historyData }) {
+function normalizeDecimal(value) {
+  return String(value || '')
+    .trim()
+    .replace(/(\d),(\d)/g, '$1.$2');
+}
+
+function parseSampleBatchInput(input) {
+  const lines = String(input || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const parsed = [];
+
+  for (const line of lines) {
+    const normalizedLine = normalizeDecimal(line);
+
+    // Format: "A1-A #1: 0.609" or "A1-A #1 = 0.609"
+    const idValueMatch = normalizedLine.match(/^(.+?)\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*$/);
+
+    if (idValueMatch) {
+      parsed.push({
+        name: idValueMatch[1].trim(),
+        abs: idValueMatch[2].trim(),
+      });
+      continue;
+    }
+
+    // Format without : or =, take last number as absorbance
+    // Example: "A1-A #1 0.609"
+    const trailingValueMatch = normalizedLine.match(/^(.+?)\s+(-?\d+(?:\.\d+)?)\s*$/);
+
+    if (trailingValueMatch) {
+      parsed.push({
+        name: trailingValueMatch[1].trim(),
+        abs: trailingValueMatch[2].trim(),
+      });
+      continue;
+    }
+
+    // Only absorbance value
+    const valueOnlyMatch = normalizedLine.match(/^-?\d+(?:\.\d+)?$/);
+
+    if (valueOnlyMatch) {
+      parsed.push({
+        name: null,
+        abs: normalizedLine,
+      });
+    }
+  }
+
+  return parsed;
+}
+
+export default function ProteinConcCalculator({ externalTab, onTabChange, historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const standardsTableRef = useRef(null);
   const samplesTableRef = useRef(null);
   const prepTableRef = useRef(null);
@@ -93,28 +149,65 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || tab === 'standards' && standards.every(s => !s.abs) && unknowns.every(u => !u.abs)) return;
+    if (
+      isRestoring ||
+      (tab === 'standards' &&
+        standards.every(s => !s.abs) &&
+        unknowns.every(u => !u.abs))
+    ) return;
+    if (!isActive) return;
+
     const debounce = setTimeout(() => {
-      let title = 'Protein Conc: ';
-      
-      const numValidUnknowns = unknowns.filter(u => u.abs).length;
-      if (numValidUnknowns > 0) {
-        title += `${numValidUnknowns} samples calculated`;
-      } else {
+      let preview = 'Protein concentration calculation';
+
+      if (tab === 'standards') {
+        const numValidUnknowns = unknowns.filter(u => u.abs).length;
         const numValidStds = standards.filter(s => s.abs).length;
-        title += `Standard Curve (${numValidStds} points)`;
+
+        if (numValidUnknowns > 0) {
+          preview = `${numValidUnknowns} sample${numValidUnknowns > 1 ? 's' : ''} calculated`;
+        } else {
+          preview = `Standard curve, ${numValidStds} point${numValidStds !== 1 ? 's' : ''}`;
+        }
+      } else if (tab === 'prep') {
+        const prepCount = unknownResults.filter(r => r.lysateConc_ngul).length;
+        preview = prepCount > 0
+          ? `SDS-PAGE prep, ${prepCount} sample${prepCount > 1 ? 's' : ''}`
+          : 'SDS-PAGE sample prep';
       }
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'protein',
-        title: title,
+        toolName: 'Protein Concentration Calculator',
         data: {
-          tab, wrVolume, sampleVolInWR, standards, unknowns, proteinLoad, sampleBufferX, prepTotalVol
+          preview,
+          tab,
+          wrVolume,
+          sampleVolInWR,
+          standards,
+          unknowns,
+          proteinLoad,
+          sampleBufferX,
+          prepTotalVol
         }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
-  }, [tab, wrVolume, sampleVolInWR, standards, unknowns, proteinLoad, sampleBufferX, prepTotalVol, isRestoring, addHistoryItem]);
+  }, [
+    tab,
+    wrVolume,
+    sampleVolInWR,
+    standards,
+    unknowns,
+    proteinLoad,
+    sampleBufferX,
+    prepTotalVol,
+    unknownResults,
+    isRestoring,
+    addHistoryItem
+  ]);
   const wrVol = parseFloat(wrVolume) || 1;
   const sVol = parseFloat(sampleVolInWR) || 10;
 
@@ -154,17 +247,29 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
   };
 
   const applyBatchSampleAbs = () => {
-    const raw = batchSampleAbsInput.replace(/(\d)[,](\d)/g, '$1.$2');
-    const vals = raw.split(/[\n\t]+|,(?!\d)/).map(s => s.trim()).filter(Boolean);
-    if (!vals.length) return;
+    const parsed = parseSampleBatchInput(batchSampleAbsInput);
+    if (!parsed.length) return;
+
     setUnknowns(prev => {
       const extended = [...prev];
-      while (extended.length < vals.length) {
-        const id = Math.max(...extended.map(u => u.id)) + 1;
+
+      while (extended.length < parsed.length) {
+        const id = extended.length ? Math.max(...extended.map(u => u.id)) + 1 : 1;
         extended.push({ id, name: `Sample ${id}`, abs: '' });
       }
-      return extended.map((u, i) => ({ ...u, abs: vals[i] !== undefined ? vals[i] : u.abs }));
+
+      return extended.map((u, i) => {
+        const item = parsed[i];
+        if (!item) return u;
+
+        return {
+          ...u,
+          name: item.name ? item.name : u.name,
+          abs: item.abs !== undefined ? item.abs : u.abs,
+        };
+      });
     });
+
     setBatchSampleAbsInput('');
   };
 
@@ -254,7 +359,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           <Beaker className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Protein Concentration</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Protein Concentration</h2>
           <p className="text-sm text-slate-500">BCA / Bradford standard curve & SDS-PAGE sample prep</p>
         </div>
       </div>
@@ -416,13 +521,25 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
               <div ref={samplesTableRef} className="space-y-3 bg-white p-2 rounded-xl">
               {/* Batch paste for samples */}
               <div className="p-3 bg-slate-50 rounded-lg">
-                <Label className="text-xs text-slate-500">Paste sample absorbances (newline/comma separated)</Label>
+                <Label className="text-xs text-slate-500">Paste sample absorbances, optionally with sample ID</Label>
                 <div className="flex gap-1 mt-1">
-                  <textarea value={batchSampleAbsInput} onChange={e => setBatchSampleAbsInput(e.target.value)}
-                    className="flex-1 h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" placeholder="0.245&#10;0.312&#10;0.189..." />
+                  <textarea
+                    value={batchSampleAbsInput}
+                    onChange={e => setBatchSampleAbsInput(e.target.value)}
+                    className="flex-1 h-24 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none"
+                    placeholder={`A1-A #1: 0,609
+                    A1-A #2: 0,479
+                    A1-A #3: 1,542
+                    of alleen:
+                    0,609
+                    0,479
+                    1,542`}
+                  />
                   <button onClick={applyBatchSampleAbs} className="px-2 py-1 bg-pink-600 text-white text-xs rounded-md hover:bg-pink-700 self-start">Apply</button>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Accepts both . and , as decimal separator when using newline-separated values.</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Accepted formats: <span className="font-mono">A1-A #1: 0,609</span>, <span className="font-mono">A1-A #1 0,609</span>, or only <span className="font-mono">0,609</span>. Both . and , are accepted as decimal separator.
+                </p>
               </div>
               <table className="w-full text-sm">
                 <thead>

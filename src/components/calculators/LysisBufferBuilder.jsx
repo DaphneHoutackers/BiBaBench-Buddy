@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FlaskConical, Info, Plus, Check, Copy } from 'lucide-react';
+import { FlaskConical, Check, Copy } from 'lucide-react';
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
@@ -111,7 +110,7 @@ function calcVolume(conc, unit, totalMl) {
   return { amount: c.toFixed(2), amountUnit: unit, note: '' };
 }
 
-export default function LysisBufferBuilder({ historyData }) {
+export default function LysisBufferBuilder({ historyData, isActive, sessionId }) {
   const { addHistoryItem } = useHistory();
   const tableRef = React.useRef(null);
   
@@ -135,10 +134,12 @@ export default function LysisBufferBuilder({ historyData }) {
   }, [historyData]);
 
   React.useEffect(() => {
-    if (isRestoring || Object.keys(selections).length === 0) return;
+    if (isRestoring || Object.keys(selections).length === 0 || !isActive) return;
     const debounce = setTimeout(() => {
       addHistoryItem({
+        id: sessionId,
         toolId: 'buffer',
+        toolName: 'Buffer Preparation',
         title: `Lysis Buffer (${totalVol}mL) - ${Object.keys(selections).length} components`,
         data: { activeTab: 'lysis', totalVol, selections, customConcs }
       });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Droplets, FlaskConical, Calculator, AlertCircle } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -48,11 +49,12 @@ const VOL_UNITS = {
   'µL': 1e-6,
   'nL': 1e-9,
 };
-import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 
-export default function DilutionCalculator({ historyData }) {
+export default function DilutionCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   const [mode, setMode] = useState('c1v1');
 
@@ -121,31 +123,82 @@ export default function DilutionCalculator({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring) return;
+    if (isRestoring || !isActive) return;
+
     const debounce = setTimeout(() => {
-      let title = 'Dilution';
+      let preview = 'Dilution';
+
       if (mode === 'c1v1' && c1v1Result && c1v1Result.value) {
-        title = `C1V1: solved ${labelMap[c1v1Result.solveFor]} = ${c1v1Result.value.toFixed(1)}`;
-      } else if (mode === 'sample' && sdResult) {
-        title = `Sample: ${sdStartConc} → ${sdResult.targetConc?.toFixed(1) || '?'}`;
+        preview = `C1V1: ${labelMap[c1v1Result.solveFor]} = ${c1v1Result.value.toFixed(1)} ${c1v1Result.unit}`;
+      } else if (mode === 'sample' && sdResult && !sdResult.error) {
+        preview = `Sample: ${sdStartConc} → ${sdResult.targetConc?.toFixed(1) || '?'} ng/µL`;
       } else if (mode === 'addto' && atvResult) {
-        title = `Add to Vol: ${atvVolume}µL + ${atvResult.addVol?.toFixed(1)}µL`;
+        preview = `Add to Vol: ${atvVolume} µL + ${atvResult.addVol?.toFixed(1)} µL`;
       } else if (mode === 'serial' && serialResult) {
-        title = `Serial: /${dilutionFactor}× (${numDilutions} wells)`;
+        preview = `Serial: /${dilutionFactor}× (${numDilutions} wells)`;
       }
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'dilution',
-        title: title,
+        toolName: 'Dilution Calculator',
         data: {
-          mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
-          c1, v1, c2, v2, c1Unit, v1Unit, c2Unit, v2Unit, mw, serialStart, dilutionFactor, numDilutions, volumePerWell
+          preview,
+          mode,
+          sdStartConc,
+          sdMode,
+          sdFactor,
+          sdFinalConc,
+          sdSampleVol,
+          atvVolume,
+          atvFactor,
+          c1,
+          v1,
+          c2,
+          v2,
+          c1Unit,
+          v1Unit,
+          c2Unit,
+          v2Unit,
+          mw,
+          serialStart,
+          dilutionFactor,
+          numDilutions,
+          volumePerWell,
         }
       });
     }, 1000);
+
     return () => clearTimeout(debounce);
-  }, [mode, sdStartConc, sdMode, sdFactor, sdFinalConc, sdSampleVol, atvVolume, atvFactor,
-      c1, v1, c2, v2, serialStart, dilutionFactor, numDilutions, volumePerWell, isRestoring, addHistoryItem, c1v1Result, sdResult, atvResult, serialResult]);
+  }, [
+    mode,
+    sdStartConc,
+    sdMode,
+    sdFactor,
+    sdFinalConc,
+    sdSampleVol,
+    atvVolume,
+    atvFactor,
+    c1,
+    v1,
+    c2,
+    v2,
+    c1Unit,
+    v1Unit,
+    c2Unit,
+    v2Unit,
+    mw,
+    serialStart,
+    dilutionFactor,
+    numDilutions,
+    volumePerWell,
+    isRestoring,
+    addHistoryItem,
+    c1v1Result,
+    sdResult,
+    atvResult,
+    serialResult
+  ]);
 
   // C1V1 calculation: always auto-detects missing field
   useEffect(() => {
@@ -317,7 +370,7 @@ export default function DilutionCalculator({ historyData }) {
           <Droplets className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">Dilution Calculator</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Dilution Calculator</h2>
           <p className="text-sm text-slate-500">C₁V₁=C₂V₂ and serial dilutions</p>
         </div>
       </div>
