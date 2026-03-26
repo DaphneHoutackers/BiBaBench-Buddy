@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dna, FlaskConical, Thermometer, Clock, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Dna, FlaskConical, Thermometer, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton from '@/components/shared/CopyTableButton';

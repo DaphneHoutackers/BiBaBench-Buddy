@@ -14,8 +14,7 @@ import {
   Mail,
   Clock,
   Lock,
-  Github,
-  NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2, ALargeSmall
+  Github, ALargeSmall
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";

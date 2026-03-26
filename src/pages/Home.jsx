@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Scissors, Link2, GitMerge, Dna, Droplets, Beaker,
   Sparkles, ArrowLeft, BookOpen, Microscope,
-  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2, Glasses, NotebookText, FlaskConical, LucideDotSquare, Zap, Snowflake, Columns2
+  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2
 } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
 import DigestCalculator from '@/components/calculators/DigestCalculator';
