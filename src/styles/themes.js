@@ -1,5 +1,5 @@
 
-import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2 } from 'lucide-react';
+import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Zap, Snowflake, Columns2 } from 'lucide-react';
 
 export const FONT_SIZES = [
   { label: 'Small', value: '14px' },

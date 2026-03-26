@@ -26,11 +26,6 @@
     "app:mac": "rm -rf dist dist-electron release && vite build && electron-builder --mac dmg"
   },
   "dependencies": {
-<<<<<<< HEAD
-    "@base44/sdk": "^0.8.22",
-    "@base44/vite-plugin": "^1.0.4",
-=======
->>>>>>> 07dcfe64438284b0c8a00d2362f599adce094102
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -64,6 +59,7 @@
     "@stripe/stripe-js": "^5.2.0",
     "@supabase/supabase-js": "^2.99.2",
     "@tanstack/react-query": "^5.84.1",
+    "apcach": "^0.6.4",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -117,6 +113,7 @@
     "eslint-plugin-react-refresh": "^0.4.18",
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^15.15.0",
+    "lefthook": "^2.1.4",
     "postcss": "^8.5.3",
     "size-limit": "^12.0.1",
     "tailwindcss": "^3.4.17",
@@ -138,10 +135,6 @@
     ],
     "mac": {
       "target": [
-<<<<<<< HEAD
-        "dmg"
-      ],
-=======
         {
           "target": "dmg",
           "arch": [
@@ -150,7 +143,6 @@
         }
       ],
       "category": "public.app-category.education",
->>>>>>> 07dcfe64438284b0c8a00d2362f599adce094102
       "icon": "build/icon.icns",
       "identity": null,
       "artifactName": "BiBaBenchBuddy-${version}-mac-${arch}.${ext}"

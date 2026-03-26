@@ -14,9 +14,9 @@ import { useHistory } from '@/context/HistoryContext';
 import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
 import { makeId } from '@/utils/makeId';
 // ── Constants ─────────────────────────────────────────────────────────────────
-const FEATURE_DEFAULTS = { CDS:'#3b82f6', gene:'#8b5cf6', promoter:'#f59e0b', terminator:'#ef4444', rep_origin:'#10b981', primer_bind:'#06b6d4', misc_feature:'#6366f1', regulatory:'#f97316' };
-const RE_HIGHLIGHT_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f43f5e','#84cc16'];
-const PRIMER_COLORS = ['#f59e0b','#22c55e','#ec4899','#06b6d4','#f97316','#8b5cf6','#84cc16','#ef4444'];
+const FEATURE_DEFAULTS = { CDS: '#3b82f6', gene: '#8b5cf6', promoter: '#f59e0b', terminator: '#ef4444', rep_origin: '#10b981', primer_bind: '#06b6d4', misc_feature: '#6366f1', regulatory: '#f97316' };
+const RE_HIGHLIGHT_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#84cc16'];
+const PRIMER_COLORS = ['#f59e0b', '#22c55e', '#ec4899', '#06b6d4', '#f97316', '#8b5cf6', '#84cc16', '#ef4444'];
 const RE_DB = Object.entries(ENZYME_DB)
   .reduce((acc, [name, info]) => {
     const displayName = getEnzymeDisplayName(name);
@@ -31,10 +31,10 @@ const RE_DB = Object.entries(ENZYME_DB)
 // ── Library persistence ───────────────────────────────────────────────────────
 const LIB_KEY = 'seq_analyzer_lib_v1';
 const loadLib = () => { try { return JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); } catch { return []; } };
-const saveLib = (lib) => { try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch {} };
+const saveLib = (lib) => { try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch { } };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const revComp = s => s.split('').reverse().map(b => ({A:'T',T:'A',G:'C',C:'G',N:'N'}[b]||b)).join('');
+const revComp = s => s.split('').reverse().map(b => ({ A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' }[b] || b)).join('');
 
 function findCutSites(seq, recog) {
   const s = seq.toUpperCase(); const sites = []; let i = 0;
@@ -111,10 +111,10 @@ function parseGenBank(text) {
         const q = line.trim();
         const match = q.match(/\/([a-zA-Z0-9_]+)=?(?:"([^"]*)"|([^\s]*))/);
         if (match) {
-           const key = match[1];
-           const val = match[2] !== undefined ? match[2] : match[3];
-           cur.tags[key] = val;
-           if (key === 'ApEinfo_fwdcolor') cur.color = val;
+          const key = match[1];
+          const val = match[2] !== undefined ? match[2] : match[3];
+          cur.tags[key] = val;
+          if (key === 'ApEinfo_fwdcolor') cur.color = val;
         }
       }
     }
@@ -125,7 +125,7 @@ function parseGenBank(text) {
 
 function parseFileContent(filename, content) {
   const ext = filename.split('.').pop().toLowerCase();
-  
+
   // Structure code so parsing can be extended later
   switch (ext) {
     case 'dna':
@@ -154,7 +154,7 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeature
     const la = span > Math.PI ? 1 : 0, ae = sa + span;
     const midR = (ri + ro) / 2;
     const arrA = 0.04;
-    
+
     if (strand === 1 && span > arrA) {
       const x1 = cx + ro * Math.cos(sa), y1 = cy + ro * Math.sin(sa);
       const x2 = cx + ro * Math.cos(ae - arrA), y2 = cy + ro * Math.sin(ae - arrA);
@@ -195,49 +195,49 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeature
       {(() => {
         const labelR = R + 40;
         const sortedFeatures = features.map((feat, i) => {
-           let ma = ang((feat.start + feat.end) / 2);
-           while (ma < 0) ma += 2 * Math.PI;
-           return { ...feat, index: i, ma, labelAngle: ma };
+          let ma = ang((feat.start + feat.end) / 2);
+          while (ma < 0) ma += 2 * Math.PI;
+          return { ...feat, index: i, ma, labelAngle: ma };
         }).sort((a, b) => a.ma - b.ma);
 
         const minAngDist = 18 / labelR;
         for (let iter = 0; iter < 10; iter++) {
-           for (let i = 0; i < sortedFeatures.length; i++) {
-              const curr = sortedFeatures[i];
-              const next = sortedFeatures[(i + 1) % sortedFeatures.length];
-              let diff = next.labelAngle - curr.labelAngle;
-              if (diff < 0 && i === sortedFeatures.length - 1) diff += 2 * Math.PI;
-              if (diff < minAngDist) {
-                 const push = (minAngDist - diff) / 2;
-                 curr.labelAngle -= push;
-                 next.labelAngle += push;
-              }
-           }
+          for (let i = 0; i < sortedFeatures.length; i++) {
+            const curr = sortedFeatures[i];
+            const next = sortedFeatures[(i + 1) % sortedFeatures.length];
+            let diff = next.labelAngle - curr.labelAngle;
+            if (diff < 0 && i === sortedFeatures.length - 1) diff += 2 * Math.PI;
+            if (diff < minAngDist) {
+              const push = (minAngDist - diff) / 2;
+              curr.labelAngle -= push;
+              next.labelAngle += push;
+            }
+          }
         }
 
-        return sortedFeatures.sort((a,b) => a.index - b.index).map((l, idx) => {
+        return sortedFeatures.sort((a, b) => a.index - b.index).map((l, idx) => {
           const ma = l.ma;
           const la = l.labelAngle;
-          
+
           const fx = cx + (l.strand === -1 ? R - 8 : R + 8) * Math.cos(ma);
           const fy = cy + (l.strand === -1 ? R - 8 : R + 8) * Math.sin(ma);
-          
+
           const ex = cx + labelR * Math.cos(la);
           const ey = cy + labelR * Math.sin(la);
-          
+
           const isRight = Math.cos(la) >= 0;
           const lx = ex + (isRight ? 5 : -5);
           const ly = ey;
-          
+
           const textW = l.label.length * 5.5 + 10;
           const rectX = isRight ? lx : lx - textW;
-          
+
           return (
-             <g key={`l${l.index}`} style={{ pointerEvents: 'none' }}>
-                <polyline points={`${fx},${fy} ${ex},${ey} ${lx},${ly}`} fill="none" stroke="#94a3b8" strokeWidth="1" />
-                <rect x={rectX} y={ly - 7} width={textW} height={14} rx={3} fill={l.color || '#e2e8f0'} fillOpacity={0.15} stroke={l.color || '#94a3b8'} strokeWidth="0.5" />
-                <text x={isRight ? lx + 3 : lx - 3} y={ly + 1} textAnchor={isRight ? 'start' : 'end'} dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{l.label}</text>
-             </g>
+            <g key={`l${l.index}`} style={{ pointerEvents: 'none' }}>
+              <polyline points={`${fx},${fy} ${ex},${ey} ${lx},${ly}`} fill="none" stroke="#94a3b8" strokeWidth="1" />
+              <rect x={rectX} y={ly - 7} width={textW} height={14} rx={3} fill={l.color || '#e2e8f0'} fillOpacity={0.15} stroke={l.color || '#94a3b8'} strokeWidth="0.5" />
+              <text x={isRight ? lx + 3 : lx - 3} y={ly + 1} textAnchor={isRight ? 'start' : 'end'} dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{l.label}</text>
+            </g>
           );
         });
       })()}
@@ -273,9 +273,9 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHo
         const isSel = i === selectedIdx;
         const aw = Math.min(w, 10);
         let points = "";
-        if (feat.strand === 1 && w > aw) points = `${x1},${y} ${x2-aw},${y} ${x2},${y+FW/2} ${x2-aw},${y+FW} ${x1},${y+FW}`;
-        else if (feat.strand === -1 && w > aw) points = `${x1+aw},${y} ${x2},${y} ${x2},${y+FW} ${x1+aw},${y+FW} ${x1},${y+FW/2}`;
-        else points = `${x1},${y} ${x2},${y} ${x2},${y+FW} ${x1},${y+FW}`;
+        if (feat.strand === 1 && w > aw) points = `${x1},${y} ${x2 - aw},${y} ${x2},${y + FW / 2} ${x2 - aw},${y + FW} ${x1},${y + FW}`;
+        else if (feat.strand === -1 && w > aw) points = `${x1 + aw},${y} ${x2},${y} ${x2},${y + FW} ${x1 + aw},${y + FW} ${x1},${y + FW / 2}`;
+        else points = `${x1},${y} ${x2},${y} ${x2},${y + FW} ${x1},${y + FW}`;
         return (<g key={i} cursor="pointer" onClick={(e) => { e.stopPropagation(); onFeatureClick ? onFeatureClick(e, feat, i) : onSelect(i === selectedIdx ? null : i); }}>
           <polygon points={points} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.82} stroke={isSel ? '#1e293b' : 'none'} strokeWidth={isSel ? 1.5 : 0} strokeLinejoin="round" />
         </g>);
@@ -287,28 +287,28 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHo
           const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
           const midX = x1 + w / 2;
           const textW = feat.label.length * 5.5 + 10;
-          
+
           if (w >= textW + 4) {
-             return (
-               <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
-                 <text x={midX} y={feat.strand === -1 ? trackY + FW/2 + 1 : trackY - FW/2 + 1} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="9" fontWeight="700" style={{ textShadow: '0 0 2px rgba(0,0,0,0.5)' }}>{feat.label}</text>
-               </g>
-             );
+            return (
+              <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
+                <text x={midX} y={feat.strand === -1 ? trackY + FW / 2 + 1 : trackY - FW / 2 + 1} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="9" fontWeight="700" style={{ textShadow: '0 0 2px rgba(0,0,0,0.5)' }}>{feat.label}</text>
+              </g>
+            );
           }
-          
+
           const isTop = feat.strand === 1;
           const yBase = isTop ? trackY - FW - 5 : trackY + FW + 5;
           const pad = 6;
           const rectX = midX - textW / 2;
           const bounds = { x1: rectX - pad, x2: rectX + textW + pad };
-          
+
           let track = 1;
           const placed = isTop ? placedTop : placedBottom;
           while (placed.some(p => p.track === track && !(bounds.x2 < p.x1 || bounds.x1 > p.x2))) {
-             track++;
+            track++;
           }
           placed.push({ track, x1: bounds.x1, x2: bounds.x2 });
-          
+
           const offset = track * 16;
           const lineY2 = isTop ? yBase - offset + 6 : yBase + offset - 6;
           const rectY = isTop ? lineY2 - 14 : lineY2;
@@ -316,9 +316,9 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHo
 
           return (
             <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
-               <line x1={midX} y1={yBase} x2={midX} y2={lineY2} stroke="#94a3b8" strokeWidth="1" />
-               <rect x={rectX} y={rectY} width={textW} height={14} rx={3} fill={feat.color || '#e2e8f0'} fillOpacity={0.15} stroke={feat.color || '#94a3b8'} strokeWidth="0.5" />
-               <text x={midX} y={textY} textAnchor="middle" dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{feat.label}</text>
+              <line x1={midX} y1={yBase} x2={midX} y2={lineY2} stroke="#94a3b8" strokeWidth="1" />
+              <rect x={rectX} y={rectY} width={textW} height={14} rx={3} fill={feat.color || '#e2e8f0'} fillOpacity={0.15} stroke={feat.color || '#94a3b8'} strokeWidth="0.5" />
+              <text x={midX} y={textY} textAnchor="middle" dominantBaseline="middle" fill="#1e293b" fontSize="9" fontWeight="600">{feat.label}</text>
             </g>
           );
         });
@@ -334,7 +334,7 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureHo
 
 // ── Tab helpers ────────────────────────────────────────────────────────────────
 const newEmptyTab = (name = '') => ({
-  id: `tab_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+  id: `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
   seqName: name,
   rawInput: '',
   sequence: '',
@@ -762,7 +762,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             <div className="flex items-center gap-4">
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Sequence Analyzer</h2>
               <div className="flex bg-slate-100 rounded-lg p-1">
-                {[['analyzer','Analyzer'], ['alignment','Alignment']].map(([id,label])=>(
+                {[['analyzer', 'Analyzer'], ['alignment', 'Alignment']].map(([id, label]) => (
                   <button key={id} onClick={() => setToolTab(id)}
                     className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${toolTab === id ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                     {label}
@@ -778,9 +778,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         {toolTab === 'analyzer' && phase === 'map' && seq && (
           <div className="flex gap-1.5 flex-wrap items-center">
             <div className="flex bg-slate-100 rounded-lg p-0.5 mr-2">
-              {[['map','Map'],['sequence','Sequence']].map(([id,label])=>(
-                <button key={id} onClick={()=>setViewMode(id)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${viewMode===id?'bg-white text-teal-700 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>
+              {[['map', 'Map'], ['sequence', 'Sequence']].map(([id, label]) => (
+                <button key={id} onClick={() => setViewMode(id)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${viewMode === id ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                   {label}
                 </button>
               ))}
@@ -812,7 +812,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
               </Button>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {library.map(entry => (
               <div key={entry.id} onClick={() => loadFromLibrary(entry)} className="group relative flex flex-col p-4 border border-slate-200 rounded-xl bg-white hover:border-teal-300 hover:shadow-md cursor-pointer transition-all text-left">
@@ -913,11 +913,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
           <div className="flex items-center border-b bg-slate-50 px-2 overflow-x-auto" style={{ minHeight: 38 }}>
             {openTabs.filter(t => t.sequence || t.id === activeTabId).map(tab => (
               <button key={tab.id} onClick={() => switchToTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors mr-0.5 ${
-                  tab.id === activeTabId
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors mr-0.5 ${tab.id === activeTabId
                     ? 'border-teal-500 text-teal-700 bg-white'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-white'
-                }`}>
+                  }`}>
                 <Dna className="w-3 h-3 opacity-60" />
                 <span>{tab.seqName || 'Nieuw'}</span>
                 {openTabs.length > 1 && (
@@ -935,366 +934,364 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
           {/* Sidebar + map row */}
           <div className="flex flex-1 overflow-hidden">
 
-          <div className="w-40 flex-shrink-0 border-r flex flex-col bg-slate-50">
-            {/* Library / Startscherm at top */}
-            <div className="p-2 border-b bg-white">
-              <button onClick={() => setPhase('library')} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors">
-                <Library className="w-4 h-4 flex-shrink-0" /> Library
-              </button>
-            </div>
-            {/* Library entry list */}
-            <div className="flex-1 overflow-y-auto p-2">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1">Opgeslagen</p>
-              {library.map(entry => (
-                <div key={entry.id}
-                  className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 border ${entry.sequence === sequence ? 'bg-teal-50 border-teal-200 text-teal-700' : 'hover:bg-white border-transparent text-slate-600 hover:border-slate-200'}`}
-                  onClick={() => loadFromLibrary(entry)}>
-                  <Dna className="w-3 h-3 flex-shrink-0 opacity-60" />
-                  <span className="text-xs flex-1 truncate">{entry.name}</span>
-                  <button onClick={e => { e.stopPropagation(); deleteFromLibrary(entry.id); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-0.5">
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              ))}
-              {library.length === 0 && <p className="text-xs text-slate-400 px-1">Leeg</p>}
-            </div>
-            {/* Bewerken at bottom */}
-            <div className="border-t p-2 bg-white">
-              <button onClick={() => setPhase('input')} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-50 border border-slate-200 text-left">
-                <Edit3 className="w-3.5 h-3.5 flex-shrink-0" /> Bewerken
-              </button>
-            </div>
-          </div>
-
-          {/* Map */}
-          <div ref={mapRef} className="flex-1 overflow-auto p-6 bg-white min-w-0">
-            {viewMode === 'map' && (
-              <div className="flex items-center justify-center h-full">
-                {isCircular
-                  ? <CircularMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} isCircular={isCircular} />
-                  : <LinearMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} />
-                }
-              </div>
-            )}
-            {viewMode === 'sequence' && <SequenceView seq={seq} features={mapFeatures} onDelete={handleDeleteRegion} onAddFeature={handleAddFeatureFromSelection} cutSites={activeCutSites} />}
-          </div>
-
-          {/* Right panel */}
-          <div className="border-l flex flex-col bg-white" style={{ width: 272, flexShrink: 0, display: viewMode === 'alignment' ? 'none' : undefined }}>
-            <div className="flex border-b bg-slate-50">
-              {[{ id: 'features', label: 'Features' }, { id: 'enzymes', label: 'Enzymen' }, { id: 'primers', label: 'Primers' }].map(({ id, label }) => (
-                <button key={id} onClick={() => setActivePanel(id)}
-                  className={`flex-1 py-2.5 text-xs font-medium transition-colors ${activePanel === id ? 'border-b-2 border-teal-500 text-teal-700 bg-white' : 'text-slate-500 hover:text-slate-700'}`}>
-                  {label}
+            <div className="w-40 flex-shrink-0 border-r flex flex-col bg-slate-50">
+              {/* Library / Startscherm at top */}
+              <div className="p-2 border-b bg-white">
+                <button onClick={() => setPhase('library')} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors">
+                  <Library className="w-4 h-4 flex-shrink-0" /> Library
                 </button>
-              ))}
-            </div>
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
-
-              {/* Features */}
-              {activePanel === 'features' && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-600">Features ({features.length})</span>
-                    <button onClick={() => setShowAddFeature(s => !s)} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
-                      <Plus className="w-3.5 h-3.5" /> Toevoegen
+              </div>
+              {/* Library entry list */}
+              <div className="flex-1 overflow-y-auto p-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1">Opgeslagen</p>
+                {library.map(entry => (
+                  <div key={entry.id}
+                    className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-colors mb-0.5 border ${entry.sequence === sequence ? 'bg-teal-50 border-teal-200 text-teal-700' : 'hover:bg-white border-transparent text-slate-600 hover:border-slate-200'}`}
+                    onClick={() => loadFromLibrary(entry)}>
+                    <Dna className="w-3 h-3 flex-shrink-0 opacity-60" />
+                    <span className="text-xs flex-1 truncate">{entry.name}</span>
+                    <button onClick={e => { e.stopPropagation(); deleteFromLibrary(entry.id); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-0.5">
+                      <X className="w-2.5 h-2.5" />
                     </button>
                   </div>
-                  {showAddFeature && (
-                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Naam" className="h-7 text-xs border-slate-200" />
-                        <Input value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} placeholder="Type (CDS, ori, etc)" className="h-7 text-xs border-slate-200" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <Input value={newFeature.start} onChange={e => setNewFeature(f => ({ ...f, start: e.target.value }))} placeholder="Start (bp)" className="h-7 text-xs border-slate-200" type="number" />
-                        <Input value={newFeature.end} onChange={e => setNewFeature(f => ({ ...f, end: e.target.value }))} placeholder="Einde (bp)" className="h-7 text-xs border-slate-200" type="number" />
-                      </div>
-                      <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: parseInt(e.target.value) }))} className="w-full h-7 text-xs border border-slate-200 rounded-md px-1 bg-white">
-                        <option value="1">Forward (+)</option>
-                        <option value="-1">Reverse (−)</option>
-                        <option value="0">Geen / ↔︎</option>
-                      </select>
-                      <div className="flex items-center gap-2 py-0.5">
-                        <label className="text-xs text-slate-500 font-medium ml-1">Kleur:</label>
-                        <input type="color" value={newFeature.color || '#3b82f6'} onChange={e => setNewFeature(f => ({ ...f, color: e.target.value }))} className="w-8 h-8 p-0 border-0 rounded cursor-pointer" />
-                      </div>
-                      <div className="flex gap-1.5">
-                        <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addFeature}>Toevoegen</Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddFeature(false)}>Annuleren</Button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="space-y-0.5 max-h-96 overflow-y-auto">
-                    {features.map((feat, i) => (
-                      <div key={feat.id || i}
-                        className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-colors cursor-pointer ${selectedFeatureIdx === i ? 'bg-teal-50 border-teal-200' : 'hover:bg-slate-50 border-transparent'}`}
-                        onClick={() => setSelectedFeatureIdx(i === selectedFeatureIdx ? null : i)}>
-                        <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ background: feat.color || '#6366f1' }} />
-                        {editingFeatureIdx === i ? (
-                          <div className="flex-1 flex flex-col gap-1 items-stretch" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center gap-1.5">
-                              <Input value={feat.label} onChange={e => updateFeature(i, { label: e.target.value })} className="h-7 text-xs border-slate-200 flex-1" placeholder="Naam" />
-                              <Input value={feat.type || ''} onChange={e => updateFeature(i, { type: e.target.value })} className="h-7 text-xs border-slate-200 w-20 flex-shrink-0" placeholder="Type" />
-                            </div>
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <select value={feat.strand} onChange={e => updateFeature(i, { strand: parseInt(e.target.value) })} className="h-7 text-[10px] border border-slate-200 rounded-md bg-white text-slate-600 px-0.5 max-w-14">
-                                <option value="1">→ (+)</option>
-                                <option value="-1">← (−)</option>
-                                <option value="0">↔︎ (0)</option>
-                              </select>
-                              <input type="color" value={feat.color || '#3b82f6'} onChange={e => updateFeature(i, { color: e.target.value })} className="w-7 h-7 p-0 border-0 rounded cursor-pointer flex-shrink-0" title="Wijzig Kleur" />
-                              <button onClick={() => setEditingFeatureIdx(null)} className="text-teal-600 hover:text-teal-700 flex-shrink-0 bg-teal-50 hover:bg-teal-100 p-1 rounded-md transition-colors"><Check className="w-4 h-4" /></button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex-1 min-w-0 pr-1">
-                              <div className="text-xs font-medium text-slate-700 truncate">{feat.label}</div>
-                              {feat.type && feat.type !== 'misc_feature' && <div className="text-[10px] text-slate-400 capitalize truncate">{feat.type}</div>}
-                            </div>
-                            <span className="text-xs text-slate-400 flex-shrink-0">{feat.strand === 1 ? '→' : feat.strand === -1 ? '←' : '↔︎'}</span>
-                            <button onClick={e => { e.stopPropagation(); updateFeature(i, { visible: feat.visible === false }); }}
-                              className={`p-0.5 flex-shrink-0 ${feat.visible === false ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>
-                              {feat.visible === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                            </button>
-                            <button onClick={e => { e.stopPropagation(); setEditingFeatureIdx(i); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 p-0.5 flex-shrink-0"><Edit3 className="w-3 h-3" /></button>
-                            <button onClick={e => { e.stopPropagation(); deleteFeature(i); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0"><Trash2 className="w-3 h-3" /></button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {features.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Geen features. Voeg handmatig toe of importeer een GenBank/APE bestand.</p>}
-                  </div>
-                </>
+                ))}
+                {library.length === 0 && <p className="text-xs text-slate-400 px-1">Leeg</p>}
+              </div>
+              {/* Bewerken at bottom */}
+              <div className="border-t p-2 bg-white">
+                <button onClick={() => setPhase('input')} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-50 border border-slate-200 text-left">
+                  <Edit3 className="w-3.5 h-3.5 flex-shrink-0" /> Bewerken
+                </button>
+              </div>
+            </div>
+
+            {/* Map */}
+            <div ref={mapRef} className="flex-1 overflow-auto p-6 bg-white min-w-0">
+              {viewMode === 'map' && (
+                <div className="flex items-center justify-center h-full">
+                  {isCircular
+                    ? <CircularMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} isCircular={isCircular} />
+                    : <LinearMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} />
+                  }
+                </div>
               )}
+              {viewMode === 'sequence' && <SequenceView seq={seq} features={mapFeatures} onDelete={handleDeleteRegion} onAddFeature={handleAddFeatureFromSelection} cutSites={activeCutSites} />}
+            </div>
 
-              {/* Enzymes */}
-              {activePanel === 'enzymes' && (
-                <>
-                  <div className="flex gap-1 flex-wrap">
-                    {[['all_db', 'Alle'], ['single', '1×'], ['double', '2×'], ['none_cut', '0×'], ['triple_plus', '3×+'], ['all', 'Op kaart']].map(([f, l]) => (
-                      <button key={f} onClick={() => setEnzymeFilter(f)}
-                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${enzymeFilter === f ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 text-slate-600 hover:border-rose-300'}`}>
-                        {l}
+            {/* Right panel */}
+            <div className="border-l flex flex-col bg-white" style={{ width: 272, flexShrink: 0, display: viewMode === 'alignment' ? 'none' : undefined }}>
+              <div className="flex border-b bg-slate-50">
+                {[{ id: 'features', label: 'Features' }, { id: 'enzymes', label: 'Enzymen' }, { id: 'primers', label: 'Primers' }].map(({ id, label }) => (
+                  <button key={id} onClick={() => setActivePanel(id)}
+                    className={`flex-1 py-2.5 text-xs font-medium transition-colors ${activePanel === id ? 'border-b-2 border-teal-500 text-teal-700 bg-white' : 'text-slate-500 hover:text-slate-700'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+
+                {/* Features */}
+                {activePanel === 'features' && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-600">Features ({features.length})</span>
+                      <button onClick={() => setShowAddFeature(s => !s)} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
+                        <Plus className="w-3.5 h-3.5" /> Toevoegen
                       </button>
-                    ))}
-                  </div>
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <Input value={enzymeSearch} onChange={e => setEnzymeSearch(e.target.value)} placeholder="Zoek enzym…" className="h-7 text-xs border-slate-200 pl-7" />
-                  </div>
-                  <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
-                    <table className="w-full text-xs">
-                      <thead className="sticky top-0 bg-white z-10">
-                        <tr className="border-b border-slate-100">
-                          <th className="text-left py-1.5 px-2 text-slate-500 font-semibold">Enzym</th>
-                          <th className="text-center py-1.5 px-1 text-slate-500 font-semibold w-10">Cuts</th>
-                          <th className="text-left py-1.5 px-1 text-slate-500 font-semibold">Type</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const allEnzymeNames = Object.keys(RE_DB);
-                          const withCounts = allEnzymeNames.map(name => {
-                            const motif = RE_DB[name];
-                            const count = seq ? (() => {
-                              const re = new RegExp(motif.replace(/N/g,'[ATGC]').replace(/R/,'[AG]').replace(/Y/,'[CT]').replace(/W/,'[AT]').replace(/M/,'[AC]').replace(/K/,'[GT]').replace(/S/,'[GC]').replace(/B/,'[CGT]').replace(/D/,'[AGT]').replace(/H/,'[ACT]').replace(/V/,'[ACG]'), 'gi');
-                              return (seq.match(re) || []).length;
-                            })() : 0;
-                            // Determine cut type based on recognition sequence pattern
-                            const isBlunt = (() => {
-                              const bluntSeqs = ['GGCC','CCCGGG','GATATC','AATATT','TTTAAA','AGCGCT','AGGCCT','TCGCGA','AGTACT'];
-                              return bluntSeqs.includes(motif) || motif === 'GATATC';
-                            })();
-                            const cutType = isBlunt ? 'Blunt' : 'Sticky';
-                            return { name, count, cutType, motif };
-                          });
+                    </div>
+                    {showAddFeature && (
+                      <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Naam" className="h-7 text-xs border-slate-200" />
+                          <Input value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} placeholder="Type (CDS, ori, etc)" className="h-7 text-xs border-slate-200" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Input value={newFeature.start} onChange={e => setNewFeature(f => ({ ...f, start: e.target.value }))} placeholder="Start (bp)" className="h-7 text-xs border-slate-200" type="number" />
+                          <Input value={newFeature.end} onChange={e => setNewFeature(f => ({ ...f, end: e.target.value }))} placeholder="Einde (bp)" className="h-7 text-xs border-slate-200" type="number" />
+                        </div>
+                        <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: parseInt(e.target.value) }))} className="w-full h-7 text-xs border border-slate-200 rounded-md px-1 bg-white">
+                          <option value="1">Forward (+)</option>
+                          <option value="-1">Reverse (−)</option>
+                          <option value="0">Geen / ↔︎</option>
+                        </select>
+                        <div className="flex items-center gap-2 py-0.5">
+                          <label className="text-xs text-slate-500 font-medium ml-1">Kleur:</label>
+                          <input type="color" value={newFeature.color || '#3b82f6'} onChange={e => setNewFeature(f => ({ ...f, color: e.target.value }))} className="w-8 h-8 p-0 border-0 rounded cursor-pointer" />
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addFeature}>Toevoegen</Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddFeature(false)}>Annuleren</Button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-0.5 max-h-96 overflow-y-auto">
+                      {features.map((feat, i) => (
+                        <div key={feat.id || i}
+                          className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-colors cursor-pointer ${selectedFeatureIdx === i ? 'bg-teal-50 border-teal-200' : 'hover:bg-slate-50 border-transparent'}`}
+                          onClick={() => setSelectedFeatureIdx(i === selectedFeatureIdx ? null : i)}>
+                          <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50" style={{ background: feat.color || '#6366f1' }} />
+                          {editingFeatureIdx === i ? (
+                            <div className="flex-1 flex flex-col gap-1 items-stretch" onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5">
+                                <Input value={feat.label} onChange={e => updateFeature(i, { label: e.target.value })} className="h-7 text-xs border-slate-200 flex-1" placeholder="Naam" />
+                                <Input value={feat.type || ''} onChange={e => updateFeature(i, { type: e.target.value })} className="h-7 text-xs border-slate-200 w-20 flex-shrink-0" placeholder="Type" />
+                              </div>
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <select value={feat.strand} onChange={e => updateFeature(i, { strand: parseInt(e.target.value) })} className="h-7 text-[10px] border border-slate-200 rounded-md bg-white text-slate-600 px-0.5 max-w-14">
+                                  <option value="1">→ (+)</option>
+                                  <option value="-1">← (−)</option>
+                                  <option value="0">↔︎ (0)</option>
+                                </select>
+                                <input type="color" value={feat.color || '#3b82f6'} onChange={e => updateFeature(i, { color: e.target.value })} className="w-7 h-7 p-0 border-0 rounded cursor-pointer flex-shrink-0" title="Wijzig Kleur" />
+                                <button onClick={() => setEditingFeatureIdx(null)} className="text-teal-600 hover:text-teal-700 flex-shrink-0 bg-teal-50 hover:bg-teal-100 p-1 rounded-md transition-colors"><Check className="w-4 h-4" /></button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-1 min-w-0 pr-1">
+                                <div className="text-xs font-medium text-slate-700 truncate">{feat.label}</div>
+                                {feat.type && feat.type !== 'misc_feature' && <div className="text-[10px] text-slate-400 capitalize truncate">{feat.type}</div>}
+                              </div>
+                              <span className="text-xs text-slate-400 flex-shrink-0">{feat.strand === 1 ? '→' : feat.strand === -1 ? '←' : '↔︎'}</span>
+                              <button onClick={e => { e.stopPropagation(); updateFeature(i, { visible: feat.visible === false }); }}
+                                className={`p-0.5 flex-shrink-0 ${feat.visible === false ? 'text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>
+                                {feat.visible === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              </button>
+                              <button onClick={e => { e.stopPropagation(); setEditingFeatureIdx(i); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 p-0.5 flex-shrink-0"><Edit3 className="w-3 h-3" /></button>
+                              <button onClick={e => { e.stopPropagation(); deleteFeature(i); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0"><Trash2 className="w-3 h-3" /></button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {features.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Geen features. Voeg handmatig toe of importeer een GenBank/APE bestand.</p>}
+                    </div>
+                  </>
+                )}
 
-                          const filtered = withCounts.filter(({ name, count }) => {
-                            const q = enzymeSearch.toLowerCase();
-                            if (q && !name.toLowerCase().includes(q)) return false;
-                            if (enzymeFilter === 'single') return count === 1;
-                            if (enzymeFilter === 'double') return count === 2;
-                            if (enzymeFilter === 'none_cut') return count === 0;
-                            if (enzymeFilter === 'triple_plus') return count >= 3;
-                            if (enzymeFilter === 'all') return count > 0 || !!selectedEnzymes[name]; // only shown on map
-                            return true; // 'all_db' - show everything
-                          });
+                {/* Enzymes */}
+                {activePanel === 'enzymes' && (
+                  <>
+                    <div className="flex gap-1 flex-wrap">
+                      {[['all_db', 'Alle'], ['single', '1×'], ['double', '2×'], ['none_cut', '0×'], ['triple_plus', '3×+'], ['all', 'Op kaart']].map(([f, l]) => (
+                        <button key={f} onClick={() => setEnzymeFilter(f)}
+                          className={`text-xs px-2 py-1 rounded-full border transition-colors ${enzymeFilter === f ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 text-slate-600 hover:border-rose-300'}`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Input value={enzymeSearch} onChange={e => setEnzymeSearch(e.target.value)} placeholder="Zoek enzym…" className="h-7 text-xs border-slate-200 pl-7" />
+                    </div>
+                    <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-white z-10">
+                          <tr className="border-b border-slate-100">
+                            <th className="text-left py-1.5 px-2 text-slate-500 font-semibold">Enzym</th>
+                            <th className="text-center py-1.5 px-1 text-slate-500 font-semibold w-10">Cuts</th>
+                            <th className="text-left py-1.5 px-1 text-slate-500 font-semibold">Type</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const allEnzymeNames = Object.keys(RE_DB);
+                            const withCounts = allEnzymeNames.map(name => {
+                              const motif = RE_DB[name];
+                              const count = seq ? (() => {
+                                const re = new RegExp(motif.replace(/N/g, '[ATGC]').replace(/R/, '[AG]').replace(/Y/, '[CT]').replace(/W/, '[AT]').replace(/M/, '[AC]').replace(/K/, '[GT]').replace(/S/, '[GC]').replace(/B/, '[CGT]').replace(/D/, '[AGT]').replace(/H/, '[ACT]').replace(/V/, '[ACG]'), 'gi');
+                                return (seq.match(re) || []).length;
+                              })() : 0;
+                              // Determine cut type based on recognition sequence pattern
+                              const isBlunt = (() => {
+                                const bluntSeqs = ['GGCC', 'CCCGGG', 'GATATC', 'AATATT', 'TTTAAA', 'AGCGCT', 'AGGCCT', 'TCGCGA', 'AGTACT'];
+                                return bluntSeqs.includes(motif) || motif === 'GATATC';
+                              })();
+                              const cutType = isBlunt ? 'Blunt' : 'Sticky';
+                              return { name, count, cutType, motif };
+                            });
 
-                          if (filtered.length === 0) return (
-                            <tr><td colSpan={3} className="text-center text-slate-400 py-6 text-xs">Geen enzymen gevonden</td></tr>
-                          );
+                            const filtered = withCounts.filter(({ name, count }) => {
+                              const q = enzymeSearch.toLowerCase();
+                              if (q && !name.toLowerCase().includes(q)) return false;
+                              if (enzymeFilter === 'single') return count === 1;
+                              if (enzymeFilter === 'double') return count === 2;
+                              if (enzymeFilter === 'none_cut') return count === 0;
+                              if (enzymeFilter === 'triple_plus') return count >= 3;
+                              if (enzymeFilter === 'all') return count > 0 || !!selectedEnzymes[name]; // only shown on map
+                              return true; // 'all_db' - show everything
+                            });
 
-                          return filtered.map(({ name, count, cutType }) => {
-                            const isSel = !!selectedEnzymes[name];
-                            const color = isSel ? selectedEnzymes[name].color : null;
-                            return (
-                              <tr key={name}
-                                className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-rose-50' : 'hover:bg-slate-50'}`}>
-                                <td className="py-1 px-2" onClick={() => toggleEnzyme(name)}>
-                                  <div className="flex items-center gap-1.5">
-                                    {isSel
-                                      ? <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
+                            if (filtered.length === 0) return (
+                              <tr><td colSpan={3} className="text-center text-slate-400 py-6 text-xs">Geen enzymen gevonden</td></tr>
+                            );
+
+                            return filtered.map(({ name, count, cutType }) => {
+                              const isSel = !!selectedEnzymes[name];
+                              const color = isSel ? selectedEnzymes[name].color : null;
+                              return (
+                                <tr key={name}
+                                  className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-rose-50' : 'hover:bg-slate-50'}`}>
+                                  <td className="py-1 px-2" onClick={() => toggleEnzyme(name)}>
+                                    <div className="flex items-center gap-1.5">
+                                      {isSel
+                                        ? <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
                                           <input type="color" value={color} onChange={e => toggleEnzyme(name, e.target.value)}
                                             className="w-4 h-4 rounded-full border-none cursor-pointer p-0" style={{ WebkitAppearance: 'none' }} />
                                         </label>
-                                      : <div className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-300" />}
-                                    <span className={`font-medium ${isSel ? 'text-rose-700' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
-                                  </div>
-                                </td>
-                                <td className="py-1 px-1 text-center" onClick={() => toggleEnzyme(name)}>
-                                  <span className={`font-bold font-mono text-xs px-1.5 py-0.5 rounded ${
-                                    count === 0 ? 'bg-slate-100 text-slate-400' :
-                                    count === 1 ? 'bg-emerald-100 text-emerald-700' :
-                                    count === 2 ? 'bg-amber-100 text-amber-700' :
-                                    'bg-rose-100 text-rose-700'
-                                  }`}>{count}×</span>
-                                </td>
-                                <td className="py-1 px-1" onClick={() => toggleEnzyme(name)}>
-                                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                                    cutType === 'Blunt' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-600'
-                                  }`}>{cutType}</span>
-                                </td>
-                              </tr>
-                            );
-                          });
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                  {Object.keys(selectedEnzymes).length > 0 && (
-                    <div className="pt-2 border-t border-slate-100">
-                      <p className="text-xs font-medium text-slate-600 mb-1">Op kaart:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(selectedEnzymes).map(([name, { color }]) => (
-                          <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: color + '22', color, border: `1px solid ${color}55` }}>
-                            {getEnzymeDisplayName(name)}<button onClick={() => toggleEnzyme(name)}><X className="w-2.5 h-2.5" /></button>
-                          </span>
-                        ))}
-                      </div>
+                                        : <div className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-300" />}
+                                      <span className={`font-medium ${isSel ? 'text-rose-700' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-1 px-1 text-center" onClick={() => toggleEnzyme(name)}>
+                                    <span className={`font-bold font-mono text-xs px-1.5 py-0.5 rounded ${count === 0 ? 'bg-slate-100 text-slate-400' :
+                                        count === 1 ? 'bg-emerald-100 text-emerald-700' :
+                                          count === 2 ? 'bg-amber-100 text-amber-700' :
+                                            'bg-rose-100 text-rose-700'
+                                      }`}>{count}×</span>
+                                  </td>
+                                  <td className="py-1 px-1" onClick={() => toggleEnzyme(name)}>
+                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${cutType === 'Blunt' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-600'
+                                      }`}>{cutType}</span>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </>
-              )}
-
-              {/* Primers */}
-              {activePanel === 'primers' && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-600">Primers ({primers.length})</span>
-                    <button onClick={() => setShowAddPrimer(s => !s)} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
-                      <Plus className="w-3.5 h-3.5" /> Toevoegen
-                    </button>
-                  </div>
-                  {showAddPrimer && (
-                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
-                      <Input value={newPrimerName} onChange={e => setNewPrimerName(e.target.value)} placeholder="Primer naam" className="h-7 text-xs border-slate-200" />
-                      <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Volledige sequentie <span className="normal-case font-normal">(5'→ 3')</span></p>
-                        <textarea value={newPrimerRaw}
-                          onChange={e => setNewPrimerRaw(e.target.value.toUpperCase().replace(/[^ATGCN\s]/g, ''))}
-                          placeholder="ATGCATGC..." className="w-full h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" />
-                      </div>
-                      {newPrimerRaw && (
-                        <div className="font-mono text-xs break-all leading-5 bg-white border border-slate-100 rounded p-1.5">
-                          {newPrimerDetected.overhang && <span className="text-red-500">{newPrimerDetected.overhang.toLowerCase()}</span>}
-                          <span className="text-slate-800 font-semibold">{newPrimerDetected.annealing}</span>
-                          {!newPrimerDetected.overhang && !seq && <span className="text-slate-400 italic text-[10px]"> (laad een sequentie om overhang te detecteren)</span>}
-                          {!newPrimerDetected.overhang && seq && <span className="text-emerald-600 text-[10px] ml-1">✓ geen overhang</span>}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1.5">
-                        <label className="cursor-pointer flex-shrink-0">
-                          <input type="color" value={newPrimerColor} onChange={e => setNewPrimerColor(e.target.value)}
-                            className="w-6 h-6 rounded-full cursor-pointer border border-slate-200 p-0" style={{ WebkitAppearance: 'none' }} />
-                        </label>
-                        <div className="flex gap-1 flex-wrap flex-1">
-                          {PRIMER_COLORS.map(c => (
-                            <button key={c} onClick={() => setNewPrimerColor(c)} style={{ background: c }}
-                              className={`w-4 h-4 rounded-full border-2 ${newPrimerColor === c ? 'border-slate-700' : 'border-transparent'}`} />
+                    {Object.keys(selectedEnzymes).length > 0 && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <p className="text-xs font-medium text-slate-600 mb-1">Op kaart:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(selectedEnzymes).map(([name, { color }]) => (
+                            <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: color + '22', color, border: `1px solid ${color}55` }}>
+                              {getEnzymeDisplayName(name)}<button onClick={() => toggleEnzyme(name)}><X className="w-2.5 h-2.5" /></button>
+                            </span>
                           ))}
                         </div>
                       </div>
-                      <div className="flex gap-1.5">
-                        <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addPrimer} disabled={!newPrimerName || !newPrimerRaw}>Toevoegen</Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddPrimer(false)}>Annuleren</Button>
-                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Primers */}
+                {activePanel === 'primers' && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-600">Primers ({primers.length})</span>
+                      <button onClick={() => setShowAddPrimer(s => !s)} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
+                        <Plus className="w-3.5 h-3.5" /> Toevoegen
+                      </button>
                     </div>
-                  )}
-                  <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                    {primers.map((p) => {
-                      const annealingSeq = p.annealing || p.seq;
-                      const sites = seq ? findPrimerSites(p.seq, seq, annealingSeq) : [];
-                      const isExpanded = expandedPrimerId === p.id;
-                      return (
-                        <div key={p.id}
-                          className={`rounded-lg border transition-colors cursor-pointer ${isExpanded ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200 hover:border-teal-200'}`}
-                          onClick={() => setExpandedPrimerId(isExpanded ? null : p.id)}>
-                          <div className="flex items-center gap-2 p-2">
-                            <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
-                              <input type="color" value={p.color}
-                                onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color: e.target.value } : x))}
-                                className="w-4 h-4 rounded-full cursor-pointer border-none p-0" style={{ WebkitAppearance: 'none', width: 14, height: 14 }} />
-                            </label>
-                            <span className="text-xs font-medium text-slate-700 flex-1 truncate">{p.name}</span>
-                            <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, visible: !x.visible } : x)); }}
-                              className={`p-0.5 flex-shrink-0 ${p.visible ? 'text-slate-500' : 'text-slate-300'}`}>
-                              {p.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                            </button>
-                            <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.filter(x => x.id !== p.id)); }} className="text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                          {isExpanded ? (
-                            <div className="px-2 pb-2 space-y-1.5" onClick={e => e.stopPropagation()}>
-                              <Input value={p.name} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))} className="h-7 text-xs border-slate-200" placeholder="Naam" />
-                              <div>
-                                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Overhang</p>
-                                <textarea value={p.overhang || ''} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, overhang: e.target.value.toLowerCase(), seq: e.target.value.toLowerCase() + (x.annealing || '') } : x))}
-                                  className="w-full h-8 text-xs font-mono border border-amber-200 rounded-md p-1 resize-none bg-amber-50 text-amber-700" placeholder="overhang..." />
-                              </div>
-                              <div>
-                                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Annealing</p>
-                                <textarea value={p.annealing || p.seq} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, annealing: e.target.value.toUpperCase(), seq: (x.overhang || '') + e.target.value.toUpperCase() } : x))}
-                                  className="w-full h-12 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none bg-white" placeholder="ATGCATGC..." />
-                              </div>
-                              <p className="text-xs">
-                                {sites.length === 0
-                                  ? <span className="text-slate-400">Niet gevonden</span>
-                                  : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
-                                }
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="px-2 pb-2">
-                              <p className="font-mono text-xs truncate">
-                                {p.overhang && <span className="text-amber-500 italic">{p.overhang.toLowerCase()}</span>}
-                                <span className="text-slate-700 font-semibold">{(p.annealing || p.seq).toUpperCase()}</span>
-                              </p>
-                              <p className="text-xs mt-0.5">
-                                {sites.length === 0
-                                  ? <span className="text-slate-400">Niet gevonden</span>
-                                  : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
-                                }
-                              </p>
-                            </div>
-                          )}
+                    {showAddPrimer && (
+                      <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                        <Input value={newPrimerName} onChange={e => setNewPrimerName(e.target.value)} placeholder="Primer naam" className="h-7 text-xs border-slate-200" />
+                        <div>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Volledige sequentie <span className="normal-case font-normal">(5&apos;→ 3&apos;)</span></p>
+                          <textarea value={newPrimerRaw}
+                            onChange={e => setNewPrimerRaw(e.target.value.toUpperCase().replace(/[^ATGCN\s]/g, ''))}
+                            placeholder="ATGCATGC..." className="w-full h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" />
                         </div>
-                      );
-                    })}
-                    {primers.length === 0 && (
-                      <div className="text-center py-6 text-slate-400">
-                        <p className="text-xs">Nog geen primers toegevoegd.</p>
-                        <p className="text-xs mt-0.5 opacity-70">Klik op een primer om de sequentie te bewerken.</p>
+                        {newPrimerRaw && (
+                          <div className="font-mono text-xs break-all leading-5 bg-white border border-slate-100 rounded p-1.5">
+                            {newPrimerDetected.overhang && <span className="text-red-500">{newPrimerDetected.overhang.toLowerCase()}</span>}
+                            <span className="text-slate-800 font-semibold">{newPrimerDetected.annealing}</span>
+                            {!newPrimerDetected.overhang && !seq && <span className="text-slate-400 italic text-[10px]"> (laad een sequentie om overhang te detecteren)</span>}
+                            {!newPrimerDetected.overhang && seq && <span className="text-emerald-600 text-[10px] ml-1">✓ geen overhang</span>}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <label className="cursor-pointer flex-shrink-0">
+                            <input type="color" value={newPrimerColor} onChange={e => setNewPrimerColor(e.target.value)}
+                              className="w-6 h-6 rounded-full cursor-pointer border border-slate-200 p-0" style={{ WebkitAppearance: 'none' }} />
+                          </label>
+                          <div className="flex gap-1 flex-wrap flex-1">
+                            {PRIMER_COLORS.map(c => (
+                              <button key={c} onClick={() => setNewPrimerColor(c)} style={{ background: c }}
+                                className={`w-4 h-4 rounded-full border-2 ${newPrimerColor === c ? 'border-slate-700' : 'border-transparent'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addPrimer} disabled={!newPrimerName || !newPrimerRaw}>Toevoegen</Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddPrimer(false)}>Annuleren</Button>
+                        </div>
                       </div>
                     )}
-                  </div>
-                </>
-              )}
+                    <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                      {primers.map((p) => {
+                        const annealingSeq = p.annealing || p.seq;
+                        const sites = seq ? findPrimerSites(p.seq, seq, annealingSeq) : [];
+                        const isExpanded = expandedPrimerId === p.id;
+                        return (
+                          <div key={p.id}
+                            className={`rounded-lg border transition-colors cursor-pointer ${isExpanded ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200 hover:border-teal-200'}`}
+                            onClick={() => setExpandedPrimerId(isExpanded ? null : p.id)}>
+                            <div className="flex items-center gap-2 p-2">
+                              <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
+                                <input type="color" value={p.color}
+                                  onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color: e.target.value } : x))}
+                                  className="w-4 h-4 rounded-full cursor-pointer border-none p-0" style={{ WebkitAppearance: 'none', width: 14, height: 14 }} />
+                              </label>
+                              <span className="text-xs font-medium text-slate-700 flex-1 truncate">{p.name}</span>
+                              <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, visible: !x.visible } : x)); }}
+                                className={`p-0.5 flex-shrink-0 ${p.visible ? 'text-slate-500' : 'text-slate-300'}`}>
+                                {p.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                              </button>
+                              <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.filter(x => x.id !== p.id)); }} className="text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                            {isExpanded ? (
+                              <div className="px-2 pb-2 space-y-1.5" onClick={e => e.stopPropagation()}>
+                                <Input value={p.name} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))} className="h-7 text-xs border-slate-200" placeholder="Naam" />
+                                <div>
+                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Overhang</p>
+                                  <textarea value={p.overhang || ''} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, overhang: e.target.value.toLowerCase(), seq: e.target.value.toLowerCase() + (x.annealing || '') } : x))}
+                                    className="w-full h-8 text-xs font-mono border border-amber-200 rounded-md p-1 resize-none bg-amber-50 text-amber-700" placeholder="overhang..." />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Annealing</p>
+                                  <textarea value={p.annealing || p.seq} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, annealing: e.target.value.toUpperCase(), seq: (x.overhang || '') + e.target.value.toUpperCase() } : x))}
+                                    className="w-full h-12 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none bg-white" placeholder="ATGCATGC..." />
+                                </div>
+                                <p className="text-xs">
+                                  {sites.length === 0
+                                    ? <span className="text-slate-400">Niet gevonden</span>
+                                    : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
+                                  }
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="px-2 pb-2">
+                                <p className="font-mono text-xs truncate">
+                                  {p.overhang && <span className="text-amber-500 italic">{p.overhang.toLowerCase()}</span>}
+                                  <span className="text-slate-700 font-semibold">{(p.annealing || p.seq).toUpperCase()}</span>
+                                </p>
+                                <p className="text-xs mt-0.5">
+                                  {sites.length === 0
+                                    ? <span className="text-slate-400">Niet gevonden</span>
+                                    : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
+                                  }
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {primers.length === 0 && (
+                        <div className="text-center py-6 text-slate-400">
+                          <p className="text-xs">Nog geen primers toegevoegd.</p>
+                          <p className="text-xs mt-0.5 opacity-70">Klik op een primer om de sequentie te bewerken.</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
 
+              </div>
             </div>
-          </div>
           </div>
         </div>
       )}
