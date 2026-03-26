@@ -103,7 +103,7 @@ const ALL_IDS = [
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron }) {
+function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron, isMobile }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
@@ -113,15 +113,14 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
     if (active && TOOL_TABS[active]) setExpandedCalc(active);
   }, [active]);
 
-  const btnBase = (isActive) => `w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium mb-0.5 transition-all ${
-    isActive
-      ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-50 text-teal-700 border border-teal-200')
-      : (isDark ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
-  }`;
+  const btnBase = (isActive) => `w-full flex items-center gap-2 px-2.5 py-1.5 min-h-[35px] rounded-lg text-sm font-medium mb-1 transition-all ${isActive
+    ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-50 text-teal-700 border border-teal-200')
+    : (isDark ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
+    }`;
 
   const renderToolIcon = (tool) => (
     <div
-      className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`}
+      className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`}
       style={iconStyle || {}}
     >
       <tool.icon className={`w-2.5 h-2.5 ${iconTextColor || 'text-white'}`} />
@@ -130,14 +129,15 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full w-52 border-r overflow-y-auto z-50 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
+      className={`fixed left-0 top-0 h-full border-r overflow-y-auto z-50 shadow-2xl transition-transform ${isMobile ? 'w-64' : 'w-52'
+        } ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}
       style={{ minWidth: 190 }}
     >
-       {/* Sidebar Header Spacer (to avoid header overlap) */}
-      <div className={`${isMacElectron ? 'h-12' : 'h-16'} border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
+      {/* Sidebar Header Spacer (to avoid header overlap) */}
+      <div className={`${isMacElectron ? 'h-12' : 'h-14'} border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
 
       {/* Calculators */}
-      <div className="px-2 pt-3 pb-1">
+      <div className="px-2 pt-2 pb-1">
         <p className={`text-xs font-bold uppercase tracking-wider px-1 mb-1.5 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>Calculators</p>
         {CALCULATORS.map(c => {
           const isActive = active === c.id;
@@ -157,14 +157,13 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                 {hasTabs && <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''} ${isDark ? 'text-white/30' : 'text-slate-300'}`} />}
               </button>
               {hasTabs && isExpanded && (
-                <div className="ml-5 mb-1 space-y-0.5">
+                <div className="ml-5 mb-0.5 space-y-0.5">
                   {TOOL_TABS[c.id].map(tab => (
                     <button key={tab.id} onClick={() => { onSelect(c.id); onSelectTab(c.id, tab.id); }}
-                      className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                        isActive && activeTab[c.id] === tab.id
-                          ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-100 text-teal-700 font-medium')
-                          : (isDark ? 'text-white/40 hover:text-white/70 hover:bg-white/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50')
-                      }`}>
+                      className={`w-full text-left px-1 py-0.5 rounded text-xs transition-colors ${isActive && activeTab[c.id] === tab.id
+                        ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-100 text-teal-700 font-medium')
+                        : (isDark ? 'text-white/40 hover:text-white/70 hover:bg-white/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50')
+                        }`}>
                       {tab.label}
                     </button>
                   ))}
@@ -177,8 +176,8 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 
       {/* Tool groups */}
       {TOOL_GROUPS.map(group => (
-        <div key={group.id} className="px-2 pt-2 pb-1">
-          <p className={`text-xs font-bold uppercase tracking-wider px-1 mb-1.5 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>{group.label}</p>
+        <div key={group.id} className="px-2 pt-1 pb-1">
+          <p className={`text-xs font-bold uppercase tracking-wider px-1 mb-1 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>{group.label}</p>
           {group.tools.map(t => {
             const isActive = active === t.id;
             const hasTabs = !!TOOL_TABS[t.id];
@@ -200,11 +199,10 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                   <div className="ml-5 mb-1 space-y-0.5">
                     {TOOL_TABS[t.id].map(tab => (
                       <button key={tab.id} onClick={() => { onSelect(t.id); onSelectTab(t.id, tab.id); }}
-                        className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
-                          isActive && activeTab[t.id] === tab.id
-                            ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-100 text-teal-700 font-medium')
-                            : (isDark ? 'text-white/40 hover:text-white/70 hover:bg-white/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50')
-                        }`}>
+                        className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${isActive && activeTab[t.id] === tab.id
+                          ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-100 text-teal-700 font-medium')
+                          : (isDark ? 'text-white/40 hover:text-white/70 hover:bg-white/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50')
+                          }`}>
                         {tab.label}
                       </button>
                     ))}
@@ -218,7 +216,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 
       {/* History section */}
       <div className={`mt-auto border-t p-2 pt-3 flex flex-col ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-        <button 
+        <button
           onClick={() => setHistoryExpanded(!historyExpanded)}
           className="flex items-center justify-between w-full px-1 mb-2 group"
         >
@@ -237,7 +235,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                 </button>
               )}
             </div>
-            
+
             {history.length === 0 ? (
               <p className={`text-xs text-center p-4 italic ${isDark ? 'text-white/20' : 'text-slate-300'}`}>Empty</p>
             ) : (
@@ -287,6 +285,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 
 
 export default function Home() {
+  const isMobile = useIsMobile();
   const [active, setActive] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState(() => loadSettings() || DEFAULT_SETTINGS);
@@ -362,8 +361,8 @@ export default function Home() {
       handleSelectTab(item.toolId, item.data.tab);
     }
 
-  setHistoryData(item);
-};
+    setHistoryData(item);
+  };
 
   const getComponent = id => {
     const isAct = active === id;
@@ -398,76 +397,102 @@ export default function Home() {
     }
   };
 
-   return (
+  return (
     <div className="h-screen flex flex-col overflow-hidden" style={bgStyle}>
       {/* ── Header ── */}
-      <header className={`border-b sticky top-0 z-[60] transition-all ${isMacElectron ? 'h-10' : 'h-11'}`} style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}>
+      <header
+        className={`border-b sticky top-0 z-[60] transition-all ${isMacElectron ? 'h-12' : isMobile ? 'h-14' : 'h-11'
+          }`}
+        style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}
+      >
         <div className={`px-4 h-full flex items-center ${isMacElectron ? 'max-w-none pl-20' : 'w-full'}`}>
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-0.5">
-              {/* Sidebar Toggle & Logo Group */}
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`p-2 rounded-xl transition-all duration-200 ${
-                  isDark ? 'hover:bg-white/10 text-white/70' : 'hover:bg-slate-100 text-slate-600'
-                }`}
+                className={`w-12 h-12 flex items-center justify-center rounded-xl touch-manipulation transition-all duration-200 ${isDark ? 'hover:bg-white/10 text-white/70' : 'hover:bg-slate-100 text-slate-600'
+                  }`}
                 title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
               >
-                <PanelLeft className={`w-5 h-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
+                <PanelLeft className={`w-6 h-6 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
               </button>
 
-              <div className="flex items-center cursor-pointer" onClick={goHome}>
-                <img src="/icon-512.png" alt="BiBaBenchBuddy Logo" className="w-9 h-9 object-contain" />
-              </div>
+              <button
+                onClick={goHome}
+                className={`w-12 h-12 flex items-center justify-center rounded-xl touch-manipulation transition-all duration-200 ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                  }`}
+                title="Home"
+              >
+                <img src="/icon-512.png" alt="BiBaBenchBuddy Logo" className="w-11 h-11 object-contain" />
+              </button>
 
               {!isHome && (
-                <button onClick={goHome} className={`flex items-center gap-1.5 text-sm transition-colors ml-4 ${backBtnColor}`}>
-                  <ArrowLeft className="w-4 h-4" /> Back
+                <button
+                  onClick={goHome}
+                  className={`min-h-[44px] px-3 flex items-center gap-1.5 text-sm rounded-xl touch-manipulation transition-colors ml-1 ${backBtnColor} ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
+                    }`}
+                >
+                  <ArrowLeft className="w-5 h-5" /> Back
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setActive('ai')} 
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-300 ${
-                  isDark 
-                    ? 'bg-fuchsia-600/20 text-fuchsia-200 border border-fuchsia-500/30 hover:bg-fuchsia-600/40' 
-                    : 'bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-100 hover:bg-fuchsia-100'
-                }`}
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <button
+                onClick={() => setActive('ai')}
+                className={`min-h-[35px] px-3 sm:px-2 flex items-center gap-2 rounded-xl touch-manipulation transition-all duration-300 ${isDark
+                  ? 'bg-fuchsia-600/20 text-fuchsia-200 border border-fuchsia-500/30 hover:bg-fuchsia-600/40'
+                  : 'bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-100 hover:bg-fuchsia-100'
+                  }`}
                 title="AI Assistent"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold uppercase tracking-wider">AI Assistent</span>
+                <Sparkles className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">AI Assistent</span>
               </button>
-              
-              <button onClick={() => setShowSettings(true)} className={`p-2 rounded-xl transition-colors ${settingsBtnColor}`} title="Settings">
-                <Settings className="w-4 h-4" />
+
+              <button
+                onClick={() => setShowSettings(true)}
+                className={`w-11 h-11 flex items-center justify-center rounded-xl touch-manipulation transition-colors ${settingsBtnColor}`}
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
- {/* ── Body ── */}
-      <div className={`flex flex-1 min-h-0 overflow-hidden w-full relative ${isMacElectron ? 'max-w-[1400x] mx-auto' : ''}`}>
+      {/* ── Body ── */}
+      <div className={`flex flex-1 min-h-0 overflow-hidden w-full relative ${isMacElectron ? 'max-w-[1400px] mx-auto' : ''}`}>
         {sidebarOpen && (
-          <Sidebar
-            active={active}
-            onSelect={(id) => { setActive(id); setHistoryData(null); }}
-            onSelectTab={handleSelectTab}
-            activeTab={activeTab}
-            onClose={() => setSidebarOpen(false)}
-            isDark={isDark}
-            iconStyle={iconStyle}
-            iconTextColor={theme.iconTextColor}
-            onRestoreHistory={handleRestoreHistory}
-            isMacElectron={isMacElectron}
-          />
+          <>
+            {isMobile && (
+              <div
+                className="fixed inset-0 bg-black/40 z-40"
+                onClick={() => setSidebarOpen(false)}
+              />
+            )}
+
+            <Sidebar
+              active={active}
+              onSelect={(id) => { setActive(id); setHistoryData(null); setSidebarOpen(false); }}
+              onSelectTab={handleSelectTab}
+              activeTab={activeTab}
+              isDark={isDark}
+              iconStyle={iconStyle}
+              iconTextColor={theme.iconTextColor}
+              onRestoreHistory={(item) => {
+                handleRestoreHistory(item);
+                setSidebarOpen(false);
+              }}
+              isMacElectron={isMacElectron}
+              isMobile={isMobile}
+            />
+          </>
         )}
 
         <main className={`flex-1 px-2 sm:px-6 lg:px-8 pt-8 ${isHome ? 'pb-0' : 'pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col`}>
-{/* ── HOME ── */}
+          {/* ── HOME ── */}
           {isHome && (
             <div className="space-y-7 flex-1 flex flex-col">
               <div className="mb-2">
@@ -484,80 +509,80 @@ export default function Home() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column: Calculators (3 columns, 2 rows) */}
-                  <div className="flex flex-col space-y-4">
-                    <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Calculators</h3>
+                <div className="flex flex-col space-y-4">
+                  <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Calculators</h3>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 h-full">
-                      {CALCULATORS.map(calc => (
-                        <button
-                          key={calc.id}
-                          onClick={() => {setActive(calc.id); setHistoryData(null);}}
-                          className={`group rounded-2xl p-4 text-center shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex flex-col items-center justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
-                        >
-                          <div className={`inline-flex p-2.5 rounded-xl shadow-md mb-2 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
-                            <calc.icon className={`w-5 h-5 ${theme?.iconTextColor || 'text-white'}`} />
-                          </div>
-                          <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                {/* Right Column: Lab & Protocols (Symmetrical rows) */}
-                  <div className="flex flex-col space-y-5">
-                    {TOOL_GROUPS.map(group => (
-                      <div key={group.id} className="flex flex-col space-y-4 flex-1">
-                        <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>{group.label}</h3>
-                        <div className={`grid gap-3 md:gap-4 h-full ${group.id === 'lab' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
-                          {group.tools.map(tool => (
-                            <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
-                              className={`group relative rounded-2xl p-4 text-left shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
-                              <div className={`inline-flex rounded-xl shadow-lg mb-2 p-2.5 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
-                                <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-4 h-4 sm:w-5 sm:h-5`} />
-                              </div>
-                              <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
-                              <p className={`mt-1 ${cardTextSecondary} text-[10px] md:text-[11px] leading-tight pr-2 sm:pr-4 line-clamp-2`}>{tool.description}</p>
-                            </button>
-                          ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 h-full">
+                    {CALCULATORS.map(calc => (
+                      <button
+                        key={calc.id}
+                        onClick={() => { setActive(calc.id); setHistoryData(null); }}
+                        className={`group rounded-2xl p-4 text-center shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex flex-col items-center justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
+                      >
+                        <div className={`inline-flex p-2.5 rounded-xl shadow-md mb-2 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
+                          <calc.icon className={`w-5 h-5 ${theme?.iconTextColor || 'text-white'}`} />
                         </div>
-                      </div>
+                        <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
+                      </button>
                     ))}
                   </div>
                 </div>
-                
-                {/* Footer moved to homepage body */}
-                <div className={`mt-auto pt-12 pb-3 text-center text-xs flex flex-col items-center gap-3 transition-colors ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
-                  <p>
-                    {settings.language === 'nl'
-                      ? 'Controleer altijd berekeningen voor gebruik in experimenten'
-                      : 'Always verify calculations before use in experiments'}
-                  </p>
-          
-                  <div>
-                    <a
-                      href="https://www.buymeacoffee.com/daphnewoodpecker"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        // Ensure external links open in system browser in Electron/local-file mode
-                        if (window.location.protocol === 'file:' || navigator.userAgent.toLowerCase().includes('electron')) {
-                          e.preventDefault();
-                          window.open("https://www.buymeacoffee.com/daphnewoodpecker", "_blank");
-                        }
-                      }}
-                      className="inline-block transition-transform hover:scale-105 active:scale-95 shadow-lg rounded-xl overflow-hidden"
-                    >
-                      <img
-                        src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00"
-                        alt="Buy me a cookie"
-                        className="h-6"
-                      />
-                    </a>
-                  </div>
-                </div>
 
+                {/* Right Column: Lab & Protocols (Symmetrical rows) */}
+                <div className="flex flex-col space-y-5">
+                  {TOOL_GROUPS.map(group => (
+                    <div key={group.id} className="flex flex-col space-y-4 flex-1">
+                      <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>{group.label}</h3>
+                      <div className={`grid gap-3 md:gap-4 h-full ${group.id === 'lab' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                        {group.tools.map(tool => (
+                          <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
+                            className={`group relative rounded-2xl p-4 text-left shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
+                            <div className={`inline-flex rounded-xl shadow-lg mb-2 p-2.5 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
+                              <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-4 h-4 sm:w-5 sm:h-5`} />
+                            </div>
+                            <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
+                            <p className={`mt-1 ${cardTextSecondary} text-[10px] md:text-[11px] leading-tight pr-2 sm:pr-4 line-clamp-2`}>{tool.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
+
+              {/* Footer moved to homepage body */}
+              <div className={`mt-auto pt-12 pb-3 text-center text-xs flex flex-col items-center gap-3 transition-colors ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
+                <p>
+                  {settings.language === 'nl'
+                    ? 'Controleer altijd berekeningen voor gebruik in experimenten'
+                    : 'Always verify calculations before use in experiments'}
+                </p>
+
+                <div>
+                  <a
+                    href="https://www.buymeacoffee.com/daphnewoodpecker"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      // Ensure external links open in system browser in Electron/local-file mode
+                      if (window.location.protocol === 'file:' || navigator.userAgent.toLowerCase().includes('electron')) {
+                        e.preventDefault();
+                        window.open("https://www.buymeacoffee.com/daphnewoodpecker", "_blank");
+                      }
+                    }}
+                    className="inline-block transition-transform hover:scale-105 active:scale-95 shadow-lg rounded-xl overflow-hidden"
+                  >
+                    <img
+                      src="https://img.buymeacoffee.com/button-api/?text=Buy me a cookie&emoji=🍪&slug=daphnewoodpecker&button_colour=fda8ff&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00"
+                      alt="Buy me a cookie"
+                      className="h-6"
+                    />
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          )}
 
           {ALL_IDS.map(id => (
             <div

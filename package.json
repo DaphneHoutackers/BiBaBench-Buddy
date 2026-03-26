@@ -4,10 +4,7 @@
   "version": "0.1.9",
   "type": "module",
   "author": "Daphne Houtackers",
-  "categories": [
-    "Education",
-    "Data Science"
-  ],
+  "categories": ["Education"],
   "description": "BiBaBench Buddy desktop app",
   "repository": {
     "type": "git",
