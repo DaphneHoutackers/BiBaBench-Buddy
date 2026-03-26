@@ -22,6 +22,7 @@ import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
 
