@@ -1,5 +1,5 @@
 
-import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2 } from 'lucide-react';
+import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2, Mountain } from 'lucide-react';
 
 export const FONT_SIZES = [
   { label: 'Small', value: '14px' },
@@ -90,6 +90,26 @@ export const APP_THEMES = {
     isGlass: true,
     iconTextColor: 'text-black',
     iconStyle: { background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.5)' },
+  },
+  macos26: {
+    label: 'macOS 26 Tahoe',
+    icon: Mountain,
+    group: 'special',
+    bg: 'linear-gradient(145deg, #dce3ed 0%, #c9d5e4 40%, #bac8db 100%)',
+    cardBg: 'bg-white/15 backdrop-blur-3xl',
+    cardBorder: 'border-white/50',
+    textPrimary: 'text-slate-900',
+    textSecondary: 'text-slate-500',
+    headerClass: 'macos26-theme',
+    bodyClass: 'macos26-theme',
+    isGlass: true,
+    iconTextColor: 'text-slate-800',
+    iconStyle: {
+      background: 'rgba(255, 255, 255, 0.28)',
+      backdropFilter: 'blur(20px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.65)',
+      boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.8), 0 4px 16px rgba(0, 0, 0, 0.08)',
+    },
   },
   pride: {
     label: 'LGBTQ+',
