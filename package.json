@@ -4,7 +4,9 @@
   "version": "0.1.9",
   "type": "module",
   "author": "Daphne Houtackers",
-  "categories": ["Education"],
+  "categories": [
+    "Education"
+  ],
   "description": "BiBaBench Buddy desktop app",
   "repository": {
     "type": "git",
@@ -74,6 +76,8 @@
     "jspdf": "^4.0.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
+    "nanoid": "^5.1.7",
+    "nanostores": "^1.2.0",
     "next-themes": "^0.4.4",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.1",
@@ -114,6 +118,7 @@
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^15.15.0",
     "postcss": "^8.5.3",
+    "size-limit": "^12.0.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
     "vite": "^6.1.0",
