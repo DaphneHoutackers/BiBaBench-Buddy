@@ -283,6 +283,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
   );
 }
 
+const ALL_BODY_THEME_CLASSES = Object.values(APP_THEMES).map(t => t.bodyClass).filter(Boolean);
 
 export default function Home() {
   const isMobile = useIsMobile();
@@ -300,9 +301,11 @@ export default function Home() {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     document.documentElement.style.fontSize = settings.fontSize || '16px';
     const currentTheme = APP_THEMES[settings.appTheme] || APP_THEMES.default;
-    // const isDark = currentTheme.isDark; // Handled by classList below
     if (currentTheme.isDark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
+    // Apply bodyClass for themes that use custom CSS (e.g. macos26-theme)
+    document.body.classList.remove(...ALL_BODY_THEME_CLASSES);
+    if (currentTheme.bodyClass) document.body.classList.add(currentTheme.bodyClass);
   }, [settings]);
 
   useEffect(() => {

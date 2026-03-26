@@ -1,5 +1,5 @@
 
-import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Zap, Snowflake, Columns2 } from 'lucide-react';
+import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2, Mountain } from 'lucide-react';
 
 export const FONT_SIZES = [
   { label: 'Small', value: '14px' },
@@ -90,6 +90,28 @@ export const APP_THEMES = {
     isGlass: true,
     iconTextColor: 'text-black',
     iconStyle: { background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.5)' },
+  },
+  macos26: {
+    label: 'macOS 26 Tahoe',
+    icon: Mountain,
+    group: 'special',
+    // Rich "Lake Tahoe at dusk" — dark navy sky fading to deep azure water
+    bg: 'linear-gradient(160deg, #061426 0%, #0d2d52 18%, #175490 36%, #1e6fa0 52%, #1860a0 68%, #104070 84%, #071e3d 100%)',
+    cardBg: 'bg-white/10 backdrop-blur-3xl',
+    cardBorder: 'border-white/20',
+    textPrimary: 'text-white',
+    textSecondary: 'text-blue-100/75',
+    headerClass: 'macos26-theme',
+    bodyClass: 'macos26-theme',
+    isDark: true,
+    isGlass: true,
+    iconTextColor: 'text-white',
+    iconStyle: {
+      background: 'rgba(255, 255, 255, 0.14)',
+      backdropFilter: 'blur(20px) saturate(200%)',
+      border: '1px solid rgba(255, 255, 255, 0.35)',
+      boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.55), 0 4px 20px rgba(0, 0, 0, 0.3)',
+    },
   },
   pride: {
     label: 'LGBTQ+',

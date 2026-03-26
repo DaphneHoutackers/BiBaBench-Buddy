@@ -84,3 +84,121 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── macOS 26 Tahoe "Liquid Glass" theme ── */
+/* Selectors are scoped to body.macos26-theme so they only apply when this
+   theme is active. The element-type sub-selectors (header, aside, main)
+   are intentional: this is a single-page app with exactly one of each. */
+
+/* Base: SF Pro font stack + anti-aliasing */
+body.macos26-theme {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Header: frosted glass toolbar ──
+   background and border-bottom use !important because Home.jsx applies them
+   as React inline styles (style={{ background, borderColor }}), which cannot
+   be overridden by CSS rules without !important. */
+body.macos26-theme header {
+  background: rgba(8, 30, 65, 0.72) !important;
+  backdrop-filter: blur(48px) saturate(200%) brightness(1.08);
+  -webkit-backdrop-filter: blur(48px) saturate(200%) brightness(1.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.13) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07), 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Sidebar: translucent deep-blue glass panel ──
+   Specificity (0,1,2) beats Tailwind's bg-slate-900 (0,1,0), no !important needed. */
+body.macos26-theme aside {
+  background: rgba(6, 24, 56, 0.75);
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Homepage tool cards: Liquid Glass specular highlight + depth shadow ──
+   Does NOT override background (handled by Tailwind bg-white/10 in theme.cardBg).
+   Specificity (0,2,2) beats Tailwind shadow-sm (0,1,0). */
+body.macos26-theme main .rounded-2xl {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+body.macos26-theme main .rounded-2xl:hover {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.62),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.10),
+    0 14px 40px rgba(0, 0, 0, 0.48),
+    0 4px 14px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Inputs, selects, textareas ──
+   Specificity (0,1,2) beats Tailwind utility classes on these elements. */
+body.macos26-theme input,
+body.macos26-theme select,
+body.macos26-theme textarea {
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  color: white;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+body.macos26-theme input:focus,
+body.macos26-theme select:focus,
+body.macos26-theme textarea:focus {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(0, 122, 255, 0.75);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 0 0 3px rgba(0, 122, 255, 0.28);
+  outline: none;
+}
+
+/* ── Buttons ── */
+body.macos26-theme button {
+  transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── macOS thin scrollbar ── */
+body.macos26-theme ::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+body.macos26-theme ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.macos26-theme ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 3px;
+}
+
+body.macos26-theme ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+/* ── Section labels: SF-style letter-spacing ── */
+body.macos26-theme main h3,
+body.macos26-theme aside p {
+  letter-spacing: 0.08em;
+}
+
+/* ── Apple-blue focus ring for interactive elements ── */
+body.macos26-theme button:focus-visible,
+body.macos26-theme a:focus-visible {
+  outline: 2px solid rgba(0, 122, 255, 0.7);
+  outline-offset: 2px;
+}
