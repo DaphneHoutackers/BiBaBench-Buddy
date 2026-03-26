@@ -9,6 +9,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/comp
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 function NumInput({ value, onChange, ...props }) {
@@ -32,8 +33,9 @@ function formatTime(sec) {
   return sec >= 60 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} min` : `${sec}s`;
 }
 
-export default function OEPCRCalculator({ historyData }) {
+export default function OEPCRCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   
   const [isRestoring, setIsRestoring] = useState(false);
@@ -88,11 +90,12 @@ export default function OEPCRCalculator({ historyData }) {
   useEffect(() => {
     if (isRestoring) return;
     const hasData = fragments.some(f => f.length || f.concentration);
-    if (!hasData) return;
+    if (!hasData || !isActive) return;
     const debounce = setTimeout(() => {
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'oepcr',
-        title: `OE-PCR (${fragments.length} frags)`,
+        toolName: 'OE-PCR Calculator',
         data: { fragments, refNg, totalVolume, extensionRate, extensionTime }
       });
     }, 1000);

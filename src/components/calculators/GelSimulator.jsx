@@ -12,6 +12,7 @@ import {
   searchEnzymes,
   getEnzymeDisplayName,
 } from '@/lib/enzymes';
+import { makeId } from '@/utils/makeId';
 
 // ── DNA Ladders ──
 const LADDERS = {
@@ -808,7 +809,7 @@ function WesternBlotTab() {
 // ════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════
-export default function GelAndWBSimulator({ historyData }) {
+export default function GelAndWBSimulator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState('dna');
   const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb Plus');
@@ -824,6 +825,7 @@ export default function GelAndWBSimulator({ historyData }) {
   const [excisedBands, setExcisedBands] = useState({});
   const [laneColors, setLaneColors] = useState({});
   const [isRestoring, setIsRestoring] = useState(false);
+  const sessionId = useRef(makeId());
 
   // Digest calculation results cache
   const [digestCache, setDigestCache] = useState({});
@@ -891,10 +893,11 @@ export default function GelAndWBSimulator({ historyData }) {
   }, [dnaLanes]);
 
   useEffect(() => {
-    if (isRestoring) return;
+    if (isRestoring || !isActive) return;
 
     const debounce = setTimeout(() => {
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'gel',
         toolName: 'Gel & WB Simulator',
         data: {

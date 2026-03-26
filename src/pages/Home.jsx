@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Scissors, Link2, GitMerge, Dna, Droplets, Beaker,
   Sparkles, ArrowLeft, BookOpen, Microscope,
-  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2
+  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2, Glasses, NotebookText, FlaskConical, LucideDotSquare, Zap, Snowflake, Columns2
 } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
 import DigestCalculator from '@/components/calculators/DigestCalculator';
@@ -369,29 +369,29 @@ export default function Home() {
     const hData = isAct ? historyData : null;
     switch (id) {
       case 'digest':
-        return <DigestCalculator externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} historyData={hData} />;
+        return <DigestCalculator externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} historyData={hData} isActive={isAct} />;
       case 'ligation':
-        return <LigationCalculator historyData={hData} />;
+        return <LigationCalculator historyData={hData} isActive={isAct} />;
       case 'gibson':
-        return <GibsonCalculator historyData={hData} />;
+        return <GibsonCalculator historyData={hData} isActive={isAct} />;
       case 'pcr':
-        return <PCRCalculator externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} historyData={hData} />;
+        return <PCRCalculator externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} historyData={hData} isActive={isAct} />;
       case 'dilution':
-        return <DilutionCalculator historyData={hData} />;
+        return <DilutionCalculator historyData={hData} isActive={isAct} />;
       case 'buffer':
-        return <BufferCalculator historyData={hData} />;
+        return <BufferCalculator historyData={hData} isActive={isAct} />;
       case 'protein':
-        return <ProteinConcCalculator externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} historyData={hData} />;
+        return <ProteinConcCalculator externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} historyData={hData} isActive={isAct} />;
       case 'protocols':
-        return <ProtocolLibrary historyData={hData} />;
+        return <ProtocolLibrary historyData={hData} isActive={isAct} />;
       case 'ai':
-        return <AIAssistant historyData={hData} />;
+        return <AIAssistant historyData={hData} isActive={isAct} />;
       case 'gel':
-        return <GelSimulator historyData={hData} />;
+        return <GelSimulator historyData={hData} isActive={isAct} />;
       case 'image-annotator':
-        return <ImageAnnotator historyData={hData} />;
+        return <ImageAnnotator historyData={hData} isActive={isAct} />;
       case 'plasmid':
-        return <PlasmidAnalyzer historyData={hData} />;
+        return <PlasmidAnalyzer historyData={hData} isActive={isAct} />;
       default:
         return null;
     }
@@ -519,10 +519,10 @@ export default function Home() {
                         onClick={() => { setActive(calc.id); setHistoryData(null); }}
                         className={`group rounded-2xl p-4 text-center shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex flex-col items-center justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
                       >
-                        <div className={`inline-flex p-2.5 rounded-xl shadow-md mb-2 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
-                          <calc.icon className={`w-5 h-5 ${theme?.iconTextColor || 'text-white'}`} />
+                        <div className={`inline-flex p-3 rounded-xl shadow-md mb-3 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
+                          <calc.icon className={`w-6 h-6 ${theme?.iconTextColor || 'text-white'}`} />
                         </div>
-                        <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
+                        <p className={`text-sm sm:text-base font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{calc.name}</p>
                       </button>
                     ))}
                   </div>
@@ -537,10 +537,10 @@ export default function Home() {
                         {group.tools.map(tool => (
                           <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
                             className={`group relative rounded-2xl p-4 text-left shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
-                            <div className={`inline-flex rounded-xl shadow-lg mb-2 p-2.5 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
-                              <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-4 h-4 sm:w-5 sm:h-5`} />
+                            <div className={`inline-flex rounded-xl shadow-lg mb-3 p-3 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
+                              <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-5 h-5 sm:w-6 sm:h-6`} />
                             </div>
-                            <p className={`text-[13px] sm:text-sm font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
+                            <p className={`text-sm sm:text-base font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
                             <p className={`mt-1 ${cardTextSecondary} text-[10px] md:text-[11px] leading-tight pr-2 sm:pr-4 line-clamp-2`}>{tool.description}</p>
                           </button>
                         ))}

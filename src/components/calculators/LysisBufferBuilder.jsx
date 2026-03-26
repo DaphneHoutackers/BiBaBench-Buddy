@@ -110,7 +110,7 @@ function calcVolume(conc, unit, totalMl) {
   return { amount: c.toFixed(2), amountUnit: unit, note: '' };
 }
 
-export default function LysisBufferBuilder({ historyData }) {
+export default function LysisBufferBuilder({ historyData, isActive, sessionId }) {
   const { addHistoryItem } = useHistory();
   const tableRef = React.useRef(null);
   
@@ -134,10 +134,12 @@ export default function LysisBufferBuilder({ historyData }) {
   }, [historyData]);
 
   React.useEffect(() => {
-    if (isRestoring || Object.keys(selections).length === 0) return;
+    if (isRestoring || Object.keys(selections).length === 0 || !isActive) return;
     const debounce = setTimeout(() => {
       addHistoryItem({
+        id: sessionId,
         toolId: 'buffer',
+        toolName: 'Buffer Preparation',
         title: `Lysis Buffer (${totalVol}mL) - ${Object.keys(selections).length} components`,
         data: { activeTab: 'lysis', totalVol, selections, customConcs }
       });

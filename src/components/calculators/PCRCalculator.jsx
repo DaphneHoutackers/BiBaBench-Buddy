@@ -13,6 +13,7 @@ import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const POLYMERASES = {
@@ -176,8 +177,9 @@ function NumInput({ value, onChange, ...props }) {
 }
 
 
-export default function PCRCalculator({ externalTab, onTabChange, historyData }) {
+export default function PCRCalculator({ externalTab, onTabChange, historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   const [tab, setTab] = useState(externalTab || 'mix');
   const [isRestoring, setIsRestoring] = useState(false);
@@ -236,7 +238,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
 
   // Save to history
   useEffect(() => {
-    if (isRestoring || tab === 'oepcr' || tab === 'product') return;
+    if (isRestoring || tab === 'oepcr' || tab === 'product' || !isActive) return;
 
     const debounce = setTimeout(() => {
       let preview = 'PCR calculation';
@@ -262,6 +264,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
       }
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'pcr',
         toolName: 'PCR Calculator',
         data: {
@@ -405,7 +408,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
   }, [taFwdPrimer, taRevPrimer, taTemplate, taPolymerase, taPrimerConc]);
 
 
-  const hasMultiple = n > 1;
+  const hasMultiple = n > 1 || gradientMode;
 
   return (
     <div className="space-y-6">
@@ -553,21 +556,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
             </div>
 
             <div className="space-y-4">
-              {extensionTime && (
-                <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-50 to-purple-50">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-indigo-100">
-                      <Clock className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Extension Time</p>
-                      <p className="text-2xl font-bold text-indigo-600">
-                        {extensionTime >= 60 ? `${Math.floor(extensionTime / 60)}:${(extensionTime % 60).toString().padStart(2, '0')} min` : `${extensionTime}s`}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+
 
               <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardHeader className="pb-4">
@@ -592,16 +581,16 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                           rows.push(['Total', vol]);
                           return rows;
                         }
-                        const header = ['Component', ...samples.map(s => s.name), `MM ×${nMM}`];
+                        const header = ['Component', ...samples.map(s => s.name), `MM ×${mmMultiplier}`];
                         const rows = [header];
-                        rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—']);
-                        rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—']);
-                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * nMM).toFixed(2)]);
-                        if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * nMM).toFixed(2)]);
-                        rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * nMM).toFixed(2)]);
-                        rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * nMM).toFixed(2)]);
-                        rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
-                        rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * nMM).toFixed(2) : '—']);
+                        rows.push(['MQ', ...sampleCalcs.map(s => mqInMM ? s.mqVol.toFixed(2) : `${s.mqVol.toFixed(2)}`), mqInMM ? (sampleCalcs[0].mqVol * mmMultiplier).toFixed(2) : '—']);
+                        rows.push(['Template DNA', ...sampleCalcs.map(s => s.templateVol.toFixed(2)), allTemplatesIdentical ? (sampleCalcs[0].templateVol * mmMultiplier).toFixed(2) : '—']);
+                        rows.push([`${poly.buffer} (${poly.bufferX}×)`, ...samples.map(() => bufferVol.toFixed(2)), (bufferVol * mmMultiplier).toFixed(2)]);
+                        if (useBetaine) rows.push(['Betaine', ...samples.map(() => betaineActualVol.toFixed(2)), (betaineActualVol * mmMultiplier).toFixed(2)]);
+                        rows.push(['10mM dNTPs', ...samples.map(() => dntpVol.toFixed(2)), (dntpVol * mmMultiplier).toFixed(2)]);
+                        rows.push([polymerase, ...samples.map(() => polyVol.toFixed(2)), (polyVol * mmMultiplier).toFixed(2)]);
+                        rows.push([`Fwd Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—']);
+                        rows.push([`Rev Primer (${primerConc}µM)`, ...samples.map(() => primerVol.toFixed(2)), primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—']);
                         rows.push(['Total', ...samples.map(() => vol), '']);
                         return rows;
                       }} />
@@ -628,7 +617,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                           {hasMultiple ? samples.map(s => (
                             <th key={s.id} className="text-right py-2 px-3 font-bold text-slate-700">{s.name}</th>
                           )) : <th className="text-right py-2 px-3 font-bold text-slate-700">Vol (µL)</th>}
-                          {hasMultiple && <th className="text-right py-2 px-3 font-bold text-blue-700">MM ×{nMM}</th>}
+                          {hasMultiple && <th className="text-right py-2 px-3 font-bold text-blue-700">MM ×{mmMultiplier}</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -640,7 +629,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                           {hasMultiple ? sampleCalcs.map(s => (
                             <td key={s.id} className="py-2 px-3 text-right font-mono font-semibold">{s.mqVol.toFixed(2)}</td>
                           )) : <td className="py-2 px-3 text-right font-mono font-semibold">{sampleCalcs[0].mqVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{mqInMM ? (sampleCalcs[0].mqVol * nMM).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{mqInMM ? (sampleCalcs[0].mqVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         {/* Template DNA */}
                         <tr className="border-b border-slate-100">
@@ -657,45 +646,45 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                               {sampleCalcs[0].templateVol.toFixed(2)}{sampleCalcs[0].dilution ? '*' : ''}
                             </td>
                           )}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{allTemplatesIdentical ? (sampleCalcs[0].templateVol * nMM).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{allTemplatesIdentical ? (sampleCalcs[0].templateVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         {/* Buffer */}
                         <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-600">{poly.buffer} ({poly.bufferX}×)</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{bufferVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{bufferVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(bufferVol * nMM).toFixed(2)}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(bufferVol * mmMultiplier).toFixed(2)}</td>}
                         </tr>
                         {/* Betaine */}
                         {useBetaine && (
                          <tr className="border-b border-slate-100">
                            <td className="py-2 px-3 text-slate-600">Betaine</td>
                             {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{betaineActualVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{betaineActualVol.toFixed(2)}</td>}
-                            {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(betaineActualVol * nMM).toFixed(2)}</td>}
+                            {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(betaineActualVol * mmMultiplier).toFixed(2)}</td>}
                           </tr>
                         )}
                         {/* dNTPs */}
                         <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-600">10mM dNTPs</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{dntpVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{dntpVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(dntpVol * nMM).toFixed(2)}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(dntpVol * mmMultiplier).toFixed(2)}</td>}
                         </tr>
                         {/* Polymerase */}
                         <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-600">{polymerase}</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{polyVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{polyVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(polyVol * nMM).toFixed(2)}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(polyVol * mmMultiplier).toFixed(2)}</td>}
                         </tr>
                         {/* Fwd primer */}
                         <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-600">Fwd Primer ({primerConc}µM) {hasMultiple && !primersIdentical && <span className="text-xs text-slate-400">(per tube)</span>}</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{primerVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{primerVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{primersIdentical ? (primerVol * nMM).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         {/* Rev primer */}
                         <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-600">Rev Primer ({primerConc}µM) {hasMultiple && !primersIdentical && <span className="text-xs text-slate-400">(per tube)</span>}</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{primerVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{primerVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{primersIdentical ? (primerVol * nMM).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         <tr style={{ borderTop: '2px solid #cbd5e1', background: '#f8fafc' }}>
                           <td className="py-2 px-3 font-bold text-slate-800">Total (µL)</td>
@@ -706,13 +695,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
                     </table>
                   </div>
                   {sampleCalcs.some(s => s.dilution) && <p className="text-xs text-rose-600 mt-1">* Volume &lt;0.5 µL — see dilution suggestion above.</p>}
-                  {extensionTime && (
-                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
-                      <p className="text-xs text-blue-700">
-                        <strong>Cycling:</strong> 98°C 30s → [Ta 30s → 72°C {extensionTime >= 60 ? `${Math.floor(extensionTime / 60)}:${(extensionTime % 60).toString().padStart(2, '0')} min` : `${extensionTime}s`}] × 30-35 → 72°C 5 min
-                      </p>
-                    </div>
-                  )}
+
                 </CardContent>
               </Card>
             </div>
@@ -881,7 +864,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData })
         </TabsContent>
         {/* ─── OE-PCR ─── */}
         <TabsContent value="oepcr" className="mt-6">
-          <OEPCRCalculator />
+          <OEPCRCalculator isActive={isActive} />
         </TabsContent>
         {/* ─── Product Sequence ─── */}
         <TabsContent value="product" className="mt-6">

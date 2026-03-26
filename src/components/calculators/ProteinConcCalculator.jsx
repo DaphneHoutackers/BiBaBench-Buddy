@@ -8,6 +8,7 @@ import { Beaker, Plus, Trash2, TrendingUp, FlaskConical, Copy, Check } from 'luc
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 
 function linearRegression(points) {
   const n = points.length;
@@ -95,8 +96,9 @@ function parseSampleBatchInput(input) {
   return parsed;
 }
 
-export default function ProteinConcCalculator({ externalTab, onTabChange, historyData }) {
+export default function ProteinConcCalculator({ externalTab, onTabChange, historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const standardsTableRef = useRef(null);
   const samplesTableRef = useRef(null);
   const prepTableRef = useRef(null);
@@ -153,6 +155,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
         standards.every(s => !s.abs) &&
         unknowns.every(u => !u.abs))
     ) return;
+    if (!isActive) return;
 
     const debounce = setTimeout(() => {
       let preview = 'Protein concentration calculation';
@@ -174,6 +177,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
       }
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'protein',
         toolName: 'Protein Concentration Calculator',
         data: {

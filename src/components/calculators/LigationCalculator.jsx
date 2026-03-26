@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 function NumInput({ value, onChange, ...props }) {
@@ -122,7 +123,7 @@ function MixTable({ rows, totalVolume }) {
 }
 
 // ─── Single Ligation Tab ───────────────────────────────────────────
-function SingleLigation({ historyData }) {
+function SingleLigation({ historyData, isActive, sessionId }) {
   const tableRef = useRef(null);
   const [vectorConc, setVectorConc] = useState('');
   const [vectorLength, setVectorLength] = useState('');
@@ -158,9 +159,11 @@ function SingleLigation({ historyData }) {
     if (isRestoring.current) return;
 
     const timeout = setTimeout(() => {
+      if (!isActive) return;
       const allFilled = vectorConc && vectorLength && inserts.every(i => i.conc && i.length && i.ratio);
       if (allFilled) {
         addHistoryItem({
+          id: sessionId,
           toolId: 'ligation',
           toolName: 'Ligation',
           data: {
@@ -445,7 +448,7 @@ function defaultLigation(id) {
   };
 }
 
-function MultiLigation({ historyData }) {
+function MultiLigation({ historyData, isActive, sessionId }) {
   const tableRef = useRef(null);
   const [ligations, setLigations] = useState([defaultLigation(1), defaultLigation(2)]);
   const [totalVolume, setTotalVolume] = useState('20');
@@ -473,11 +476,13 @@ function MultiLigation({ historyData }) {
   useEffect(() => {
     if (isRestoring.current) return;
     const timeout = setTimeout(() => {
+      if (!isActive) return;
       const anyFilled = ligations.some(lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio));
       if (anyFilled) {
         addHistoryItem({
+          id: sessionId,
           toolId: 'ligation',
-          title: `Multi-Ligation (${ligations.length} rxns)`,
+          toolName: 'Ligation',
           data: { tab: 'multi', ligations, totalVolume, ligase, ligaseVol, usePEG }
         });
       }
@@ -787,7 +792,8 @@ function MultiLigation({ historyData }) {
   );
 }
 
-export default function LigationCalculator({ historyData }) {
+export default function LigationCalculator({ historyData, isActive }) {
+  const sessionId = useRef(makeId()).current;
   const [tab, setTab] = useState('single');
 
   useEffect(() => {
@@ -812,8 +818,8 @@ export default function LigationCalculator({ historyData }) {
             <TabsTrigger value="single">Single Ligation</TabsTrigger>
             <TabsTrigger value="multi">Multiple Ligations</TabsTrigger>
           </TabsList>
-          <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} /></TabsContent>
-          <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} /></TabsContent>
+          <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
+          <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
         </Tabs>
       </div>
     </TooltipProvider>

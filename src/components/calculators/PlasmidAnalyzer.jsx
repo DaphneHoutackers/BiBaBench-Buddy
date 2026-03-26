@@ -12,6 +12,7 @@ import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
 import { useHistory } from '@/context/HistoryContext';
 import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
+import { makeId } from '@/utils/makeId';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FEATURE_DEFAULTS = { CDS:'#3b82f6', gene:'#8b5cf6', promoter:'#f59e0b', terminator:'#ef4444', rep_origin:'#10b981', primer_bind:'#06b6d4', misc_feature:'#6366f1', regulatory:'#f97316' };
 const RE_HIGHLIGHT_COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f43f5e','#84cc16'];
@@ -345,7 +346,7 @@ const newEmptyTab = (name = '') => ({
 });
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function PlasmidAnalyzer({ historyData }) {
+export default function PlasmidAnalyzer({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
   const [toolTab, setToolTab] = useState('analyzer');
   const [phase, setPhase] = useState(() => loadLib().length > 0 ? 'library' : 'input');
@@ -382,6 +383,7 @@ export default function PlasmidAnalyzer({ historyData }) {
   const [popupData, setPopupData] = useState(null);
   const mapRef = useRef(null);
   const fileRef = useRef(null);
+  const sessionId = useRef(makeId());
 
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -478,10 +480,11 @@ export default function PlasmidAnalyzer({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || (!sequence && !rawInput)) return;
+    if (isRestoring || (!sequence && !rawInput) || !isActive) return;
 
     const debounce = setTimeout(() => {
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'plasmid',
         toolName: 'Sequence Analyzer',
         data: {

@@ -10,6 +10,7 @@ import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
@@ -46,7 +47,7 @@ function DnaMass({ ng }) {
   return <span className="text-rose-600 font-semibold">({ng} ng)</span>;
 }
 
-export default function DigestCalculator({ externalTab, onTabChange, historyData }) {
+export default function DigestCalculator({ externalTab, onTabChange, historyData, isActive }) {
   const singleTableRef = useRef(null);
   const batchTableRef = useRef(null);
   const [tab, setTab] = useState(externalTab || 'single');
@@ -68,6 +69,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const [copied, setCopied] = useState(false);
 
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const isRestoring = useRef(false);
 
   // Restore from history
@@ -97,11 +99,13 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     if (isRestoring.current) return;
 
     const timeout = setTimeout(() => {
+      if (!isActive) return;
       const hasSingle = tab === 'single' && dnaConc && desiredDna;
       const hasBatch = tab === 'batch' && batchSamples.some(s => s.conc);
 
       if (hasSingle || hasBatch) {
         addHistoryItem({
+          id: sessionId.current,
           toolId: 'digest',
           toolName: 'Restriction Digest',
           data: {

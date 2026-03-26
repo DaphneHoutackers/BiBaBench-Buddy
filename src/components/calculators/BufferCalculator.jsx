@@ -8,6 +8,7 @@ import { Beaker, FlaskConical, AlertTriangle, ChevronDown, ChevronUp, Trash2, Sp
 import LysisBufferBuilder from '@/components/calculators/LysisBufferBuilder';
 import AIBufferChat from '@/components/calculators/AIBufferChat';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 
 // ── Buffer definitions ──
 // component order: by required addition order, or largest to smallest if order doesn't matter
@@ -202,8 +203,9 @@ function NumInput({ value, onChange, ...props }) {
   return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
 }
 
-export default function BufferCalculator({ historyData }) {
+export default function BufferCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const [savedRecipes, setSavedRecipes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('bibabenchbuddy_custom_buffers')) || {}; } catch { return {}; }
   });
@@ -230,10 +232,11 @@ export default function BufferCalculator({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || activeTab === 'ai') return;
+    if (isRestoring || activeTab === 'ai' || !isActive) return;
 
     const timeout = setTimeout(() => {
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'buffer',
         toolName: 'Buffer Preparation',
         data: {
@@ -306,7 +309,7 @@ export default function BufferCalculator({ historyData }) {
         <TabsContent value="lysis" className="mt-4">
           <Card className="border-0 shadow-sm bg-white/80">
             <CardContent className="p-5">
-              <LysisBufferBuilder historyData={historyData} />
+              <LysisBufferBuilder historyData={historyData} isActive={isActive} sessionId={sessionId.current} />
             </CardContent>
           </Card>
         </TabsContent>

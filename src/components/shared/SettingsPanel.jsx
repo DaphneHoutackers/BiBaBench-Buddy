@@ -15,6 +15,7 @@ import {
   Clock,
   Lock,
   Github,
+  NotebookText, LucideDotSquare, FlaskConical, Glasses, Square, Zap, Snowflake, Columns2, ALargeSmall
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
         }
 
         return;
-      
+
       } catch (err) {
         console.warn('bootstrapSession failed:', err);
         if (mounted) {
@@ -297,7 +298,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
     setAuthError('');
     setAuthMessage('');
-    
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
@@ -314,7 +315,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   };
 
   return (
-<div className="fixed inset-0 z-[200] flex justify-end" onClick={onClose}>    
+    <div className="fixed inset-0 z-[200] flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
       <div
         className="relative w-80 bg-white shadow-2xl h-full overflow-y-auto flex flex-col"
@@ -338,11 +339,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  tab === t.id
-                    ? 'border-teal-500 text-teal-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors ${tab === t.id
+                  ? 'border-teal-500 text-teal-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {t.label}
@@ -373,11 +373,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                                 key={key}
                                 onClick={() => onChange({ ...settings, appTheme: key })}
                                 title={theme.label}
-                                className={`w-8 h-8 rounded-full border-2 transition-all p-0.5 relative group ${
-                                  currentTheme === key
-                                    ? 'border-teal-500 scale-110 shadow-sm'
-                                    : 'border-white shadow-sm hover:border-slate-200'
-                                }`}
+                                className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 relative group ${currentTheme === key
+                                  ? 'border-teal-500 scale-110 shadow-sm'
+                                  : 'border-white shadow-sm hover:border-slate-200'
+                                  }`}
                               >
                                 <div className="w-full h-full rounded-full" style={{ background: theme.bg }} />
                                 {currentTheme === key && (
@@ -394,13 +393,16 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                               <button
                                 key={key}
                                 onClick={() => onChange({ ...settings, appTheme: key })}
-                                className={`flex items-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all text-left ${
-                                  currentTheme === key
-                                    ? 'border-teal-500 bg-teal-50 text-teal-700'
-                                    : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                                }`}
+                                className={`flex items-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all text-left ${currentTheme === key
+                                  ? 'border-teal-500 bg-teal-50 text-teal-700'
+                                  : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                                  }`}
                               >
-                                <span className="text-base leading-none">{theme.emoji}</span>
+                                {theme.icon ? (
+                                  <theme.icon className="w-4 h-4 shrink-0" />
+                                ) : (
+                                  <span className="text-base leading-none">{theme.emoji}</span>
+                                )}
                                 <span>{theme.label}</span>
                               </button>
                             ))}
@@ -413,17 +415,17 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Font Size</p>
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  <ALargeSmall className="w-3.5 h-3.5" /> Font Size</p>
                 <div className="grid grid-cols-4 gap-2">
                   {FONT_SIZES.map((f) => (
                     <button
                       key={f.value}
                       onClick={() => onChange({ ...settings, fontSize: f.value })}
-                      className={`py-2 rounded-lg border text-xs font-medium transition-all ${
-                        settings.fontSize === f.value
-                          ? 'border-teal-500 bg-teal-50 text-teal-700'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                      }`}
+                      className={`py-2 rounded-lg border text-xs font-medium transition-all ${settings.fontSize === f.value
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        }`}
                     >
                       {f.label}
                     </button>
@@ -443,11 +445,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     <button
                       key={lang.value}
                       onClick={() => onChange({ ...settings, language: lang.value })}
-                      className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-all text-left ${
-                        settings.language === lang.value || (!settings.language && lang.value === 'en')
-                          ? 'border-teal-500 bg-teal-50 text-teal-700'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                      }`}
+                      className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-all text-left ${settings.language === lang.value || (!settings.language && lang.value === 'en')
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        }`}
                     >
                       {lang.label}
                     </button>
@@ -513,15 +514,15 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 >
                   {settings.aiProvider === 'openrouter' && orModels.length > 0
                     ? orModels.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.label}
-                        </option>
-                      ))
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))
                     : AI_PROVIDERS[settings.aiProvider || 'groq'].models.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.label}
-                        </option>
-                      ))}
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -543,13 +544,12 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                         <button
                           onClick={() => handleValidate(item.prov)}
                           disabled={!settings[item.key] || valStatus[item.prov] === 'loading'}
-                          className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${
-                            valStatus[item.prov] === 'success'
-                              ? 'text-green-500'
-                              : valStatus[item.prov] === 'error'
+                          className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${valStatus[item.prov] === 'success'
+                            ? 'text-green-500'
+                            : valStatus[item.prov] === 'error'
                               ? 'text-red-500'
                               : 'text-teal-600 hover:text-teal-700 disabled:text-slate-300'
-                          }`}
+                            }`}
                         >
                           {valStatus[item.prov] === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                           {valStatus[item.prov] === 'success' && <ShieldCheck className="w-2.5 h-2.5" />}
@@ -557,10 +557,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                           {valStatus[item.prov] === 'success'
                             ? 'Verbonden'
                             : valStatus[item.prov] === 'error'
-                            ? 'Fout'
-                            : valStatus[item.prov] === 'loading'
-                            ? 'Checken...'
-                            : 'Check Verbinding'}
+                              ? 'Fout'
+                              : valStatus[item.prov] === 'loading'
+                                ? 'Checken...'
+                                : 'Check Verbinding'}
                         </button>
                         <a
                           href={item.link}

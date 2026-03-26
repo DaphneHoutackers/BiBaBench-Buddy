@@ -9,6 +9,7 @@ import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const MAX_DNA_VOL = 5;
@@ -16,8 +17,9 @@ const LOW_VOL_GIBSON = 0.3;
 
 
 
-export default function GibsonCalculator({ historyData }) {
+export default function GibsonCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   const [fragments, setFragments] = useState([
     { id: 1, name: 'Vector', concentration: '', length: '', isVector: true },
@@ -46,7 +48,7 @@ export default function GibsonCalculator({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring || (fragments.length === 2 && !fragments[0].length && !fragments[1].length)) return;
+    if (isRestoring || (fragments.length === 2 && !fragments[0].length && !fragments[1].length) || !isActive) return;
 
     const debounce = setTimeout(() => {
       const vector = fragments.find(f => f.isVector);
@@ -56,6 +58,7 @@ export default function GibsonCalculator({ historyData }) {
         : `Gibson Assembly (${fragments.length} parts)`;
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'gibson',
         toolName: 'Gibson Assembly',
         data: {

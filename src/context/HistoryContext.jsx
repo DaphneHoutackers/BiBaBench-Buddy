@@ -1,16 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
+import { makeId } from '@/utils/makeId';
 
 const HistoryContext = createContext(null);
 const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
 
-function makeId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
 
-  return `hist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function normalizeRemoteItem(row) {
   return {
@@ -156,13 +151,15 @@ export function HistoryProvider({ children }) {
 
   const addHistoryItem = useCallback((item) => {
     setHistory((prev) => {
+      const now = Date.now();
+      const nowIso = new Date(now).toISOString();
       const normalizedItem = {
         id: item.id || makeId(),
         toolId: item.toolId,
         toolName: item.toolName,
         data: item.data,
-        createdAt: item.createdAt || new Date().toISOString(),
-        timestamp: item.timestamp || Date.now(),
+        createdAt: item.createdAt || nowIso,
+        timestamp: now,
         synced: false,
       };
 
@@ -173,6 +170,9 @@ export function HistoryProvider({ children }) {
         updated[existingIndex] = {
           ...updated[existingIndex],
           ...normalizedItem,
+          // keep original createdAt so display date doesn't jump, but update timestamp for sort
+          createdAt: updated[existingIndex].createdAt,
+          timestamp: now,
         };
 
         return updated.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);

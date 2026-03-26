@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Droplets, FlaskConical, Calculator, AlertCircle } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
+import { makeId } from '@/utils/makeId';
 
 function NumInput({ value, onChange, ...props }) {
   const ref = useRef(null);
@@ -51,8 +52,9 @@ const VOL_UNITS = {
 import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 
-export default function DilutionCalculator({ historyData }) {
+export default function DilutionCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
+  const sessionId = useRef(makeId());
   const tableRef = useRef(null);
   const [mode, setMode] = useState('c1v1');
 
@@ -121,7 +123,7 @@ export default function DilutionCalculator({ historyData }) {
   }, [historyData]);
 
   useEffect(() => {
-    if (isRestoring) return;
+    if (isRestoring || !isActive) return;
 
     const debounce = setTimeout(() => {
       let preview = 'Dilution';
@@ -137,6 +139,7 @@ export default function DilutionCalculator({ historyData }) {
       }
 
       addHistoryItem({
+        id: sessionId.current,
         toolId: 'dilution',
         toolName: 'Dilution Calculator',
         data: {
