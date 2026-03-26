@@ -40,14 +40,42 @@ const getAppParams = () => {
 		storage.removeItem('token');
 	}
 	return {
-		appId: getAppParamValue("app_id", { defaultValue: import.meta.env.VITE_BASE44_APP_ID }),
+		appId: getAppParamValue("app_id", { defaultValue: import.meta.env.VITE_SUPABASE_URL }),
 		token: getAppParamValue("access_token", { removeFromUrl: true }),
 		fromUrl: getAppParamValue("from_url", { defaultValue: window.location.href }),
-		functionsVersion: getAppParamValue("functions_version", { defaultValue: import.meta.env.VITE_BASE44_FUNCTIONS_VERSION }),
-		appBaseUrl: getAppParamValue("app_base_url", { defaultValue: import.meta.env.VITE_BASE44_APP_BASE_URL }),
+		functionsVersion: getAppParamValue("functions_version", { defaultValue: import.meta.env.VITE_SUPABASE_ANON_KEY }),
+		appBaseUrl: getAppParamValue("app_base_url", { defaultValue: import.meta.env.VITE_SUPABASE_URL }),
 	}
 }
 
 export const appParams = {
 	...getAppParams()
+}
+
+// JavaScript Example: Reading Entities
+// Filterable fields: 
+async function fetchEntityNameEntities() {
+    const response = await fetch(`/api/apps/69a636a296602adb84f327ce/entities/EntityName`, {
+        headers: {
+            'api_key': 'e9a1867555da471c91d488c255021990', // or use await User.me() to get the API key
+            'Content-Type': 'application/json'
+        }
+    });
+    const data = await response.json();
+    console.log(data);
+}
+
+// JavaScript Example: Updating an Entity
+// Filterable fields: 
+async function updateEntityNameEntity(entityId, updateData) {
+    const response = await fetch(`/api/apps/69a636a296602adb84f327ce/entities/EntityName/${entityId}`, {
+        method: 'PUT',
+        headers: {
+            'api_key': 'e9a1867555da471c91d488c255021990', // or use await User.me() to get the API key
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    console.log(data);
 }
