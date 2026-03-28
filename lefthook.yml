@@ -1,7 +1,11 @@
 pre-commit:
-  commands:
-    lint:
+  parallel: true
+  jobs:
+    - name: lint
       run: npm run lint
+
+    - name: typecheck
+      run: npm run typecheck
 
 # EXAMPLE USAGE:
 #
