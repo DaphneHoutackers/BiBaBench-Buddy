@@ -29,6 +29,7 @@ release
 *.njsproj
 *.sln
 *.sw?
+README_files
 
 .env
 .vercel
