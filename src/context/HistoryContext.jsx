@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 import { makeId } from '@/utils/makeId';
 
@@ -47,7 +47,14 @@ export function HistoryProvider({ children }) {
     }
   });
 
-  const loadRemoteHistory = useCallback(async () => {
+  // Keep a ref of history for reliable access in async callbacks (like auth changes) 
+  // without triggering effect re-subscriptions
+  const historyRef = useRef(history);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  const loadRemoteHistory = useCallback(async (currentLocalHistory = []) => {
     if (!isSyncEnabled()) return;
 
     const {
@@ -56,6 +63,17 @@ export function HistoryProvider({ children }) {
 
     if (!session?.user) return;
 
+    // 1. If there's local unsynced history, upload it to the new account first
+    const unsynced = Array.isArray(currentLocalHistory) 
+      ? currentLocalHistory.filter(item => !item.synced) 
+      : [];
+      
+    if (unsynced.length > 0) {
+      const rows = unsynced.map(item => buildRemoteRow(item, session.user.id));
+      await supabase.from('tool_history').upsert(rows, { onConflict: 'id' });
+    }
+
+    // 2. Fetch all history for this account
     const { data, error } = await supabase
       .from('tool_history')
       .select('*')
@@ -78,27 +96,27 @@ export function HistoryProvider({ children }) {
   useEffect(() => {
     if (!isSyncEnabled()) return;
 
+    // Initial load on mount
     loadRemoteHistory();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await loadRemoteHistory();
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        // Pass current (possibly unsynced) history to loadRemoteHistory for merging
+        await loadRemoteHistory(historyRef.current);
       }
 
-      if (event === 'SIGNED_OUT') {
-        try {
-          const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-          setHistory(local ? JSON.parse(local) : []);
-        } catch {
-          setHistory([]);
-        }
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        // Clear history on sign out for account-based privacy
+        setHistory([]);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [loadRemoteHistory]);
+
 
   useEffect(() => {
     try {

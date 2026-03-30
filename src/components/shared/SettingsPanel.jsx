@@ -20,6 +20,7 @@ import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 import { FONT_SIZES, APP_THEMES } from '@/styles/themes';
+import pkg from '../../../package.json';
 
 const THEME_GROUPS = [
   { key: 'special', label: 'Curated' },
@@ -742,6 +743,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               )}
             </div>
           )}
+        </div>
+        <div className="px-5 py-4 mt-auto border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400 font-medium bg-slate-50/50">
+          <span>BiBaBench Buddy</span>
+          <span>v{pkg.version}</span>
         </div>
       </div>
     </div>

@@ -23,6 +23,7 @@ import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
+import logo from '@/assets/icon-512.png';
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
 
@@ -426,7 +427,7 @@ export default function Home() {
                   }`}
                 title="Home"
               >
-                <img src="/icon-512.png" alt="BiBaBenchBuddy Logo" className="w-11 h-11 object-contain" />
+                <img src={logo} alt="BiBaBenchBuddy Logo" className="w-11 h-11 object-contain" />
               </button>
 
               {!isHome && (
