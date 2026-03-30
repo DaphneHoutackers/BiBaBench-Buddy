@@ -89,7 +89,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
       if (d.batchTotalVol) setBatchTotalVol(d.batchTotalVol);
       if (d.batchEnzymeVol) setBatchEnzymeVol(d.batchEnzymeVol);
       if (d.batchEnzymeType) setBatchEnzymeType(d.batchEnzymeType);
-      
+
       setTimeout(() => { isRestoring.current = false; }, 500);
     }
   }, [historyData]);
@@ -166,7 +166,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         if (!result[displayName]) {
           result[displayName] = { ...info, originalName: name };
         }
-        }
+      }
     });
 
     return result;
@@ -176,26 +176,26 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const batchFilteredEnzymes = getFilteredEnzymes(batchEnzymeType);
   const batchMaxEnzymes = Math.max(1, ...batchSamples.map(s => s.enzymes.length));
 
-  const getOptimalBuffer = () => {
-    if (enzymeType === 'FastDigest') return 'FastDigest Buffer (10×)';
-    if (selectedEnzymes.length === 0) return null;
-    const allBuffers = selectedEnzymes.map(e => singleFilteredEnzymes[e]?.buffers || ['CutSmart']);
-    const common = allBuffers.reduce((a, b) => a.filter(c => b.includes(c)));
+  const getOptimalBuffer = (type, enzymes, db) => {
+    if (type === 'FastDigest') return 'FastDigest Buffer (10×)';
+    if (!enzymes || enzymes.length === 0) return null;
+    const allBuffers = enzymes.map(e => db[e]?.buffers || ['CutSmart']);
+    const common = allBuffers.reduce((a, b) => a.filter(c => b.includes(c)), allBuffers[0] || []);
     if (common.includes('CutSmart')) return 'CutSmart (10×)';
     return common[0] ? `${common[0]} (10×)` : 'CutSmart (check compatibility)';
   };
 
-  const getProtocol = () => {
-    if (enzymeType === 'FastDigest') return '37°C for 5-15 min (FastDigest)';
-    if (selectedEnzymes.length === 0) return '37°C for 1-2 hours';
-    const temps = selectedEnzymes.map(e => singleFilteredEnzymes[e]?.temp || 37);
+  const getProtocol = (type, enzymes, db) => {
+    if (type === 'FastDigest') return '37°C for 5-15 min (FastDigest)';
+    if (!enzymes || enzymes.length === 0) return '37°C for 1-2 hours';
+    const temps = enzymes.map(e => db[e]?.temp || 37);
     return `${Math.max(...temps)}°C for 1-2 hours`;
   };
 
   useEffect(() => {
     if (dnaConc && desiredDna && totalVolume) {
       const r = calcMix(dnaConc, desiredDna, totalVolume, enzymeVolume, selectedEnzymes.length || 1, enzymeType, dnaRole === 'vector');
-      setResults({ ...r, optimalBuffer: getOptimalBuffer(), protocol: getProtocol() });
+      setResults({ ...r, optimalBuffer: getOptimalBuffer(enzymeType, selectedEnzymes, singleFilteredEnzymes), protocol: getProtocol(enzymeType, selectedEnzymes, singleFilteredEnzymes) });
     } else { setResults(null); }
   }, [dnaConc, desiredDna, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, dnaRole]);
 
@@ -210,6 +210,11 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     setBatchResults(rows);
   }, [batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType]);
 
+  const batchAllEnzymes = [...new Set(batchSamples.flatMap(s => s.enzymes))];
+  const batchBufferLabel = batchEnzymeType === 'FastDigest' 
+    ? 'FastDigest Buffer (10×)' 
+    : (getOptimalBuffer(batchEnzymeType, batchAllEnzymes, batchFilteredEnzymes) || 'CutSmart (10×)');
+
   const copyBatch = () => {
     if (!batchResults) return;
     const maxEnz = batchMaxEnzymes;
@@ -218,7 +223,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
       header,
       ['MQ (µL)', ...batchResults.map(r => Math.max(0, r.waterVol).toFixed(2))],
       ['DNA (µL)', ...batchResults.map(r => r.dnaVolume.toFixed(2))],
-      ['Buffer (µL)', ...batchResults.map(r => r.bufferVol.toFixed(2))],
+      [batchBufferLabel + ' (µL)', ...batchResults.map(r => r.bufferVol.toFixed(2))],
       ...Array.from({ length: maxEnz }, (_, i) => [
         `RE${i + 1} (${batchEnzymeVol}µL)`,
         ...batchResults.map(r => r.enzymes[i] ? getEnzymeDisplayName(r.enzymes[i]) : '–')
@@ -231,7 +236,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const bufferLabel = enzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : (getOptimalBuffer() || 'CutSmart (10×)');
+  const bufferLabel = enzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : (getOptimalBuffer(enzymeType, selectedEnzymes, singleFilteredEnzymes) || 'CutSmart (10×)');
 
   // Table rows — MQ first
   const singleRows = results ? [
@@ -240,7 +245,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     { label: bufferLabel, vol: results.bufferVol.toFixed(2) },
     ...(selectedEnzymes.length > 0
       ? selectedEnzymes.map(e => ({ label: getEnzymeDisplayName(e), vol: enzymeVolume }))
-      : [{ label: 'Restriction Enzyme', vol: enzymeVolume }]),  
+      : [{ label: 'Restriction Enzyme', vol: enzymeVolume }]),
     ...(dnaRole === 'vector' ? [{ label: 'FastAP (thermosensitive AP)', vol: FASTAP_VOL.toFixed(1) }] : []),
   ] : [];
 
@@ -414,82 +419,88 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         {/* ─── BATCH ─── */}
         <TabsContent value="batch" className="mt-6">
           <div className="space-y-6">
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm text-slate-600">Total Volume (µL)</Label>
-                <NumInput value={batchTotalVol} onChange={e => setBatchTotalVol(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm text-slate-600">Vol per Enzyme (µL)</Label>
-                <NumInput value={batchEnzymeVol} onChange={e => setBatchEnzymeVol(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm text-slate-600">Enzyme Type</Label>
-                <Select value={batchEnzymeType} onValueChange={(v) => {
-                  setBatchEnzymeType(v);
-                  // Clear all sample enzymes when type changes
-                  setBatchSamples(prev => prev.map(s => ({ ...s, enzymes: [] })));
-                }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Standard">Standard (NEB)</SelectItem>
-                    <SelectItem value="FastDigest">FastDigest (Thermo)</SelectItem>
-                    <SelectItem value="HF">High-Fidelity (NEB-HF)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-medium text-slate-700">Batch Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Total Volume (µL)</Label>
+                    <NumInput value={batchTotalVol} onChange={e => setBatchTotalVol(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Vol per Enzyme (µL)</Label>
+                    <NumInput value={batchEnzymeVol} onChange={e => setBatchEnzymeVol(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Enzyme Type</Label>
+                    <Select value={batchEnzymeType} onValueChange={(v) => {
+                      setBatchEnzymeType(v);
+                      setBatchSamples(prev => prev.map(s => ({ ...s, enzymes: [] })));
+                    }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Standard">Standard (NEB)</SelectItem>
+                        <SelectItem value="FastDigest">FastDigest (Thermo)</SelectItem>
+                        <SelectItem value="HF">High-Fidelity (NEB-HF)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card className="border-0 shadow-sm bg-white/80">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium text-slate-700">DNA Samples</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => {
-                  const id = Math.max(...batchSamples.map(s => s.id)) + 1;
-                  setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [] }]);
-                }} className="gap-1">
-                  <Plus className="w-4 h-4" /> Add Sample
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {batchSamples.map(s => (
-                  <div key={s.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
-                    <div className="flex gap-3 items-center flex-wrap">
-                      <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm" placeholder="Name" />
-                      <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc. (ng/µL)" />
-                      <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired (ng)" />
-                      <div className="flex gap-1">
-                        {['insert', 'vector'].map(role => (
-                          <button key={role} onClick={() => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, dnaRole: role } : x))}
-                            className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                            {role === 'insert' ? '🧬' : '🔵'} {role}
-                          </button>
-                        ))}
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium text-slate-700">DNA Samples</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const id = Math.max(...batchSamples.map(s => s.id)) + 1;
+                    setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [] }]);
+                  }} className="gap-1">
+                    <Plus className="w-4 h-4" /> Add Sample
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {batchSamples.map(s => (
+                    <div key={s.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
+                      <div className="flex gap-3 items-center flex-wrap">
+                        <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm" placeholder="Name" />
+                        <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc. (ng/µL)" />
+                        <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired (ng)" />
+                        <div className="flex gap-1">
+                          {['insert', 'vector'].map(role => (
+                            <button key={role} onClick={() => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, dnaRole: role } : x))}
+                              className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                              {role === 'insert' ? '🧬' : '🔵'} {role}
+                            </button>
+                          ))}
+                        </div>
+                        {batchSamples.length > 1 && (
+                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500" onClick={() => setBatchSamples(batchSamples.filter(x => x.id !== s.id))}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
-                      {batchSamples.length > 1 && (
-                        <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500" onClick={() => setBatchSamples(batchSamples.filter(x => x.id !== s.id))}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-500">Enzymes for {s.name}</Label>
+                        <EnzymeSearch
+                          selectedEnzymes={s.enzymes}
+                          onAdd={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.includes(e) ? x.enzymes : [...x.enzymes, e] } : x))}
+                          onRemove={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.filter(z => z !== e) } : x))}
+                          enzymes={batchFilteredEnzymes}
+                          enzymeType={batchEnzymeType}
+                          badgeColor="rose"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-500">Enzymes for {s.name}</Label>
-                      <EnzymeSearch
-                        selectedEnzymes={s.enzymes}
-                        onAdd={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.includes(e) ? x.enzymes : [...x.enzymes, e] } : x))}
-                        onRemove={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.filter(z => z !== e) } : x))}
-                        enzymes={batchFilteredEnzymes}
-                        enzymeType={batchEnzymeType}
-                        badgeColor="rose"
-                      />
-                    </div>
-                  </div>
-                ))}
-                <p className="text-xs text-slate-400 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
-              </div>
-            </CardContent>
+                  ))}
+                  <p className="text-xs text-slate-400 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
+                </div>
+              </CardContent>
             </Card>
 
             {batchResults && (
@@ -536,17 +547,17 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           {batchResults.map((r, i) => <td key={i} className="text-right py-2 px-3 font-mono">{Math.max(0, r.waterVol).toFixed(2)}</td>)}
                         </tr>
                         <tr className="border-b border-slate-100">
-                           <td className="py-2 px-3 text-slate-600">
-                             DNA (µL) <span className="text-rose-600 text-xs">(ng varies)</span>
-                           </td>
-                           {batchResults.map((r, i) => (
-                             <td key={i} className={`text-right py-2 px-3 font-mono font-semibold text-red-600 ${r.dnaLow ? 'text-rose-600' : ''}`}>
-                               {r.dnaVolume.toFixed(2)}{r.dnaLow ? '*' : ''}
-                             </td>
-                           ))}
+                          <td className="py-2 px-3 text-slate-600">
+                            DNA (µL) <span className="text-rose-600 text-xs">(ng varies)</span>
+                          </td>
+                          {batchResults.map((r, i) => (
+                            <td key={i} className={`text-right py-2 px-3 font-mono font-semibold text-red-600 ${r.dnaLow ? 'text-rose-600' : ''}`}>
+                              {r.dnaVolume.toFixed(2)}{r.dnaLow ? '*' : ''}
+                            </td>
+                          ))}
                         </tr>
                         <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">Buffer (µL)</td>
+                          <td className="py-2 px-3 text-slate-600">{batchBufferLabel} (µL)</td>
                           {batchResults.map((r, i) => <td key={i} className="text-right py-2 px-3 font-mono">{r.bufferVol.toFixed(2)}</td>)}
                         </tr>
                         {Array.from({ length: batchMaxEnzymes }, (_, j) => (
@@ -570,14 +581,14 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           </tr>
                         )}
                         <tr style={{ borderTop: '2px solid #cbd5e1', background: '#f8fafc' }}>
-                           <td className="py-2 px-3 font-bold text-slate-800">Total (µL)</td>
-                           {batchResults.map((_, i) => <td key={i} className="text-right py-2 px-3 font-mono font-bold text-slate-800">{batchTotalVol}</td>)}
-                         </tr>
+                          <td className="py-2 px-3 font-bold text-slate-800">Total (µL)</td>
+                          {batchResults.map((_, i) => <td key={i} className="text-right py-2 px-3 font-mono font-bold text-slate-800">{batchTotalVol}</td>)}
+                        </tr>
                       </tbody>
                     </table>
                   </div>
                   <p className="text-xs text-slate-400 mt-2">
-                    Buffer: {batchEnzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : 'CutSmart / recommended buffer (10×)'}
+                    Buffer: {batchBufferLabel}
                     {batchEnzymeType === 'FastDigest' && ' · Protocol: 37°C, 5-15 min'}
                     {batchEnzymeType !== 'FastDigest' && ' · Protocol: 37°C, 1-2 hours'}
                   </p>

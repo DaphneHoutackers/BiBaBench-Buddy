@@ -17,6 +17,7 @@ dist-ssr
 dist-electron
 release
 *.local
+.npm-cache
 
 # Editor directories and files
 .vscode/*
