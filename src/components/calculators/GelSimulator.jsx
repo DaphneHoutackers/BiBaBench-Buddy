@@ -814,7 +814,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
   const [tab, setTab] = useState('dna');
   const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb Plus');
   const [agarose, setAgarose] = useState('1');
-  const [voltage, setVoltage] = useState(100);
+  const [voltage, setVoltage] = useState(120);
   const [runtime, setRuntime] = useState(35);
   
   // Unified DNA lanes state
