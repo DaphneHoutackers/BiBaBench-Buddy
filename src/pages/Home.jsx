@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Scissors, Link2, GitMerge, Dna, Droplets, Beaker,
   Sparkles, ArrowLeft, BookOpen, Microscope,
-  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2
+  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2, Home as HomeIcon
 } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
 import DigestCalculator from '@/components/calculators/DigestCalculator';
@@ -106,7 +106,7 @@ const ALL_IDS = [
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron, isMobile }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
-  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(true);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
 
   // Auto-expand active tool's tabs
@@ -136,6 +136,19 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
     >
       {/* Sidebar Header Spacer (to avoid header overlap) */}
       <div className={`${isMacElectron ? 'h-12' : 'h-14'} border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
+
+      {/* Home Button */}
+      <div className="px-2 pt-4 pb-2 border-b mb-2">
+        <button
+          onClick={() => onSelect(null)}
+          className={btnBase(active === null)}
+        >
+          <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${iconStyle ? '' : 'bg-gradient-to-br from-slate-700 to-slate-900'}`} style={iconStyle || {}}>
+            <HomeIcon className={`w-2.5 h-2.5 ${iconTextColor || 'text-white'}`} />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider px-1">Homepage</span>
+        </button>
+      </div>
 
       {/* Calculators */}
       <div className="px-2 pt-2 pb-1">
@@ -371,31 +384,33 @@ export default function Home() {
   const getComponent = id => {
     const isAct = active === id;
     const hData = isAct ? historyData : null;
+    const calculatorProps = { historyData: hData, isActive: isAct, isDark, theme };
+
     switch (id) {
       case 'digest':
-        return <DigestCalculator externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} historyData={hData} isActive={isAct} />;
+        return <DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />;
       case 'ligation':
-        return <LigationCalculator historyData={hData} isActive={isAct} />;
+        return <LigationCalculator {...calculatorProps} />;
       case 'gibson':
-        return <GibsonCalculator historyData={hData} isActive={isAct} />;
+        return <GibsonCalculator {...calculatorProps} />;
       case 'pcr':
-        return <PCRCalculator externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} historyData={hData} isActive={isAct} />;
+        return <PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />;
       case 'dilution':
-        return <DilutionCalculator historyData={hData} isActive={isAct} />;
+        return <DilutionCalculator {...calculatorProps} />;
       case 'buffer':
-        return <BufferCalculator historyData={hData} isActive={isAct} />;
+        return <BufferCalculator {...calculatorProps} />;
       case 'protein':
-        return <ProteinConcCalculator externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} historyData={hData} isActive={isAct} />;
+        return <ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />;
       case 'protocols':
-        return <ProtocolLibrary historyData={hData} isActive={isAct} />;
+        return <ProtocolLibrary {...calculatorProps} />;
       case 'ai':
-        return <AIAssistant historyData={hData} isActive={isAct} />;
+        return <AIAssistant {...calculatorProps} />;
       case 'gel':
-        return <GelSimulator historyData={hData} isActive={isAct} />;
+        return <GelSimulator {...calculatorProps} />;
       case 'image-annotator':
-        return <ImageAnnotator historyData={hData} isActive={isAct} />;
+        return <ImageAnnotator {...calculatorProps} />;
       case 'plasmid':
-        return <PlasmidAnalyzer historyData={hData} isActive={isAct} />;
+        return <PlasmidAnalyzer {...calculatorProps} />;
       default:
         return null;
     }
@@ -479,7 +494,7 @@ export default function Home() {
 
             <Sidebar
               active={active}
-              onSelect={(id) => { setActive(id); setHistoryData(null); setSidebarOpen(false); }}
+              onSelect={(id) => { setActive(id); setHistoryData(null); }}
               onSelectTab={handleSelectTab}
               activeTab={activeTab}
               isDark={isDark}
@@ -487,7 +502,6 @@ export default function Home() {
               iconTextColor={theme.iconTextColor}
               onRestoreHistory={(item) => {
                 handleRestoreHistory(item);
-                setSidebarOpen(false);
               }}
               isMacElectron={isMacElectron}
               isMobile={isMobile}
@@ -495,7 +509,10 @@ export default function Home() {
           </>
         )}
 
-        <main className={`flex-1 px-2 sm:px-6 lg:px-8 pt-8 ${isHome ? 'pb-0' : 'pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col`}>
+        <main 
+          onClick={() => { if (sidebarOpen) setSidebarOpen(false); }}
+          className={`flex-1 px-2 sm:px-6 lg:px-8 pt-8 ${isHome ? 'pb-0' : 'pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col cursor-default`}
+        >
           {/* ── HOME ── */}
           {isHome && (
             <div className="space-y-7 flex-1 flex flex-col">
