@@ -107,7 +107,7 @@ export const ENZYME_DB = {
   'XhoI-HF': { seq: 'CTCGAG', buffers: ['CutSmart'], optimal: 'CutSmart', temp: 37, time: '1 hr', fd: false },
 
   // ── Thermo FastDigest Enzymes ──
-  'BshTI': { seq: 'TCCGGA', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
+  'BshTI': { seq: 'ACCGGT', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'Eco31I': { seq: 'GGTCTC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'Eco32I': { seq: 'GATATC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
   'FastDigest EcoRI': { seq: 'GAATTC', buffers: ['FastDigest Buffer'], optimal: 'FastDigest Buffer', temp: 37, time: '5-15 min', fd: true },
@@ -157,8 +157,8 @@ export const ENZYME_LIST = Object.entries(ENZYME_DB)
     isAmbiguous: /[^ACGT]/i.test(data.seq || ''),
     supplier:
       /^FastDigest\s+/i.test(name) ? 'Thermo'
-      : /-HF$/i.test(name) ? 'NEB HF'
-      : 'NEB',
+        : /-HF$/i.test(name) ? 'NEB HF'
+          : 'NEB',
   }))
   .sort((a, b) => a.displayName.localeCompare(b.displayName) || a.name.localeCompare(b.name));
 

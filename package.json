@@ -23,7 +23,9 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "app:mac": "rm -rf dist dist-electron release && vite build && electron-builder --mac dmg"
+    "app:mac": "rm -rf dist dist-electron release && vite build && electron-builder --mac dmg",
+    "clean:node": "rm -rf node_modules",
+    "clean:package": "rm -rf package.json package-lock.json"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
@@ -149,7 +151,6 @@
     "dmg": {
       "title": "BiBaBench Buddy",
       "icon": "build/icon.icns",
-      "background": "build/background.png",
       "contents": [
         {
           "x": 120,
