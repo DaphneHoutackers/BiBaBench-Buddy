@@ -6,7 +6,6 @@ const HistoryContext = createContext(null);
 const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
 
 
-
 function normalizeRemoteItem(row) {
   return {
     id: row.id,
@@ -23,8 +22,8 @@ function buildRemoteRow(item, userId) {
   const createdAt = item.createdAt
     ? item.createdAt
     : item.timestamp
-    ? new Date(item.timestamp).toISOString()
-    : new Date().toISOString();
+      ? new Date(item.timestamp).toISOString()
+      : new Date().toISOString();
 
   return {
     id: item.id || makeId(),
@@ -64,10 +63,10 @@ export function HistoryProvider({ children }) {
     if (!session?.user) return;
 
     // 1. If there's local unsynced history, upload it to the new account first
-    const unsynced = Array.isArray(currentLocalHistory) 
-      ? currentLocalHistory.filter(item => !item.synced) 
+    const unsynced = Array.isArray(currentLocalHistory)
+      ? currentLocalHistory.filter(item => !item.synced)
       : [];
-      
+
     if (unsynced.length > 0) {
       const rows = unsynced.map(item => buildRemoteRow(item, session.user.id));
       await supabase.from('tool_history').upsert(rows, { onConflict: 'id' });
@@ -150,8 +149,8 @@ export function HistoryProvider({ children }) {
             const createdAt = item.createdAt
               ? item.createdAt
               : item.timestamp
-              ? new Date(item.timestamp).toISOString()
-              : new Date().toISOString();
+                ? new Date(item.timestamp).toISOString()
+                : new Date().toISOString();
 
             return {
               ...item,
