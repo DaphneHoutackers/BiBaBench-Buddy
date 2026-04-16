@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Droplets, FlaskConical, Calculator, AlertCircle } from 'lucide-react';
+import { Droplets, FlaskConical, Calculator, AlertCircle, Plus, Layers } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
 
@@ -377,10 +377,22 @@ export default function DilutionCalculator({ historyData, isActive }) {
 
       <Tabs value={mode} onValueChange={setMode}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="c1v1"><Calculator className="w-4 h-4 mr-2" />C₁V₁ = C₂V₂</TabsTrigger>
-          <TabsTrigger value="sample"><Droplets className="w-4 h-4 mr-2" />Sample Dilution</TabsTrigger>
-          <TabsTrigger value="addto">Add to Volume</TabsTrigger>
-          <TabsTrigger value="serial"><Droplets className="w-4 h-4 mr-2" />Serial Dilution</TabsTrigger>
+          <TabsTrigger value="c1v1" className="flex items-center gap-2">
+            <Calculator className="w-4 h-4" />
+            C₁V₁ = C₂V₂
+          </TabsTrigger>
+          <TabsTrigger value="sample" className="flex items-center gap-2">
+            <Droplets className="w-4 h-4" />
+            Sample Dilution
+          </TabsTrigger>
+          <TabsTrigger value="addto" className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add to Volume
+          </TabsTrigger>
+          <TabsTrigger value="serial" className="flex items-center gap-2">
+            <Layers className="w-4 h-4" />
+            Serial Dilution
+          </TabsTrigger>
         </TabsList>
 
         {/* ─── C1V1 ─── */}

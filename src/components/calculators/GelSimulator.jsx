@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Microscope, Plus, Trash2, Copy, Check, Search, X } from 'lucide-react';
+import { Microscope, Plus, Trash2, Copy, Check, Search, X, Grid } from 'lucide-react';
 import { useHistory } from '@/context/HistoryContext';
 import {
   RECOGNITION_SEQS,
@@ -948,8 +948,14 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="dna">DNA Gel</TabsTrigger>
-          <TabsTrigger value="wb">Western Blot</TabsTrigger>
+          <TabsTrigger value="dna" className="flex items-center gap-2">
+            <Microscope className="w-4 h-4" />
+            DNA Gel
+          </TabsTrigger>
+          <TabsTrigger value="wb" className="flex items-center gap-2">
+            <Grid className="w-4 h-4" />
+            Western Blot
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dna" className="mt-4" forceMount style={{ display: tab === 'dna' ? undefined : 'none' }}>

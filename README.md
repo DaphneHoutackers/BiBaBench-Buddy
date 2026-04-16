@@ -92,9 +92,9 @@ Click the **Settings** icon in the top right:
 
 ## 🧭 Planned Features
 
-* [ ] Gibson Assambly tool 
-* [ ] Primer designer tool
-
+* [ ] Gibson assambly tool
+* [ ] Primer designer tool 
+* [ ] General extra's for all tools
 
 ## 📄 Development
 

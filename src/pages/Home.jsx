@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import {
-  Scissors, Link2, GitMerge, Dna, Droplets, Beaker,
-  Sparkles, ArrowLeft, BookOpen, Microscope,
-  Settings, ImageIcon, PanelLeft, BarChart2, ChevronDown, Clock, Trash2, Home as HomeIcon
+  ArrowLeft, BookOpen,
+  Settings, ImageIcon, PanelLeft, ChevronDown, Clock, Trash2, Home as HomeIcon
 } from 'lucide-react';
+import { BiTransferAlt, BiGame, BiDna} from 'react-icons/bi';
+import { FaSortAmountDown } from "react-icons/fa";
+import { RiRobot2Line } from "react-icons/ri";
+import { GoBeaker } from "react-icons/go";
+import { SlCalculator } from "react-icons/sl";
+import { PiCircleDashedBold } from "react-icons/pi";
+import { BsOpencollective } from "react-icons/bs";
+import { HiMiniChartBar } from "react-icons/hi2";
 import { useHistory } from '@/context/HistoryContext';
 import DigestCalculator from '@/components/calculators/DigestCalculator';
 import LigationCalculator from '@/components/calculators/LigationCalculator';
@@ -42,18 +49,18 @@ const DEFAULT_SETTINGS = {
 };
 
 const CALCULATORS = [
-  { id: 'digest', name: 'Restriction Digest', icon: Scissors, gradient: 'from-rose-500 to-orange-500', description: 'Plan single/batch enzyme cuts' },
-  { id: 'ligation', name: 'Ligation', icon: Link2, gradient: 'from-violet-500 to-purple-500', description: 'Insert/vector molar ratios' },
-  { id: 'gibson', name: 'Gibson Assembly', icon: GitMerge, gradient: 'from-emerald-500 to-teal-500', description: 'Multi-fragment assembly' },
-  { id: 'pcr', name: 'PCR', icon: Dna, gradient: 'from-blue-500 to-indigo-500', description: 'Master mix & Ta calculator' },
-  { id: 'dilution', name: 'Dilutions', icon: Droplets, gradient: 'from-cyan-500 to-blue-500', description: 'C1V1 & serial dilutions' },
-  { id: 'protein', name: 'Protein Conc.', icon: BarChart2, gradient: 'from-pink-500 to-rose-500', description: 'Standard curve & SDS-PAGE prep' },
+  { id: 'digest', name: 'Restriction Digest', icon: BiGame, gradient: 'from-rose-500 to-purple-400', description: 'Plan single/batch enzyme cuts' },
+  { id: 'ligation', name: 'Ligation', icon: BsOpencollective, gradient: 'from-orange-500 to-pink-500', description: 'Insert/vector molar ratios' },
+  { id: 'gibson', name: 'Gibson Assembly', icon: PiCircleDashedBold, gradient: 'from-rose-400 to-purple-500', description: 'Multi-fragment assembly' },
+  { id: 'pcr', name: 'PCR', icon: BiTransferAlt, gradient: 'from-pink-500 to-orange-500', description: 'Master mix & Ta calculator' },
+  { id: 'dilution', name: 'Dilutions', icon: SlCalculator, gradient: 'from-rose-500 to-pink-500', description: 'C1V1 & serial dilutions' },
+  { id: 'protein', name: 'Protein Conc.', icon: HiMiniChartBar, gradient: 'from-purple-500 to-pink-500', description: 'Standard curve & SDS-PAGE prep' },
 ];
 // Tools with their sub-tabs (for sidebar navigation)
 const TOOL_TABS = {
   digest: [
     { id: 'single', label: 'Single Digest' },
-    { id: 'batch', label: 'Batch Digest' },
+    { id: 'batch', label: 'Multiple Digest' },
   ],
   pcr: [
     { id: 'mix', label: 'PCR Mix' },
@@ -82,17 +89,17 @@ const TOOL_GROUPS = [
     id: 'lab',
     label: 'Lab & Visualization',
     tools: [
-      { id: 'gel', name: 'Gel Simulator', icon: Microscope, gradient: 'from-slate-600 to-slate-800', description: 'Visualize band patterns' },
-      { id: 'plasmid', name: 'Sequence Analyzer', icon: Dna, gradient: 'from-teal-500 to-emerald-600', description: 'DNA maps & restriction sites' },
-      { id: 'image-annotator', name: 'Image Annotator', icon: ImageIcon, gradient: 'from-indigo-500 to-blue-600', description: 'Label gels, blots & lab images' },
+      { id: 'gel', name: 'Gel Simulator', icon: FaSortAmountDown, gradient: 'from-blue-600 to-cyan-500', description: 'Visualize band patterns' },
+      { id: 'plasmid', name: 'Sequence Analyzer', icon: BiDna, gradient: 'from-teal-500 to-sky-500', description: 'DNA maps & restriction sites' },
+      { id: 'image-annotator', name: 'Image Annotator', icon: ImageIcon, gradient: 'from-green-500 to-blue-500', description: 'Label gels, blots & lab images' },
     ],
   },
   {
     id: 'protocols',
     label: 'Protocols & Lab Essentials',
     tools: [
-      { id: 'buffer', name: 'Buffers', icon: Beaker, gradient: 'from-amber-500 to-orange-500', description: 'Recipes & custom lysis buffer' },
-      { id: 'protocols', name: 'Protocol Library', icon: BookOpen, gradient: 'from-teal-500 to-emerald-500', description: 'Workflows & AI protocol generator' },
+      { id: 'buffer', name: 'Buffers', icon: GoBeaker, gradient: 'from-orange-600 to-yellow-200', description: 'Recipes & custom lysis buffer' },
+      { id: 'protocols', name: 'Protocol Library', icon: BookOpen, gradient: 'from-yellow-400 to-red-600', description: 'Workflows & AI protocol generator' },
     ],
   },
 ];
@@ -465,7 +472,7 @@ export default function Home() {
                   }`}
                 title="AI Assistent"
               >
-                <Sparkles className="w-4 h-4" />
+                <RiRobot2Line className="w-4 h-4" />
                 <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">AI Assistent</span>
               </button>
 

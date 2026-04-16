@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Link2, FlaskConical, Plus, Trash2, Copy, Check, Info, AlertTriangle, Table } from 'lucide-react';
+import { Link2, FlaskConical, Plus, Trash2, Copy, Check, Info, AlertTriangle, Table, Layers } from 'lucide-react';
+import { BsOpencollective } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
@@ -815,8 +816,14 @@ export default function LigationCalculator({ historyData, isActive }) {
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="bg-slate-100">
-            <TabsTrigger value="single">Single Ligation</TabsTrigger>
-            <TabsTrigger value="multi">Multiple Ligations</TabsTrigger>
+            <TabsTrigger value="single" className="flex items-center gap-2">
+              <BsOpencollective className="w-4 h-4" />
+              Single Ligation
+            </TabsTrigger>
+            <TabsTrigger value="multi" className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              Multiple Ligations
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
           <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>

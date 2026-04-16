@@ -296,9 +296,18 @@ export default function BufferCalculator({ historyData, isActive }) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="recipes">Buffer Recipes</TabsTrigger>
-          <TabsTrigger value="lysis">Custom Lysis Buffer</TabsTrigger>
-          <TabsTrigger value="ai" className="gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-500"/> AI Assistant</TabsTrigger>
+          <TabsTrigger value="recipes" className="flex items-center gap-2">
+            <FlaskConical className="w-4 h-4" />
+            Buffer Recipes
+          </TabsTrigger>
+          <TabsTrigger value="lysis" className="flex items-center gap-2">
+            <Beaker className="w-4 h-4" />
+            Custom Lysis Buffer
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            AI Assistant
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="ai" className="mt-0">
           <AIBufferChat

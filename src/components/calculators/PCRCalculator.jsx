@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dna, FlaskConical, Thermometer, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Dna, FlaskConical, Thermometer, Plus, Trash2, AlertTriangle, FileCode } from 'lucide-react';
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton from '@/components/shared/CopyTableButton';
@@ -424,10 +424,22 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
 
       <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
         <TabsList className="bg-slate-100">
-        <TabsTrigger value="mix">PCR Mix</TabsTrigger>
-        <TabsTrigger value="ta">Ta Calculator</TabsTrigger>
-        <TabsTrigger value="oepcr">OE-PCR</TabsTrigger>
-        <TabsTrigger value="product">Product Sequence</TabsTrigger>
+          <TabsTrigger value="mix" className="flex items-center gap-2">
+            <FlaskConical className="w-4 h-4" />
+            PCR Mix
+          </TabsTrigger>
+          <TabsTrigger value="ta" className="flex items-center gap-2">
+            <Thermometer className="w-4 h-4" />
+            Ta Calculator
+          </TabsTrigger>
+          <TabsTrigger value="oepcr" className="flex items-center gap-2">
+            <Dna className="w-4 h-4" />
+            OE-PCR
+          </TabsTrigger>
+          <TabsTrigger value="product" className="flex items-center gap-2">
+            <FileCode className="w-4 h-4" />
+            Product Sequence
+          </TabsTrigger>
         </TabsList>
 
         {/* ─── PCR MIX ─── */}

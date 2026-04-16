@@ -564,9 +564,13 @@ export default function ProtocolLibrary({ historyData, isActive }) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="library">Protocol Library</TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> AI Protocol Generator
+          <TabsTrigger value="library" className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            Library
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            AI Protocol Generator
           </TabsTrigger>
         </TabsList>
 

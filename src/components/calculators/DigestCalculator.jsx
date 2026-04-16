@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Table, AlertTriangle } from 'lucide-react';
+import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Layers, Table, AlertTriangle } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
 import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
@@ -65,6 +65,8 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const [batchTotalVol, setBatchTotalVol] = useState('20');
   const [batchEnzymeVol, setBatchEnzymeVol] = useState('1');
   const [batchEnzymeType, setBatchEnzymeType] = useState('Standard');
+  const [batchDefaultNg, setBatchDefaultNg] = useState('1000');
+  const [batchDefaultEnzymes, setBatchDefaultEnzymes] = useState([]);
   const [batchResults, setBatchResults] = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -166,6 +168,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         if (!result[displayName]) {
           result[displayName] = { ...info, originalName: name };
         }
+      } else if (type === 'All') {
+        if (!result[displayName]) {
+          result[displayName] = { ...info, originalName: name };
+        }
       }
     });
 
@@ -209,6 +215,14 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     });
     setBatchResults(rows);
   }, [batchSamples, batchTotalVol, batchEnzymeVol, batchEnzymeType]);
+
+  const applyDefaultNgToAll = () => {
+    setBatchSamples(prev => prev.map(s => ({ ...s, desiredNg: batchDefaultNg })));
+  };
+
+  const applyDefaultEnzymesToAll = () => {
+    setBatchSamples(prev => prev.map(s => ({ ...s, enzymes: [...batchDefaultEnzymes] })));
+  };
 
   const batchAllEnzymes = [...new Set(batchSamples.flatMap(s => s.enzymes))];
   const batchBufferLabel = batchEnzymeType === 'FastDigest' 
@@ -263,8 +277,14 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
       <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
         <TabsList className="bg-slate-100">
-          <TabsTrigger value="single">Single Digest</TabsTrigger>
-          <TabsTrigger value="batch">Batch Digest</TabsTrigger>
+          <TabsTrigger value="single" className="flex items-center gap-2">
+            <Scissors className="w-4 h-4" />
+            Single Digest
+          </TabsTrigger>
+          <TabsTrigger value="batch" className="flex items-center gap-2">
+            <Layers className="w-4 h-4" />
+            Batch Digest
+          </TabsTrigger>
         </TabsList>
 
         {/* ─── SINGLE ─── */}
@@ -312,6 +332,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   <Select value={enzymeType} onValueChange={setEnzymeType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="All">All Enzymes (NEB & Thermo)</SelectItem>
                       <SelectItem value="Standard">Standard (NEB)</SelectItem>
                       <SelectItem value="FastDigest">FastDigest (Thermo)</SelectItem>
                       <SelectItem value="HF">High-Fidelity (NEB-HF)</SelectItem>
@@ -441,11 +462,36 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="All">All Enzymes (NEB & Thermo)</SelectItem>
                         <SelectItem value="Standard">Standard (NEB)</SelectItem>
                         <SelectItem value="FastDigest">FastDigest (Thermo)</SelectItem>
                         <SelectItem value="HF">High-Fidelity (NEB-HF)</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-100 grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold text-slate-700">Default DNA Mass (ng)</Label>
+                    <div className="flex gap-2">
+                      <NumInput value={batchDefaultNg} onChange={e => setBatchDefaultNg(e.target.value)} className="flex-1" />
+                      <Button variant="outline" size="sm" onClick={applyDefaultNgToAll} className="whitespace-nowrap">Apply to All</Button>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold text-slate-700">Default Enzymes</Label>
+                    <div className="space-y-2">
+                      <EnzymeSearch
+                        selectedEnzymes={batchDefaultEnzymes}
+                        onAdd={(e) => setBatchDefaultEnzymes(prev => prev.includes(e) ? prev : [...prev, e])}
+                        onRemove={(e) => setBatchDefaultEnzymes(prev => prev.filter(x => x !== e))}
+                        enzymes={batchFilteredEnzymes}
+                        enzymeType={batchEnzymeType}
+                        compact
+                      />
+                      <Button variant="outline" size="sm" onClick={applyDefaultEnzymesToAll} className="w-full">Apply to All</Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -469,8 +515,17 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     <div key={s.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
                       <div className="flex gap-3 items-center flex-wrap">
                         <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm" placeholder="Name" />
-                        <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc. (ng/µL)" />
-                        <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired (ng)" />
+                        <div className="space-y-1">
+                          <Label className="text-[10px] uppercase font-bold text-slate-400 ml-1">Conc. (ng/µL)</Label>
+                          <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc." />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] uppercase font-bold text-slate-400 ml-1">Desired (ng)</Label>
+                          <div className="flex items-center gap-1.5">
+                            <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired" />
+                            <span className="text-xs font-semibold text-slate-400">ng</span>
+                          </div>
+                        </div>
                         <div className="flex gap-1">
                           {['insert', 'vector'].map(role => (
                             <button key={role} onClick={() => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, dnaRole: role } : x))}

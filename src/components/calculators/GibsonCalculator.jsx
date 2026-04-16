@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GitMerge, FlaskConical, Plus, Trash2, Info, Copy, Check, AlertTriangle } from 'lucide-react';
+import { PiCircleDashedBold } from "react-icons/pi";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -164,7 +165,7 @@ export default function GibsonCalculator({ historyData, isActive }) {
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
         <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white">
-          <GitMerge className="w-5 h-5" />
+          <PiCircleDashedBold className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Gibson Assembly</h2>
