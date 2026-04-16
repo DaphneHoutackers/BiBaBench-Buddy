@@ -1,7 +1,6 @@
 {
     "name": "bibabench-buddy",
     "private": false,
-    "version": "0.1.13",
     "type": "module",
     "author": "Daphne Houtackers",
     "categories": [
@@ -13,6 +12,7 @@
         "url": "https://github.com/DaphneHoutackers/BiBaBench-Buddy.git"
     },
     "main": "dist-electron/main.js",
+    "version": "1.0.0",
     "scripts": {
         "dev": "vite",
         "app:dev": "vite",
