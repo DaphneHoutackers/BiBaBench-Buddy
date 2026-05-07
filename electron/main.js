@@ -1,6 +1,8 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { autoUpdater } from "electron-updater";
+autoUpdater.checkForUpdatesAndNotify();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
