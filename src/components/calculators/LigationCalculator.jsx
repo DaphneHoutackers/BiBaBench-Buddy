@@ -805,8 +805,8 @@ export default function LigationCalculator({ historyData, isActive }) {
     <TooltipProvider>
       <div className="space-y-4">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
-            <Link2 className="w-5 h-5" />
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 text-white shadow-sm">
+            <BsOpencollective className="w-6 h-6" />
           </div>
           <div>
             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Ligation</h2>

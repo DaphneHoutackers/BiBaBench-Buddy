@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dna, FlaskConical, Thermometer, Plus, Trash2, AlertTriangle, FileCode } from 'lucide-react';
+import { BiTransferAlt } from 'react-icons/bi';
 import OEPCRCalculator from './OEPCRCalculator';
 import PCRProductGenerator from './PCRProductGenerator';
 import CopyTableButton from '@/components/shared/CopyTableButton';
@@ -413,8 +414,8 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
-          <Dna className="w-5 h-5" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-pink-500 to-orange-500 text-white shadow-sm">
+          <BiTransferAlt className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">PCR Calculator</h2>

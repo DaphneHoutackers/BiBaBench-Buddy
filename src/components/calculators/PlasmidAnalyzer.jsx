@@ -7,6 +7,7 @@ import {
   Upload, Download, Plus, Trash2, Edit3, X, Check,
   Eye, EyeOff, Save, Library, Search, Dna
 } from 'lucide-react';
+import { BiDna } from 'react-icons/bi';
 import html2canvas from 'html2canvas';
 import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
@@ -755,8 +756,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center gap-3">
         <div className="flex items-center gap-3 flex-1">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow">
-            {toolTab === 'alignment' ? <div className="w-5 h-5 flex items-center justify-center font-bold text-sm">🧬</div> : <Dna className="w-5 h-5" />}
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500 to-sky-500 text-white shadow">
+            {toolTab === 'alignment' ? <div className="w-5 h-5 flex items-center justify-center font-bold text-sm">🧬</div> : <BiDna className="w-6 h-6" />}
           </div>
           <div>
             <div className="flex items-center gap-4">

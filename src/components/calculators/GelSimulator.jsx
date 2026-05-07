@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Microscope, Plus, Trash2, Copy, Check, Search, X, Grid } from 'lucide-react';
+import { FaSortAmountDown } from "react-icons/fa";
 import { useHistory } from '@/context/HistoryContext';
 import {
   RECOGNITION_SEQS,
@@ -937,8 +938,8 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 text-white">
-          <Microscope className="w-5 h-5" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-sm">
+          <FaSortAmountDown className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Gel & WB Simulator</h2>

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Beaker, FlaskConical, AlertTriangle, ChevronDown, ChevronUp, Trash2, Sparkles } from 'lucide-react';
+import { GoBeaker } from "react-icons/go";
 import LysisBufferBuilder from '@/components/calculators/LysisBufferBuilder';
 import AIBufferChat from '@/components/calculators/AIBufferChat';
 import { useHistory } from '@/context/HistoryContext';
@@ -285,8 +286,8 @@ export default function BufferCalculator({ historyData, isActive }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white">
-          <Beaker className="w-5 h-5" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-orange-600 to-yellow-200 text-white shadow-sm">
+          <GoBeaker className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Buffer Preparation</h2>

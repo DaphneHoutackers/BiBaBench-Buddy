@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Droplets, FlaskConical, Calculator, AlertCircle, Plus, Layers } from 'lucide-react';
+import { SlCalculator } from "react-icons/sl";
 import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
 
@@ -366,8 +367,8 @@ export default function DilutionCalculator({ historyData, isActive }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white">
-          <Droplets className="w-5 h-5" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 text-white shadow-sm">
+          <SlCalculator className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Dilution Calculator</h2>

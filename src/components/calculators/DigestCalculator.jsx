@@ -5,13 +5,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Scissors, Plus, Trash2, FlaskConical, Copy, Check, Layers, Table, AlertTriangle } from 'lucide-react';
+import { Scissors, Plus, Trash2, FlaskConical, Layers, Table, AlertTriangle } from 'lucide-react';
 import EnzymeSearch from '@/components/shared/EnzymeSearch';
-import CopyTableButton, { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
+import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
 import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
+import { BiGame } from 'react-icons/bi';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
 const LOW_VOL = 0.5; // µL warning threshold
@@ -68,7 +69,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const [batchDefaultNg, setBatchDefaultNg] = useState('1000');
   const [batchDefaultEnzymes, setBatchDefaultEnzymes] = useState([]);
   const [batchResults, setBatchResults] = useState(null);
-  const [copied, setCopied] = useState(false);
 
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
@@ -229,27 +229,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     ? 'FastDigest Buffer (10×)' 
     : (getOptimalBuffer(batchEnzymeType, batchAllEnzymes, batchFilteredEnzymes) || 'CutSmart (10×)');
 
-  const copyBatch = () => {
-    if (!batchResults) return;
-    const maxEnz = batchMaxEnzymes;
-    const header = ['Component', ...batchResults.map(r => r.name)];
-    const rows = [
-      header,
-      ['MQ (µL)', ...batchResults.map(r => Math.max(0, r.waterVol).toFixed(2))],
-      ['DNA (µL)', ...batchResults.map(r => r.dnaVolume.toFixed(2))],
-      [batchBufferLabel + ' (µL)', ...batchResults.map(r => r.bufferVol.toFixed(2))],
-      ...Array.from({ length: maxEnz }, (_, i) => [
-        `RE${i + 1} (${batchEnzymeVol}µL)`,
-        ...batchResults.map(r => r.enzymes[i] ? getEnzymeDisplayName(r.enzymes[i]) : '–')
-      ]),
-      ['FastAP (µL)', ...batchResults.map(r => r.fastApVol > 0 ? r.fastApVol.toFixed(1) : '–')],
-      ['Total (µL)', ...batchResults.map(() => batchTotalVol)],
-    ];
-    copyAsHtmlTable(rows);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const bufferLabel = enzymeType === 'FastDigest' ? 'FastDigest Buffer (10×)' : (getOptimalBuffer(enzymeType, selectedEnzymes, singleFilteredEnzymes) || 'CutSmart (10×)');
 
   // Table rows — MQ first
@@ -266,8 +245,8 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 text-white">
-          <Scissors className="w-5 h-5" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-purple-400 text-white shadow-sm">
+          <BiGame className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Restriction Digest</h2>
@@ -410,8 +389,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                                 {row.isDna && <> <DnaMass ng={desiredDna} /></>}
                                 {row.isLow && <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">* (see dilution)</span>}
                               </td>
-                              <td className={`py-2 px-3 text-right font-mono ${row.isDna ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-700 dark:text-slate-200'}${row.isLow ? ' text-rose-600 dark:text-rose-400' : ''}`}>
-                                {row.vol}
+                              <td className={`py-2 px-3 text-right font-mono ${row.isDna ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-700 dark:text-slate-200'}`}>
+                                <span className={row.isLow ? "bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 rounded px-1.5 py-0.5" : ""}>
+                                  {row.vol}
+                                </span>
                               </td>
                             </tr>
                           ))}
@@ -490,6 +471,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                         enzymeType={batchEnzymeType}
                         compact
                       />
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
                       <Button variant="outline" size="sm" onClick={applyDefaultEnzymesToAll} className="w-full">Apply to All</Button>
                     </div>
                   </div>
@@ -553,7 +535,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       </div>
                     </div>
                   ))}
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
                 </div>
               </CardContent>
             </Card>
@@ -566,17 +547,29 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       <Table className="w-4 h-4 text-rose-600 dark:text-rose-400" /> Batch Digest Table
                     </CardTitle>
                     <div className="flex gap-2">
-                      <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg transition-colors">
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        {copied ? 'Copied!' : 'Copy Table'}
-                      </button>
+                      <CopyTableButton getData={() => {
+                        const maxEnz = batchMaxEnzymes;
+                        const header = ['Component', ...batchResults.map(r => r.name)];
+                        const rows = [
+                          header,
+                          ['MQ (µL)', ...batchResults.map(r => Math.max(0, r.waterVol).toFixed(2))],
+                          ['DNA (µL)', ...batchResults.map(r => r.dnaVolume.toFixed(2))],
+                          [batchBufferLabel + ' (µL)', ...batchResults.map(r => r.bufferVol.toFixed(2))],
+                          ...Array.from({ length: maxEnz }, (_, i) => [
+                            `RE${i + 1} (${batchEnzymeVol}µL)`,
+                            ...batchResults.map(r => r.enzymes[i] ? getEnzymeDisplayName(r.enzymes[i]) : '–')
+                          ]),
+                          ['FastAP (µL)', ...batchResults.map(r => r.fastApVol > 0 ? r.fastApVol.toFixed(1) : '–')],
+                          ['Total (µL)', ...batchResults.map(() => batchTotalVol)],
+                        ];
+                        return rows;
+                      }} />
                       <CopyImageButton targetRef={batchTableRef} />
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto bg-white dark:bg-slate-900 p-4 rounded-lg" ref={batchTableRef}>
-                    {/* Dilution warnings moved inside batch tableRef for image copy */}
+                  <div className="overflow-x-auto bg-white dark:bg-slate-950 p-4 rounded-lg" ref={batchTableRef}>
                     {batchResults.some(r => r.dnaLow) && (
                       <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 space-y-1">
                         <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
@@ -606,8 +599,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                             DNA (µL) <span className="text-rose-600 dark:text-rose-400 text-xs">(ng varies)</span>
                           </td>
                           {batchResults.map((r, i) => (
-                            <td key={i} className={`text-right py-2 px-3 font-mono font-semibold text-red-600 dark:text-red-400 ${r.dnaLow ? 'text-rose-600 dark:text-rose-400' : ''}`}>
-                              {r.dnaVolume.toFixed(2)}{r.dnaLow ? '*' : ''}
+                            <td key={i} className={`text-right py-2 px-3 font-mono font-semibold text-red-600 dark:text-red-400`}>
+                              <span className={r.dnaLow ? "bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 rounded px-1.5 py-0.5" : ""}>
+                                {r.dnaVolume.toFixed(2)}{r.dnaLow ? '*' : ''}
+                              </span>
                             </td>
                           ))}
                         </tr>
@@ -642,11 +637,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                    Buffer: {batchBufferLabel}
-                    {batchEnzymeType === 'FastDigest' && ' · Protocol: 37°C, 5-15 min'}
-                    {batchEnzymeType !== 'FastDigest' && ' · Protocol: 37°C, 1-2 hours'}
-                  </p>
                 </CardContent>
               </Card>
             )}

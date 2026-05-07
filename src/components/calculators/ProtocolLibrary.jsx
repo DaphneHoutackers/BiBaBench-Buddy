@@ -61,9 +61,9 @@ const PROTOCOLS = [
       const extSec = Math.max(30, Math.ceil(bp / 1000 * 30));
       const extStr = extSec >= 60 ? `${Math.floor(extSec / 60)} min ${extSec % 60 > 0 ? extSec % 60 + 's' : ''}`.trim() : `${extSec}s`;
       const poly = vals.polymerase || 'Phusion';
-      const denat = '98°C';
-      const ext = poly === 'Pfu' ? '72°C' : '72°C';
-      return `Denaturation: ${denat} 10s | Annealing: see Ta calculator | Extension: 72°C × ${extStr} | Cycles: 30-35`;
+      const denat = poly === 'Taq/DreamTaq' ? '95°C' : '98°C';
+      const ext = '72°C'; 
+      return `Denaturation: ${denat} 10s | Annealing: see Ta calculator | Extension: ${ext} × ${extStr} | Cycles: 30-35`;
     },
     steps: [
       { text: 'Set up PCR mix on ice. Use PCR Mix calculator for exact volumes. Typical components: MQ, Template DNA, HF buffer, dNTPs, polymerase, forward primer, reverse primer.', special: 'ice' },
@@ -553,8 +553,8 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-2.5 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 text-white">
-          <BookOpen className="w-5 h-5" />
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-yellow-400 to-red-600 text-white shadow-sm">
+          <BookOpen className="w-6 h-6" />
         </div>
         <div>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Protocol Library</h2>

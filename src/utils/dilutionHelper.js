@@ -17,16 +17,9 @@ export function getDilutionSuggestion(conc, targetAmount, minVol = 0.5) {
 
   if (vol >= minVol || vol <= 0) return null;
 
-  // Prefer 10x or 5x if it results in >= 1.0 µL needed
-  let df;
-  const targetVol = 1.0;
-  if (vol * 10 >= targetVol) {
-    df = 10;
-  } else if (vol * 5 >= targetVol) {
-    df = 5;
-  } else {
-    df = Math.ceil(targetVol / vol);
-  }
+  // Calculate the lowest integer dilution factor that reaches minVol
+  const df = Math.ceil(minVol / vol);
+  
   const stockVol = 1.0;
   const mqVol = stockVol * df - stockVol;
   

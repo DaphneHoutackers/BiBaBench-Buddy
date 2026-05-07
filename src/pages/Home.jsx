@@ -474,7 +474,7 @@ export default function Home() {
       <header
         className={`border-b sticky top-0 z-[60] transition-all ${isMacElectron ? 'h-12' : isMobile ? 'h-14' : 'h-11'
           }`}
-        style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)' }}
+        style={{ ...bgStyle, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(203,213,225,0.4)', WebkitAppRegion: isElectron ? 'drag' : 'initial' }}
       >
         <div className={`px-4 h-full flex items-center ${isMacElectron ? 'max-w-none pl-20' : 'w-full'}`}>
           <div className="flex items-center justify-between w-full">
@@ -483,6 +483,7 @@ export default function Home() {
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className={`w-12 h-12 flex items-center justify-center rounded-xl touch-manipulation transition-all duration-200 ${isDark ? 'hover:bg-white/10 text-white/70' : 'hover:bg-slate-100 text-slate-600'
                   }`}
+                style={{ WebkitAppRegion: 'no-drag' }}
                 title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
               >
                 <PanelLeft className={`w-6 h-6 transition-transform duration-300 ${sidebarOpen ? 'rotate-180 scale-110' : ''}`} />
@@ -492,6 +493,7 @@ export default function Home() {
                 onClick={goHome}
                 className={`w-12 h-12 flex items-center justify-center rounded-xl touch-manipulation transition-all duration-200 ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
                   }`}
+                style={{ WebkitAppRegion: 'no-drag' }}
                 title="Home"
               >
                 <img src={logo} alt="BiBaBenchBuddy Logo" className="w-11 h-11 object-contain" />
@@ -502,6 +504,7 @@ export default function Home() {
                   onClick={goHome}
                   className={`min-h-[44px] px-3 flex items-center gap-1.5 text-sm rounded-xl touch-manipulation transition-colors ml-1 ${backBtnColor} ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
                     }`}
+                  style={{ WebkitAppRegion: 'no-drag' }}
                 >
                   <ArrowLeft className="w-5 h-5" /> {labels.back}
                 </button>
@@ -515,6 +518,7 @@ export default function Home() {
                   ? 'bg-fuchsia-600/20 text-fuchsia-200 border border-fuchsia-500/30 hover:bg-fuchsia-600/40'
                   : 'bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-100 hover:bg-fuchsia-100'
                   }`}
+                  style={{ WebkitAppRegion: 'no-drag' }}
                 title={labels.aiAssistant}
               >
                 <RiRobot2Line className="w-4 h-4" />
@@ -524,6 +528,7 @@ export default function Home() {
               <button
                 onClick={() => setShowSettings(true)}
                 className={`w-11 h-11 flex items-center justify-center rounded-xl touch-manipulation transition-colors ${settingsBtnColor}`}
+                  style={{ WebkitAppRegion: 'no-drag' }}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
