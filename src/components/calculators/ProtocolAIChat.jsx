@@ -1,4 +1,4 @@
-const db = globalThis.__B44_DB__ || { auth:{ isAuthenticated: async()=>false, me: async()=>null }, entities:new Proxy({}, { get:()=>({ filter:async()=>[], get:async()=>null, create:async()=>({}), update:async()=>({}), delete:async()=>({}) }) }), integrations:{ Core:{ UploadFile:async()=>({ file_url:'' }), InvokeLLM:async()=>({}) } } };
+import { InvokeLLM } from '@/api/gemini';
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import ReactMarkdown from 'react-markdown';
 import { useHistory } from '@/context/HistoryContext';
 
 const CHAT_KEY = 'protocol_ai_chats';
+function getChatStorageKey(userId) {
+  return userId ? `${CHAT_KEY}_${userId}` : CHAT_KEY;
+}
 const SYSTEM_PROMPT = `You are a molecular biology lab protocol expert. Your job is to create precise, step-by-step lab protocols.
 
 When a user requests a protocol, FIRST ask the 2-3 most critical questions needed to tailor the protocol. Ask them one at a time in a conversational way. Keep questions short and offer 3-4 specific answer options when applicable.
@@ -23,11 +26,13 @@ Do NOT ask more than 3 questions total before providing the protocol. Be concise
 
 const WELCOME = "Hi! I can generate a tailored lab protocol for you. What protocol do you need? (e.g. cell lysis, RNA extraction, transformation, protein purification...)";
 
-function loadChats() {
-  try { return JSON.parse(localStorage.getItem(CHAT_KEY)) || []; } catch { return []; }
+function loadChats(userId) {
+  if (!userId) return []; // No history for guests
+  try { return JSON.parse(localStorage.getItem(getChatStorageKey(userId))) || []; } catch { return []; }
 }
-function saveChats(chats) {
-  localStorage.setItem(CHAT_KEY, JSON.stringify(chats));
+function saveChats(chats, userId) {
+  if (!userId) return; // Don't save for guests
+  localStorage.setItem(getChatStorageKey(userId), JSON.stringify(chats));
 }
 function newChat() {
   return { id: Date.now(), title: 'New Protocol Chat', messages: [{ role: 'assistant', content: WELCOME }] };
@@ -47,15 +52,15 @@ function CopyMsgButton({ text }) {
   );
 }
 
-export default function ProtocolAIChat({ historyData }) {
+export default function ProtocolAIChat({ historyData, settings, user }) {
   const { addHistoryItem } = useHistory();
   const [chats, setChats] = useState(() => {
-    const stored = loadChats();
+    const stored = loadChats(user?.id);
     return stored.length > 0 ? stored : [newChat()];
   });
   const [activeChatId, setActiveChatId] = useState(() => {
-    const stored = loadChats();
-    return stored.length > 0 ? stored[0].id : chats[0]?.id;
+    const stored = loadChats(user?.id);
+    return stored.length > 0 ? stored[0].id : (chats[0]?.id || Date.now());
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -92,8 +97,8 @@ export default function ProtocolAIChat({ historyData }) {
   }, [activeChat, isRestoring, addHistoryItem]);
 
   useEffect(() => {
-    saveChats(chats);
-  }, [chats]);
+    saveChats(chats, user?.id);
+  }, [chats, user]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,7 +139,8 @@ export default function ProtocolAIChat({ historyData }) {
     const prompt = `${SYSTEM_PROMPT}\n\nConversation so far:\n${history}\n\nAssistant:`;
     let resultText;
     try {
-      const result = await db.integrations.Core.InvokeLLM({
+      const result = await InvokeLLM({
+        settings,
         prompt,
         file_urls: files.length > 0 ? files.map(f => f.url) : undefined,
       });

@@ -181,7 +181,7 @@ const AI_PROVIDERS = {
   }
 };
 
-export default function SettingsPanel({ settings, onChange, onClose }) {
+export default function SettingsPanel({ settings, onChange, onClose, currentUser }) {
   const [valStatus, setValStatus] = React.useState({});
   const [orModels, setOrModels] = React.useState([]);
   const [isFetchingOr, setIsFetchingOr] = React.useState(false);
@@ -279,7 +279,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
             } else if (data?.settings) {
               onChange(data.settings);
               try {
-                localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(data.settings));
+                localStorage.setItem('biba_bench_buddy_settings', JSON.stringify(data.settings));
               } catch (err) {
                 console.warn('Failed to cache remote settings locally:', err);
               }
@@ -324,7 +324,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
             } else if (data?.settings) {
               onChange(data.settings);
               try {
-                localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(data.settings));
+                localStorage.setItem('biba_bench_buddy_settings', JSON.stringify(data.settings));
               } catch (err) {
                 console.warn('Failed to cache remote settings locally:', err);
               }
@@ -355,7 +355,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     const t = TRANSLATIONS[lang];
 
     const getStorageKey = () => {
-      return user ? `bibabenchbuddy_settings_${user.id}` : 'bibabenchbuddy_settings';
+      return user ? `biba_bench_buddy_settings_${user.id}` : 'biba_bench_buddy_settings';
     };
 
     try {
@@ -694,9 +694,19 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5" /> {t.apiKeys}
                 </p>
+
+                {!currentUser && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+                      {settings.language === 'nl' 
+                        ? 'Log in om API keys te gebruiken en te synchroniseren met je account.' 
+                        : 'Please sign in to use and sync API keys with your account.'}
+                    </p>
+                  </div>
+                )}
 
                 {[
                   { prov: 'groq', key: 'groqApiKey', label: 'Groq API Key', ph: 'gsk_...', link: 'https://console.groq.com' },
@@ -744,7 +754,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       value={settings[item.key] || ''}
                       onChange={(e) => onChange({ ...settings, [item.key]: e.target.value })}
                       placeholder={item.ph}
-                      className="w-full h-9 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900"
+                      disabled={!currentUser}
+                      className="w-full h-9 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
                     />
                   </div>
                 ))}

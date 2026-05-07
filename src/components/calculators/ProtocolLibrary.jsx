@@ -506,7 +506,7 @@ function ProtocolCard({ protocol }) {
   );
 }
 
-export default function ProtocolLibrary({ historyData, isActive }) {
+export default function ProtocolLibrary({ historyData, isActive, settings, user }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
   const [search, setSearch] = useState('');
@@ -604,7 +604,7 @@ export default function ProtocolLibrary({ historyData, isActive }) {
         <TabsContent value="ai" className="mt-4">
           <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardContent className="p-5">
-              <ProtocolAIChat historyData={historyData} />
+              <ProtocolAIChat historyData={historyData} settings={settings} user={user} />
             </CardContent>
           </Card>
         </TabsContent>

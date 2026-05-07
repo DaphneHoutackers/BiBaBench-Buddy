@@ -5,6 +5,14 @@ import unusedImports from "eslint-plugin-unused-imports";
 import { defineConfig } from "eslint/config";
 
 export default defineConfig([
+  {
+    ignores: [
+      "dist/**",
+      "dist-electron/**",
+      "release/**",
+      "node_modules/**",
+    ],
+  },
   { 
     files: ["**/*.{js,mjs,cjs,jsx}"], 
     plugins: { 

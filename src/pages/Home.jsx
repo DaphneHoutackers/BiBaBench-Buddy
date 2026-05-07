@@ -676,6 +676,7 @@ export default function Home() {
       {showSettings && (
         <SettingsPanel
           settings={settings}
+          currentUser={user}
           onChange={setSettings}
           onClose={() => setShowSettings(false)}
         />
