@@ -36,23 +36,25 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run app:build
 
-      # Rename .dmg/.exe to include tag name only if those files exist (conditional rename)
-      - name: Rename build artifact with tag (macOS)
+      # Rename .dmg/.exe to include tag and to fixed name as extra copy
+      - name: Prepare artifacts for release (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           tag="${GITHUB_REF##*/}"
           for file in release/*.dmg; do
             [ -e "$file" ] || continue
-            mv "$file" "release/BiBaBench-Buddy-${tag}.dmg"
+            cp "$file" "release/BiBaBench-Buddy-mac-arm64.dmg"
+            mv "$file" "release/BiBaBench-Buddy-${tag}-mac-arm64.dmg"
           done
 
-      - name: Rename build artifact with tag (Windows)
+      - name: Prepare artifacts for release (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           tag="${GITHUB_REF##*/}"
           for file in release/*.exe; do
             [ -e "$file" ] || continue
-            mv "$file" "release/BiBaBench-Buddy-${tag}.exe"
+            cp "$file" "release/BiBaBench-Buddy-Setup.exe"
+            mv "$file" "release/BiBaBench-Buddy-${tag}-Setup.exe"
           done
 
       - name: Upload macOS artifact
