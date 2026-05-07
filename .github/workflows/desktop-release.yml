@@ -49,6 +49,7 @@ jobs:
 
       - name: Prepare artifacts for release (Windows)
         if: matrix.os == 'windows-latest'
+        shell: bash
         run: |
           tag="${GITHUB_REF##*/}"
           for file in release/*.exe; do
