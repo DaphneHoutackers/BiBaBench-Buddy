@@ -131,7 +131,7 @@ export const APP_THEMES = {
     label: 'Black/White',
     icon: Columns2,
     group: 'special',
-    bg: '#ffffff',
+    bg: '#f0f0f0',
     cardBg: 'bg-white',
     cardBorder: 'border-black border-4',
     textPrimary: 'text-black font-black',

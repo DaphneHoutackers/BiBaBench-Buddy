@@ -37,38 +37,60 @@ function buildRemoteRow(item, userId) {
 }
 
 export function HistoryProvider({ children }) {
-  const [history, setHistory] = useState(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    if (!isSyncEnabled()) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  // Keep a ref of history for reliable access in async callbacks (like auth changes) 
-  // without triggering effect re-subscriptions
+  const getStorageKey = useCallback(() => {
+    return user ? `${LOCAL_STORAGE_KEY}_${user.id}` : LOCAL_STORAGE_KEY;
+  }, [user]);
+
+  const [history, setHistory] = useState([]);
+
+  // Load history whenever user changes
+  useEffect(() => {
+    if (!user) {
+      setHistory([]);
+      return;
+    }
+    const key = getStorageKey();
+    try {
+      const saved = localStorage.getItem(key);
+      setHistory(saved ? JSON.parse(saved) : []);
+    } catch {
+      setHistory([]);
+    }
+    
+    if (user) {
+      loadRemoteHistory([]); // pass empty to avoid syncing guest history to new user accidentally unless intended
+    }
+  }, [user, getStorageKey]);
+
+  // Keep a ref of history for reliable access in async callbacks
   const historyRef = useRef(history);
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
 
   const loadRemoteHistory = useCallback(async (currentLocalHistory = []) => {
-    if (!isSyncEnabled()) return;
+    if (!isSyncEnabled() || !user) return;
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user) return;
-
-    // 1. If there's local unsynced history, upload it to the new account first
+    // 1. If there's local unsynced history, upload it to the account
     const unsynced = Array.isArray(currentLocalHistory)
       ? currentLocalHistory.filter(item => !item.synced)
       : [];
 
     if (unsynced.length > 0) {
-      const rows = unsynced.map(item => buildRemoteRow(item, session.user.id));
+      const rows = unsynced.map(item => buildRemoteRow(item, user.id));
       await supabase.from('tool_history').upsert(rows, { onConflict: 'id' });
     }
 
@@ -76,7 +98,7 @@ export function HistoryProvider({ children }) {
     const { data, error } = await supabase
       .from('tool_history')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -86,57 +108,28 @@ export function HistoryProvider({ children }) {
 
     setHistory(normalized);
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
+      localStorage.setItem(getStorageKey(), JSON.stringify(normalized));
     } catch (err) {
       console.warn('Failed to persist remote history locally:', err);
     }
-  }, []);
+  }, [user, getStorageKey]);
 
   useEffect(() => {
-    if (!isSyncEnabled()) return;
+    if (!history || history.length === 0 && !user) return;
 
-    // Initial load on mount
-    loadRemoteHistory();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        // Pass current (possibly unsynced) history to loadRemoteHistory for merging
-        await loadRemoteHistory(historyRef.current);
-      }
-
-      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
-        // Clear history on sign out for account-based privacy
-        setHistory([]);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [loadRemoteHistory]);
-
-
-  useEffect(() => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+      localStorage.setItem(getStorageKey(), JSON.stringify(history));
     } catch (err) {
       console.warn('Failed to persist history locally:', err);
     }
 
     const syncTimeout = setTimeout(async () => {
-      if (!isSyncEnabled()) return;
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.user) return;
+      if (!isSyncEnabled() || !user) return;
 
       const unsynced = history.filter((item) => !item.synced);
       if (unsynced.length === 0) return;
 
-      const rows = unsynced.map((item) => buildRemoteRow(item, session.user.id));
+      const rows = unsynced.map((item) => buildRemoteRow(item, user.id));
 
       const { error } = await supabase
         .from('tool_history')
@@ -164,7 +157,7 @@ export function HistoryProvider({ children }) {
     }, 800);
 
     return () => clearTimeout(syncTimeout);
-  }, [history]);
+  }, [history, user, getStorageKey]);
 
   const addHistoryItem = useCallback((item) => {
     setHistory((prev) => {

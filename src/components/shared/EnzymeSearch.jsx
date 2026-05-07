@@ -62,16 +62,16 @@ export default function EnzymeSearch({ selectedEnzymes, onAdd, onRemove, enzymes
         width: dropdownPos.width,
         zIndex: 99999,
       }}
-      className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-52 overflow-y-auto"
+      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-52 overflow-y-auto"
       onMouseDown={(e) => e.stopPropagation()}
     >
       {filtered.map(enzyme => (
         <button
           key={enzyme}
-          className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
+          className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           onMouseDown={() => select(enzyme)}
         >
-          <span className="font-medium">{enzyme}</span>
+          <span className="font-medium text-slate-800 dark:text-slate-100">{enzyme}</span>
           <span className="ml-2 text-xs text-slate-400">
             Buffer: {enzymeType === 'FastDigest' ? 'FastDigest Buffer' : enzymes[enzyme]?.optimal}
           </span>

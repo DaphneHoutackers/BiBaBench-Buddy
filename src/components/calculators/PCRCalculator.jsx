@@ -417,13 +417,13 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
           <Dna className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">PCR Calculator</h2>
-          <p className="text-sm text-slate-500">Mix calculator with mastermix support & Ta calculator</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">PCR Calculator</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Mix calculator with mastermix support & Ta calculator</p>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
-        <TabsList className="bg-slate-100">
+        <TabsList className="bg-slate-100 dark:bg-slate-800">
           <TabsTrigger value="mix" className="flex items-center gap-2">
             <FlaskConical className="w-4 h-4" />
             PCR Mix
@@ -446,63 +446,63 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
         <TabsContent value="mix" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-base font-medium text-slate-700">Reaction Settings</CardTitle>
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Reaction Settings</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label className="text-sm text-slate-600">Product length (bp)</Label>
-                      <NumInput placeholder="e.g., 2000" value={productLength} onChange={e => setProductLength(e.target.value)} className="border-slate-200" />
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Product length (bp)</Label>
+                      <NumInput placeholder="e.g., 2000" value={productLength} onChange={e => setProductLength(e.target.value)} className="border-slate-200 dark:border-slate-700" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm text-slate-600">Total volume (µL)</Label>
-                      <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200" />
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Total volume (µL)</Label>
+                      <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 dark:border-slate-700" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm text-slate-600">Polymerase</Label>
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Polymerase</Label>
                       <Select value={polymerase} onValueChange={setPolymerase}>
-                        <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="border-slate-200 dark:border-slate-700"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {Object.keys(POLYMERASES).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm text-slate-600">Primer stock (µM)</Label>
-                      <NumInput value={primerConc} onChange={e => setPrimerConc(e.target.value)} className="border-slate-200" />
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Primer stock (µM)</Label>
+                      <NumInput value={primerConc} onChange={e => setPrimerConc(e.target.value)} className="border-slate-200 dark:border-slate-700" />
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Switch checked={useBetaine} onCheckedChange={setUseBetaine} />
-                      <Label className="text-sm text-slate-600">Add Betaine</Label>
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Add Betaine</Label>
                     </div>
                     {useBetaine && (
                       <div className="flex items-center gap-2">
-                        <NumInput value={betaineVol} onChange={e => setBetaineVol(e.target.value)} className="w-20 border-slate-200 h-8 text-sm" />
-                        <span className="text-sm text-slate-500">µL</span>
+                        <NumInput value={betaineVol} onChange={e => setBetaineVol(e.target.value)} className="w-20 border-slate-200 dark:border-slate-700 h-8 text-sm" />
+                        <span className="text-sm text-slate-500 dark:text-slate-400">µL</span>
                       </div>
                     )}
                   </div>
-                  {useBetaine && <p className="text-xs text-blue-600">Betaine reduces secondary structures.</p>}
+                  {useBetaine && <p className="text-xs text-blue-600 dark:text-blue-400">Betaine reduces secondary structures.</p>}
                 </CardContent>
               </Card>
 
               {/* Samples */}
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium text-slate-700">Template DNA Samples</CardTitle>
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Template DNA Samples</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {samples.map(s => (
                     <div key={s.id} className="flex gap-2 items-center">
-                      <Input value={s.name} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm border-slate-200 h-8" />
-                      <NumInput placeholder="Conc (ng/µL)" value={s.conc} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-32 border-slate-200 h-8 text-sm" />
-                      <NumInput placeholder="ng" value={s.desiredNg} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-20 border-slate-200 h-8 text-sm" />
+                      <Input value={s.name} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm border-slate-200 dark:border-slate-700 h-8" />
+                      <NumInput placeholder="Conc (ng/µL)" value={s.conc} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-32 border-slate-200 dark:border-slate-700 h-8 text-sm" />
+                      <NumInput placeholder="ng" value={s.desiredNg} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-20 border-slate-200 dark:border-slate-700 h-8 text-sm" />
                       {samples.length > 1 && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500" onClick={() => setSamples(samples.filter(x => x.id !== s.id))}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setSamples(samples.filter(x => x.id !== s.id))}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
@@ -514,28 +514,28 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                   }}>
                     <Plus className="w-3 h-3" /> Add Sample
                   </Button>
-                  <p className="text-xs text-slate-400">Name | Concentration (ng/µL) | Desired (ng)</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Name | Concentration (ng/µL) | Desired (ng)</p>
                 </CardContent>
               </Card>
 
               {/* Gradient / Mastermix settings */}
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium text-slate-700">Mastermix Settings</CardTitle>
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Mastermix Settings</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {/* Gradient mode */}
-                  <div className="flex items-center gap-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3 p-2.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
                     <Switch checked={gradientMode} onCheckedChange={v => { setGradientMode(v); }} />
                     <div className="flex-1">
-                      <Label className="text-sm text-blue-700 font-medium">Gradient PCR mode</Label>
-                      <p className="text-xs text-blue-600 mt-0.5">Same template & primers, multiple identical reactions (e.g. for Ta gradient)</p>
+                      <Label className="text-sm text-blue-700 dark:text-blue-300 font-medium dark:text-slate-200">Gradient PCR mode</Label>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Same template & primers, multiple identical reactions (e.g. for Ta gradient)</p>
                     </div>
                     {gradientMode && (
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <Label className="text-xs text-blue-700">×</Label>
-                        <NumInput value={gradientN} onChange={e=>setGradientN(e.target.value)} min="1" className="w-16 border-blue-200 h-8 text-sm" />
-                        <Label className="text-xs text-blue-600">reactions</Label>
+                        <Label className="text-xs text-blue-700 dark:text-blue-300 dark:text-slate-200">×</Label>
+                        <NumInput value={gradientN} onChange={e=>setGradientN(e.target.value)} min="1" className="w-16 border-blue-200 dark:border-blue-700 h-8 text-sm" />
+                        <Label className="text-xs text-blue-600 dark:text-blue-400 dark:text-slate-200">reactions</Label>
                       </div>
                     )}
                   </div>
@@ -543,23 +543,23 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                     <>
                       <div className="flex items-center gap-3">
                         <div className="space-y-1 flex-1">
-                          <Label className="text-sm text-slate-600">Extra reactions in mastermix (n+?)</Label>
-                          <NumInput value={extraReactions} onChange={e => setExtraReactions(e.target.value)} min="0" className="border-slate-200 w-24" />
-                          <p className="text-xs text-slate-400">{n} samples + {extraReactions} extra = {nMM} reactions total</p>
+                          <Label className="text-sm text-slate-600 dark:text-slate-200">Extra reactions in mastermix (n+?)</Label>
+                          <NumInput value={extraReactions} onChange={e => setExtraReactions(e.target.value)} min="0" className="border-slate-200 dark:border-slate-700 w-24" />
+                          <p className="text-xs text-slate-400 dark:text-slate-500">{n} samples + {extraReactions} extra = {nMM} reactions total</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Switch checked={primersIdentical} onCheckedChange={setPrimersIdentical} />
-                        <Label className="text-sm text-slate-600">Primers identical across samples (include in mastermix)</Label>
+                        <Label className="text-sm text-slate-600 dark:text-slate-200">Primers identical across samples (include in mastermix)</Label>
                       </div>
                     </>
                   )}
                   {gradientMode && (
                     <div className="flex items-center gap-3">
                       <div className="space-y-1 flex-1">
-                        <Label className="text-sm text-slate-600">Extra reactions (n+?)</Label>
-                        <NumInput value={extraReactions} onChange={e => setExtraReactions(e.target.value)} min="0" className="border-slate-200 w-24" />
-                        <p className="text-xs text-slate-400">{gradientNNum} reactions + {extraReactions} extra = {mmMultiplier} total</p>
+                        <Label className="text-sm text-slate-600 dark:text-slate-200">Extra reactions (n+?)</Label>
+                        <NumInput value={extraReactions} onChange={e => setExtraReactions(e.target.value)} min="0" className="border-slate-200 dark:border-slate-700 w-24" />
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{gradientNNum} reactions + {extraReactions} extra = {mmMultiplier} total</p>
                       </div>
                     </div>
                   )}
@@ -570,11 +570,11 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
             <div className="space-y-4">
 
 
-              <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50">
+              <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
-                    <FlaskConical className="w-4 h-4 text-blue-600" />
+                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     PCR Mix{gradientMode ? ` (Gradient ×${gradientNNum}, MM ×${mmMultiplier})` : hasMultiple ? ` (${n} samples, MM ×${nMM})` : ''}
                     </CardTitle>
                     <div className="flex items-center gap-2">
@@ -611,9 +611,9 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={tableRef}>
+                  <div className="overflow-x-auto bg-white dark:bg-slate-900 p-4 rounded-lg" ref={tableRef}>
                     {sampleCalcs.some(s => s.dilution) && (
-                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                      <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 space-y-1">
                         <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
                         {sampleCalcs.filter(s => s.dilution).map(s => (
                           <div key={s.id} className="font-medium">
@@ -624,89 +624,89 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                     )}
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-blue-50">
-                          <th className="text-left py-2 px-3 font-bold text-slate-700">Component</th>
+                        <tr className="bg-blue-50 dark:bg-blue-900/30">
+                          <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Component</th>
                           {hasMultiple ? samples.map(s => (
-                            <th key={s.id} className="text-right py-2 px-3 font-bold text-slate-700">{s.name}</th>
-                          )) : <th className="text-right py-2 px-3 font-bold text-slate-700">Vol (µL)</th>}
-                          {hasMultiple && <th className="text-right py-2 px-3 font-bold text-blue-700">MM ×{mmMultiplier}</th>}
+                            <th key={s.id} className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">{s.name}</th>
+                          )) : <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Vol (µL)</th>}
+                          {hasMultiple && <th className="text-right py-2 px-3 font-bold text-blue-700 dark:text-blue-300">MM ×{mmMultiplier}</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {/* MQ */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 font-semibold text-slate-700">
-                            MQ {hasMultiple && !mqInMM && <span className="text-xs text-slate-400 font-normal">(per tube)</span>}
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 font-semibold text-slate-700 dark:text-slate-200">
+                            MQ {hasMultiple && !mqInMM && <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">(per tube)</span>}
                           </td>
                           {hasMultiple ? sampleCalcs.map(s => (
                             <td key={s.id} className="py-2 px-3 text-right font-mono font-semibold">{s.mqVol.toFixed(2)}</td>
                           )) : <td className="py-2 px-3 text-right font-mono font-semibold">{sampleCalcs[0].mqVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{mqInMM ? (sampleCalcs[0].mqVol * mmMultiplier).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{mqInMM ? (sampleCalcs[0].mqVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         {/* Template DNA */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">
-                            Template DNA {!hasMultiple && <span className="text-rose-600 font-semibold">({samples[0].desiredNg} ng)</span>}
-                            {hasMultiple && !allTemplatesIdentical && <span className="text-xs text-slate-400 font-normal ml-1">(per tube)</span>}
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
+                            Template DNA {!hasMultiple && <span className="text-rose-600 dark:text-rose-400 font-semibold">({samples[0].desiredNg} ng)</span>}
+                            {hasMultiple && !allTemplatesIdentical && <span className="text-xs text-slate-400 dark:text-slate-500 font-normal ml-1">(per tube)</span>}
                           </td>
                           {hasMultiple ? sampleCalcs.map(s => (
-                            <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold text-red-600 ${s.dilution ? 'text-rose-600' : ''}`}>
+                            <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold text-red-600 dark:text-red-400 ${s.dilution ? 'text-rose-600 dark:text-rose-400' : ''}`}>
                               {s.templateVol.toFixed(2)}{s.dilution ? '*' : ''}
                             </td>
                           )) : (
-                            <td className={`py-2 px-3 text-right font-mono font-semibold text-red-600 ${sampleCalcs[0].dilution ? 'text-rose-600' : ''}`}>
+                            <td className={`py-2 px-3 text-right font-mono font-semibold text-red-600 dark:text-red-400 ${sampleCalcs[0].dilution ? 'text-rose-600 dark:text-rose-400' : ''}`}>
                               {sampleCalcs[0].templateVol.toFixed(2)}{sampleCalcs[0].dilution ? '*' : ''}
                             </td>
                           )}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{allTemplatesIdentical ? (sampleCalcs[0].templateVol * mmMultiplier).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{allTemplatesIdentical ? (sampleCalcs[0].templateVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         {/* Buffer */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">{poly.buffer} ({poly.bufferX}×)</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">{poly.buffer} ({poly.bufferX}×)</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{bufferVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{bufferVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(bufferVol * mmMultiplier).toFixed(2)}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{(bufferVol * mmMultiplier).toFixed(2)}</td>}
                         </tr>
                         {/* Betaine */}
                         {useBetaine && (
-                         <tr className="border-b border-slate-100">
-                           <td className="py-2 px-3 text-slate-600">Betaine</td>
+                         <tr className="border-b border-slate-100 dark:border-slate-800">
+                           <td className="py-2 px-3 text-slate-600 dark:text-slate-300">Betaine</td>
                             {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{betaineActualVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{betaineActualVol.toFixed(2)}</td>}
-                            {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(betaineActualVol * mmMultiplier).toFixed(2)}</td>}
+                            {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{(betaineActualVol * mmMultiplier).toFixed(2)}</td>}
                           </tr>
                         )}
                         {/* dNTPs */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">10mM dNTPs</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">10mM dNTPs</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{dntpVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{dntpVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(dntpVol * mmMultiplier).toFixed(2)}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{(dntpVol * mmMultiplier).toFixed(2)}</td>}
                         </tr>
                         {/* Polymerase */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">{polymerase}</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">{polymerase}</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{polyVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{polyVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{(polyVol * mmMultiplier).toFixed(2)}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{(polyVol * mmMultiplier).toFixed(2)}</td>}
                         </tr>
                         {/* Fwd primer */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">Fwd Primer ({primerConc}µM) {hasMultiple && !primersIdentical && <span className="text-xs text-slate-400">(per tube)</span>}</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">Fwd Primer ({primerConc}µM) {hasMultiple && !primersIdentical && <span className="text-xs text-slate-400 dark:text-slate-500">(per tube)</span>}</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{primerVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{primerVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
                         {/* Rev primer */}
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">Rev Primer ({primerConc}µM) {hasMultiple && !primersIdentical && <span className="text-xs text-slate-400">(per tube)</span>}</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">Rev Primer ({primerConc}µM) {hasMultiple && !primersIdentical && <span className="text-xs text-slate-400 dark:text-slate-500">(per tube)</span>}</td>
                           {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono">{primerVol.toFixed(2)}</td>) : <td className="py-2 px-3 text-right font-mono font-semibold">{primerVol.toFixed(2)}</td>}
-                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700">{primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—'}</td>}
+                          {hasMultiple && <td className="py-2 px-3 text-right font-mono text-blue-700 dark:text-blue-300">{primersIdentical ? (primerVol * mmMultiplier).toFixed(2) : '—'}</td>}
                         </tr>
-                        <tr style={{ borderTop: '2px solid #cbd5e1', background: '#f8fafc' }}>
-                          <td className="py-2 px-3 font-bold text-slate-800">Total (µL)</td>
-                          {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono font-bold text-slate-800">{vol}</td>) : <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{vol}</td>}
+                        <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+                          <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">Total (µL)</td>
+                          {hasMultiple ? samples.map(s => <td key={s.id} className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{vol}</td>) : <td className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{vol}</td>}
                           {hasMultiple && <td className="py-2 px-3"></td>}
                         </tr>
                       </tbody>
                     </table>
                   </div>
-                  {sampleCalcs.some(s => s.dilution) && <p className="text-xs text-rose-600 mt-1">* Volume &lt;0.5 µL — see dilution suggestion above.</p>}
+                  {sampleCalcs.some(s => s.dilution) && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">* Volume &lt;0.5 µL — see dilution suggestion above.</p>}
 
                 </CardContent>
               </Card>
@@ -718,65 +718,65 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
         <TabsContent value="ta" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-base font-medium text-slate-700">Primer Sequences</CardTitle>
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Primer Sequences</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Forward Primer (5&apos;→3&apos;) — full sequence incl. overhang</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Forward Primer (5&apos;→3&apos;) — full sequence incl. overhang</Label>
                     <Textarea
                       value={taFwdPrimer}
                       onChange={e => setTaFwdPrimer(e.target.value)}
                       placeholder="Full primer sequence..."
-                      className="font-mono text-sm h-16 border-slate-200"
+                      className="font-mono text-sm h-16 border-slate-200 dark:border-slate-700"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Reverse Primer (5&apos;→3&apos;) — full sequence incl. overhang</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Reverse Primer (5&apos;→3&apos;) — full sequence incl. overhang</Label>
                     <Textarea
                       value={taRevPrimer}
                       onChange={e => setTaRevPrimer(e.target.value)}
                       placeholder="Full primer sequence..."
-                      className="font-mono text-sm h-16 border-slate-200"
+                      className="font-mono text-sm h-16 border-slate-200 dark:border-slate-700"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Template Sequence (optional — for overhang-aware Tm)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Template Sequence (optional — for overhang-aware Tm)</Label>
                     <Textarea
                       value={taTemplate}
                       onChange={e => setTaTemplate(e.target.value)}
                       placeholder="Paste template sequence..."
-                      className="font-mono text-sm h-24 border-slate-200"
+                      className="font-mono text-sm h-24 border-slate-200 dark:border-slate-700"
                     />
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
                       If provided, only the binding region without overhangs is used for Tm calculation.
                     </p>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-medium text-slate-700">Settings</CardTitle>
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Settings</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm text-slate-600">Primer concentration, final (µM)</Label>
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Primer concentration, final (µM)</Label>
                       <NumInput
                         value={taPrimerConc}
                         onChange={e => setTaPrimerConc(e.target.value)}
-                        className="border-slate-200"
+                        className="border-slate-200 dark:border-slate-700"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm text-slate-600">Polymerase</Label>
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Polymerase</Label>
                       <Select value={taPolymerase} onValueChange={setTaPolymerase}>
-                        <SelectTrigger className="border-slate-200">
+                        <SelectTrigger className="border-slate-200 dark:border-slate-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -790,7 +790,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                     </div>
                   </div>
 
-                  <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 text-xs text-slate-500 dark:text-slate-400">
                     Ta is estimated from the lower primer Tm, using the detected annealing region if a template is provided.
                   </div>
                 </CardContent>
@@ -807,24 +807,24 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                           <Thermometer className="w-6 h-6 text-orange-600" />
                         </div>
                         <div>
-                          <p className="text-sm text-slate-500">Recommended Annealing Temperature</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Recommended Annealing Temperature</p>
                           <p className="text-4xl font-bold text-orange-600">{taResults.ta}°C</p>
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                             {taResults.polymerase} • {taResults.primerConc} µM primer
                           </p>
                         </div>
                       </div>
                       {taResults.tmDiff > 5 && (
-                        <div className="mt-3 p-2 bg-amber-100 rounded-lg text-xs text-amber-700">
+                        <div className="mt-3 p-2 bg-amber-100 rounded-lg text-xs text-amber-700 dark:text-amber-400">
                           ⚠ Primer Tm difference &gt;5°C ({taResults.tmDiff.toFixed(1)}°C). Consider redesigning for better results.
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  <Card className="border-0 shadow-sm bg-white">
+                  <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-slate-600">Primer Analysis</CardTitle>
+                      <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-200">Primer Analysis</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {[
@@ -834,11 +834,11 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                         const seq = p.primer.toUpperCase().replace(/[^ATGC]/g, '');
                         const bindingStart = p.binding ? seq.lastIndexOf(p.binding) : -1;
                         return (
-                          <div key={p.label} className="p-3 bg-slate-50 rounded-lg">
+                          <div key={p.label} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-slate-700">{p.label} Primer</span>
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{p.label} Primer</span>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-500 mb-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
                               <span>Length: <strong>{Number.isFinite(Number(p.len)) ? p.len : '—'} nt</strong></span>
                               <span>Tm: <strong>{typeof p.tm === 'number' ? `${p.tm}°C` : '—'}</strong></span>
                               <span>GC: <strong>{Number.isFinite(Number(p.gc)) ? `${p.gc}%` : '—'}</strong></span>
@@ -849,7 +849,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                             {seq && (
                               <div className="font-mono text-xs break-all leading-relaxed">
                                 {bindingStart > 0 && (
-                                  <span className="text-slate-400 bg-slate-100 px-0.5 rounded">{seq.slice(0, bindingStart)}</span>
+                                  <span className="text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-0.5 rounded">{seq.slice(0, bindingStart)}</span>
                                 )}
                                 <span className="text-green-700 bg-green-100 px-0.5 rounded font-semibold">
                                   {bindingStart >= 0 ? seq.slice(bindingStart) : seq}
@@ -866,7 +866,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                   </Card>
                 </>
               ) : (
-                <div className="text-center py-16 text-slate-400">
+                <div className="text-center py-16 text-slate-400 dark:text-slate-500">
                   <Thermometer className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>Enter primer sequences to calculate Ta</p>
                 </div>

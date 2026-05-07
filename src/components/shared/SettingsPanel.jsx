@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   User,
   Cpu,
@@ -14,11 +14,16 @@ import {
   Mail,
   Clock,
   Lock,
-  Github, ALargeSmall
+  Github,
+  ALargeSmall,
+  Eye,
+  EyeOff,
+  KeyRound,
+  ArrowLeft,
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
-import { supabase, isSyncEnabled } from '@/lib/supabase';
+import { supabase, isSyncEnabled, getAppUrl } from '@/lib/supabase';
 import { FONT_SIZES, APP_THEMES } from '@/styles/themes';
 import pkg from '../../../package.json';
 
@@ -26,6 +31,117 @@ const THEME_GROUPS = [
   { key: 'special', label: 'Curated' },
   { key: 'muted', label: 'Muted Tones' },
 ];
+
+const TRANSLATIONS = {
+  en: {
+    settings: 'Settings',
+    appearance: 'Appearance',
+    aiSettings: 'AI Settings',
+    account: 'Account',
+    appTheme: 'App Theme',
+    curated: 'Curated',
+    mutedTones: 'Muted Tones',
+    fontSize: 'Font Size',
+    language: 'Language',
+    aiProvider: 'AI Provider',
+    modelSelection: 'Model Selection',
+    syncModels: 'Sync Models',
+    apiKeys: 'API Keys',
+    checkConnection: 'Check Connection',
+    connected: 'Connected',
+    error: 'Error',
+    checking: 'Checking...',
+    getKey: 'Get Key',
+    apiKeyNote: '* Your API keys and model choices are stored locally, and also linked to your account if you are logged in.',
+    syncNotConfigured: 'Sync is not configured.',
+    syncNote: 'Add Supabase keys to your .env file to enable authentication and cross-device sync.',
+    loadingSession: 'Loading session...',
+    authenticatedUser: 'Authenticated User',
+    memberSince: 'Member since',
+    signOut: 'Sign out',
+    welcomeBack: 'Welcome Back',
+    createAccount: 'Create Account',
+    forgotPasswordTitle: 'Forgot Password',
+    forgotPasswordSub: 'Enter your email to receive a reset link',
+    syncSub: 'Sync your history and settings across devices',
+    email: 'Email',
+    password: 'Password',
+    forgotPasswordLink: 'Forgot password?',
+    signIn: 'Sign In',
+    signUp: 'Sign Up',
+    orContinueWith: 'Or continue with',
+    signInWithGithub: 'Sign in with GitHub',
+    noAccount: "Don't have an account?",
+    alreadyAccount: 'Already have an account?',
+    backToLogin: 'Back to login',
+    sendResetLink: 'Send reset link',
+    processing: 'Processing...',
+    sending: 'Sending...',
+    emailSent: 'Reset link sent! Check your inbox (and spam) for the email to reset your password.',
+    accountCreated: 'Account created! Check your inbox for a confirmation email and then log in.',
+    authFailed: 'Authentication failed',
+    invalidCredentials: 'Invalid email or password. Please check your details and try again.',
+    emailNotConfirmed: 'Your email address has not been confirmed yet. Please check your inbox.',
+    userExists: 'This email address is already in use. Please try logging in.',
+    passwordTooShort: 'Password must be at least 6 characters.',
+    rateLimit: 'Too many attempts. Please try again in a minute.',
+    genericError: 'An error occurred.',
+  },
+  nl: {
+    settings: 'Instellingen',
+    appearance: 'Uiterlijk',
+    aiSettings: 'AI Instellingen',
+    account: 'Account',
+    appTheme: 'App Thema',
+    curated: 'Geselecteerd',
+    mutedTones: 'Zachte Tinten',
+    fontSize: 'Lettergrootte',
+    language: 'Taal',
+    aiProvider: 'AI Provider',
+    modelSelection: 'Model Selectie',
+    syncModels: 'Modellen Syncen',
+    apiKeys: 'API Keys',
+    checkConnection: 'Check Verbinding',
+    connected: 'Verbonden',
+    error: 'Fout',
+    checking: 'Checken...',
+    getKey: 'Sleutel ophalen',
+    apiKeyNote: '* Je API-keys en modelkeuzes worden lokaal opgeslagen, en ook aan je account gekoppeld als je bent ingelogd.',
+    syncNotConfigured: 'Sync is niet geconfigureerd.',
+    syncNote: 'Voeg Supabase keys toe aan je .env bestand om authenticatie en synchronisatie in te schakelen.',
+    loadingSession: 'Sessie laden...',
+    authenticatedUser: 'Ingelogd',
+    memberSince: 'Lid sinds',
+    signOut: 'Uitloggen',
+    welcomeBack: 'Welkom terug',
+    createAccount: 'Account aanmaken',
+    forgotPasswordTitle: 'Wachtwoord vergeten',
+    forgotPasswordSub: 'Vul je e-mailadres in om een reset-link te ontvangen',
+    syncSub: 'Sync je geschiedenis en instellingen op al je apparaten',
+    email: 'E-mailadres',
+    password: 'Wachtwoord',
+    forgotPasswordLink: 'Wachtwoord vergeten?',
+    signIn: 'Inloggen',
+    signUp: 'Registreren',
+    orContinueWith: 'Of ga verder met',
+    signInWithGithub: 'Inloggen met GitHub',
+    noAccount: 'Nog geen account?',
+    alreadyAccount: 'Al een account?',
+    backToLogin: 'Terug naar inloggen',
+    sendResetLink: 'Reset-link versturen',
+    processing: 'Verwerken...',
+    sending: 'Versturen...',
+    emailSent: 'Reset-link verstuurd! Check je inbox (en spam) voor de e-mail om je wachtwoord opnieuw in te stellen.',
+    accountCreated: 'Account aangemaakt! Check je inbox voor een bevestigingsmail en log daarna in.',
+    authFailed: 'Authenticatie mislukt',
+    invalidCredentials: 'Onjuist e-mailadres of wachtwoord. Controleer je gegevens en probeer opnieuw.',
+    emailNotConfirmed: 'Je e-mailadres is nog niet bevestigd. Check je inbox voor de bevestigingsmail.',
+    userExists: 'Dit e-mailadres is al in gebruik. Probeer in te loggen.',
+    passwordTooShort: 'Wachtwoord moet minimaal 6 tekens bevatten.',
+    rateLimit: 'Te veel pogingen. Probeer het over een minuut opnieuw.',
+    genericError: 'Er is een fout opgetreden.',
+  }
+};
 
 const AI_PROVIDERS = {
   groq: {
@@ -75,12 +191,14 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [authMode, setAuthMode] = useState('login');
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
+  const loadingTimeoutRef = useRef(null);
 
   React.useEffect(() => {
     if (settings.aiProvider === 'openrouter' && orModels.length === 0) {
@@ -120,6 +238,11 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
     let mounted = true;
 
+    // Safety net: never leave loading stuck longer than 5 seconds
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 5000);
+
     async function bootstrapSession() {
       try {
         const {
@@ -133,19 +256,15 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
           console.warn('Supabase getSession error:', error);
           setUser(null);
           setAuthMode('login');
+          setLoading(false);
           return;
         }
 
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
-        if (!currentUser) {
-          setAuthMode('login');
-        }
-
-        if (mounted) {
-          setLoading(false);
-        }
+        if (!currentUser) setAuthMode('login');
+        setLoading(false);
 
         if (currentUser) {
           try {
@@ -169,17 +288,11 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
             console.warn('Failed to load remote settings:', err);
           }
         }
-
-        return;
-
       } catch (err) {
         console.warn('bootstrapSession failed:', err);
         if (mounted) {
           setUser(null);
           setAuthMode('login');
-        }
-      } finally {
-        if (mounted) {
           setLoading(false);
         }
       }
@@ -195,11 +308,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
       try {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-
-        if (!currentUser) {
-          setAuthMode('login');
-        }
-
+        if (!currentUser) setAuthMode('login');
         setLoading(false);
 
         if (currentUser) {
@@ -224,26 +333,33 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
             console.warn('Failed to load remote settings after auth change:', err);
           }
         }
-
-        return;
       } catch (err) {
         console.warn('onAuthStateChange failed:', err);
-        setUser(null);
-        setAuthMode('login');
-      } finally {
-        setLoading(false);
+        if (mounted) {
+          setUser(null);
+          setAuthMode('login');
+          setLoading(false);
+        }
       }
     });
 
     return () => {
       mounted = false;
+      clearTimeout(loadingTimeoutRef.current);
       subscription.unsubscribe();
     };
   }, [onChange]);
 
   useEffect(() => {
+    const lang = settings.language || 'en';
+    const t = TRANSLATIONS[lang];
+
+    const getStorageKey = () => {
+      return user ? `bibabenchbuddy_settings_${user.id}` : 'bibabenchbuddy_settings';
+    };
+
     try {
-      localStorage.setItem('bibabenchbuddy_settings', JSON.stringify(settings));
+      localStorage.setItem(getStorageKey(), JSON.stringify(settings));
     } catch (err) {
       console.warn('Failed to save settings locally:', err);
     }
@@ -266,6 +382,24 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     return () => clearTimeout(timer);
   }, [settings, user]);
 
+  const translateAuthError = (msg) => {
+    const lang = settings.language || 'en';
+    const t = TRANSLATIONS[lang];
+    if (!msg) return t.genericError;
+    const m = msg.toLowerCase();
+    if (m.includes('invalid login credentials') || m.includes('invalid credentials'))
+      return t.invalidCredentials;
+    if (m.includes('email not confirmed'))
+      return t.emailNotConfirmed;
+    if (m.includes('user already registered'))
+      return t.userExists;
+    if (m.includes('password should be at least'))
+      return t.passwordTooShort;
+    if (m.includes('rate limit'))
+      return t.rateLimit;
+    return msg;
+  };
+
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     if (!isSyncEnabled()) return;
@@ -273,6 +407,9 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     setAuthError('');
     setAuthMessage('');
     setAuthLoading(true);
+
+    const lang = settings.language || 'en';
+    const t = TRANSLATIONS[lang];
 
     try {
       if (authMode === 'login') {
@@ -283,11 +420,34 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
         if (error) throw error;
 
         setAuthError('');
-        setAuthMessage('Account succesvol aangemaakt. Je kunt nu inloggen.');
+        setAuthMessage(t.accountCreated);
         setAuthMode('login');
       }
     } catch (err) {
-      setAuthError(err.message || 'Authentication failed');
+      setAuthError(translateAuthError(err.message));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!isSyncEnabled()) return;
+
+    const lang = settings.language || 'en';
+    const t = TRANSLATIONS[lang];
+
+    setAuthError('');
+    setAuthMessage('');
+    setAuthLoading(true);
+
+    try {
+      const redirectTo = `${getAppUrl()}/`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+      setAuthMessage(t.emailSent);
+    } catch (err) {
+      setAuthError(translateAuthError(err.message));
     } finally {
       setAuthLoading(false);
     }
@@ -302,10 +462,13 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
+        options: {
+          redirectTo: `${getAppUrl()}/`,
+        },
       });
       if (error) throw error;
     } catch (err) {
-      setAuthError(err.message || 'GitHub sign-in failed');
+      setAuthError(err.message || 'GitHub sign-in mislukt');
     }
   };
 
@@ -314,25 +477,28 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     await supabase.auth.signOut();
   };
 
+  const lang = settings.language || 'en';
+  const t = TRANSLATIONS[lang];
+
   return (
     <div className="fixed inset-0 z-[200] flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
       <div
-        className="relative w-80 bg-white shadow-2xl h-full overflow-y-auto flex flex-col"
+        className="relative w-80 bg-white dark:bg-slate-900 shadow-2xl h-full overflow-y-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-5 border-b border-slate-100 flex-shrink-0">
-          <h2 className="text-base font-semibold text-slate-800">Settings</h2>
+        <div className="flex items-center justify-between px-5 py-5 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">{t.settings}</h2>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>
 
-        <div className="flex border-b border-slate-100 flex-shrink-0">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
           {[
-            { id: 'appearance', label: 'Appearance', icon: Palette },
-            { id: 'ai', label: 'AI Settings', icon: Cpu },
-            { id: 'account', label: 'Account', icon: User },
+            { id: 'appearance', label: t.appearance, icon: Palette },
+            { id: 'ai', label: t.aiSettings, icon: Cpu },
+            { id: 'account', label: t.account, icon: User },
           ].map((t) => {
             const Icon = t.icon;
             return (
@@ -341,7 +507,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 onClick={() => setTab(t.id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors ${tab === t.id
                   ? 'border-teal-500 text-teal-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200'
                   }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -355,17 +521,18 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
           {tab === 'appearance' && (
             <>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5" /> App Theme
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5" /> {t.appTheme}
                 </p>
                 <div className="space-y-4">
                   {THEME_GROUPS.map((group) => {
                     const groupThemes = Object.entries(APP_THEMES).filter(([, t]) => t.group === group.key);
                     const isMuted = group.key === 'muted';
+                    const groupLabel = group.key === 'special' ? t.curated : t.mutedTones;
 
                     return (
                       <div key={group.key}>
-                        <p className="text-xs text-slate-400 mb-2 font-medium">{group.label}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-2 font-medium">{groupLabel}</p>
                         {isMuted ? (
                           <div className="flex flex-wrap gap-2.5 px-1 py-1">
                             {groupThemes.map(([key, theme]) => (
@@ -375,7 +542,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                                 title={theme.label}
                                 className={`w-9 h-9 rounded-full border-2 transition-all p-0.5 relative group ${currentTheme === key
                                   ? 'border-teal-500 scale-110 shadow-sm'
-                                  : 'border-white shadow-sm hover:border-slate-200'
+                                  : 'border-white shadow-sm hover:border-slate-200 dark:border-slate-700'
                                   }`}
                               >
                                 <div className="w-full h-full rounded-full" style={{ background: theme.bg }} />
@@ -395,7 +562,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                                 onClick={() => onChange({ ...settings, appTheme: key })}
                                 className={`flex items-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all text-left ${currentTheme === key
                                   ? 'border-teal-500 bg-teal-50 text-teal-700'
-                                  : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                                  : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300'
                                   }`}
                               >
                                 {theme.icon ? (
@@ -415,8 +582,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div>
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  <ALargeSmall className="w-3.5 h-3.5" /> Font Size</p>
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                  <ALargeSmall className="w-3.5 h-3.5" /> {t.fontSize}</p>
                 <div className="grid grid-cols-4 gap-2">
                   {FONT_SIZES.map((f) => (
                     <button
@@ -424,7 +591,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       onClick={() => onChange({ ...settings, fontSize: f.value })}
                       className={`py-2 rounded-lg border text-xs font-medium transition-all ${settings.fontSize === f.value
                         ? 'border-teal-500 bg-teal-50 text-teal-700'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300'
                         }`}
                     >
                       {f.label}
@@ -434,8 +601,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5" /> Language
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" /> {t.language}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -447,7 +614,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       onClick={() => onChange({ ...settings, language: lang.value })}
                       className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-all text-left ${settings.language === lang.value || (!settings.language && lang.value === 'en')
                         ? 'border-teal-500 bg-teal-50 text-teal-700'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300'
                         }`}
                     >
                       {lang.label}
@@ -461,8 +628,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
           {tab === 'ai' && (
             <div className="space-y-6">
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5" /> AI Provider
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5" /> {t.aiProvider}
                 </p>
                 <select
                   value={settings.aiProvider || 'groq'}
@@ -474,7 +641,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       aiModel: AI_PROVIDERS[newProvider].models[0].id,
                     });
                   }}
-                  className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                  className="w-full h-10 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900"
                 >
                   {Object.entries(AI_PROVIDERS).map(([id, p]) => (
                     <option key={id} value={id}>
@@ -486,7 +653,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Model Selection</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider">{t.modelSelection}</p>
                   {settings.aiProvider === 'openrouter' && (
                     <button
                       onClick={handleFetchOR}
@@ -498,7 +665,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       ) : (
                         <RefreshCw className="w-2.5 h-2.5" />
                       )}
-                      Sync Models
+                      {t.syncModels}
                     </button>
                   )}
                 </div>
@@ -510,7 +677,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       : AI_PROVIDERS[settings.aiProvider || 'groq'].models[0].id)
                   }
                   onChange={(e) => onChange({ ...settings, aiModel: e.target.value })}
-                  className="w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                  className="w-full h-10 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900"
                 >
                   {settings.aiProvider === 'openrouter' && orModels.length > 0
                     ? orModels.map((m) => (
@@ -526,9 +693,9 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 </select>
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" /> API Keys
+              <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" /> {t.apiKeys}
                 </p>
 
                 {[
@@ -539,7 +706,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 ].map((item) => (
                   <div key={item.key} className="space-y-1">
                     <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</label>
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{item.label}</label>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => handleValidate(item.prov)}
@@ -555,20 +722,20 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                           {valStatus[item.prov] === 'success' && <ShieldCheck className="w-2.5 h-2.5" />}
                           {valStatus[item.prov] === 'error' && <ShieldAlert className="w-2.5 h-2.5" />}
                           {valStatus[item.prov] === 'success'
-                            ? 'Verbonden'
+                            ? t.connected
                             : valStatus[item.prov] === 'error'
-                              ? 'Fout'
+                              ? t.error
                               : valStatus[item.prov] === 'loading'
-                                ? 'Checken...'
-                                : 'Check Verbinding'}
+                                ? t.checking
+                                : t.checkConnection}
                         </button>
                         <a
                           href={item.link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] text-slate-400 hover:text-teal-600 transition-colors"
+                          className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-teal-600 transition-colors"
                         >
-                          Get Key
+                          {t.getKey}
                         </a>
                       </div>
                     </div>
@@ -577,15 +744,15 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       value={settings[item.key] || ''}
                       onChange={(e) => onChange({ ...settings, [item.key]: e.target.value })}
                       placeholder={item.ph}
-                      className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                      className="w-full h-9 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900"
                     />
                   </div>
                 ))}
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                  * Je API-keys en modelkeuzes worden lokaal opgeslagen, en ook aan je account gekoppeld als je bent ingelogd.
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 leading-relaxed italic">
+                  {t.apiKeyNote}
                 </p>
               </div>
             </div>
@@ -595,14 +762,15 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
             <div className="space-y-4">
               {!isSyncEnabled() ? (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p className="text-xs text-amber-700 font-medium">Sync is not configured.</p>
+                  <p className="text-xs text-amber-700 font-medium">{t.syncNotConfigured}</p>
                   <p className="text-[10px] text-amber-600 mt-1">
-                    Add Supabase keys to your .env file to enable authentication and cross-device sync.
+                    {t.syncNote}
                   </p>
                 </div>
               ) : loading ? (
-                <div className="text-center py-8 text-slate-400">
-                  <p className="text-sm">Checking status...</p>
+                <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-500" />
+                  <p className="text-sm">{t.loadingSession}</p>
                 </div>
               ) : user ? (
                 <>
@@ -610,25 +778,25 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white text-2xl font-bold mb-3 shadow-lg">
                       {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
                     </div>
-                    <p className="text-base font-semibold text-slate-800">
+                    <p className="text-base font-semibold text-slate-800 dark:text-slate-100">
                       {user.user_metadata?.full_name || user.email.split('@')[0]}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">Authenticated User</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-0.5">{t.authenticatedUser}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                      <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                      <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-slate-400 mb-0.5">Email</p>
-                        <p className="text-sm text-slate-700 font-medium">{user.email}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{t.email}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">{user.email}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                      <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                      <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-slate-400 mb-0.5">Member since</p>
-                        <p className="text-sm text-slate-700 font-medium">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{t.memberSince}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">
                           {new Date(user.created_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -639,7 +807,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     onClick={handleSignOut}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors mt-2"
                   >
-                    <LogOut className="w-4 h-4" /> Sign out
+                    <LogOut className="w-4 h-4" /> {t.signOut}
                   </button>
                 </>
               ) : (
@@ -648,103 +816,182 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-3">
                       <User className="w-6 h-6" />
                     </div>
-                    <h3 className="text-base font-bold text-slate-800">
-                      {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
+                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                      {authMode === 'forgot' ? t.forgotPasswordTitle : authMode === 'login' ? t.welcomeBack : t.createAccount}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1">Sync your history and settings across devices</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-1">
+                      {authMode === 'forgot'
+                        ? t.forgotPasswordSub
+                        : t.syncSub}
+                    </p>
                   </div>
 
-                  <form onSubmit={handleEmailAuth} className="space-y-3">
-                    <div className="space-y-1">
-                      <label htmlFor="email" className="text-[10px] font-bold text-slate-400 uppercase ml-1">
-                        Email
-                      </label>
-                      <div className="relative">
-                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          id="email"
-                          name="email"
-                          required
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
-                          placeholder="name@university.edu"
-                          autoComplete="username email"
-                        />
+                  {authMode === 'forgot' ? (
+                    /* ── Forgot Password form ── */
+                    <form onSubmit={handleForgotPassword} className="space-y-3">
+                      <div className="space-y-1">
+                        <label htmlFor="forgot-email" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                          {t.email}
+                        </label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                          <input
+                            id="forgot-email"
+                            name="email"
+                            required
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                            placeholder="name@university.edu"
+                            autoComplete="email"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-1">
-                      <label htmlFor="password" className="text-[10px] font-bold text-slate-400 uppercase ml-1">
-                        Password
-                      </label>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          id="password"
-                          name="password"
-                          required
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
-                          placeholder="••••••••"
-                          autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                        />
+                      {authError && (
+                        <p className="text-[11px] text-center font-medium text-red-500">{authError}</p>
+                      )}
+                      {authMessage && (
+                        <p className="text-[11px] text-center font-medium text-green-600 bg-green-50 border border-green-200 rounded-xl p-3 leading-relaxed">{authMessage}</p>
+                      )}
+
+                      <Button type="submit" disabled={authLoading} className="w-full h-10 bg-teal-600 hover:bg-teal-700 rounded-xl gap-2 shadow-md shadow-teal-500/10">
+                        {authLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> {t.sending}</>
+                        ) : (
+                          <><KeyRound className="w-4 h-4" /> {t.sendResetLink}</>
+                        )}
+                      </Button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMessage(''); }}
+                        className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-teal-600 transition-colors mt-1"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" /> {t.backToLogin}
+                      </button>
+                    </form>
+                  ) : (
+                    /* ── Login / Signup form ── */
+                    <form onSubmit={handleEmailAuth} className="space-y-3">
+                      <div className="space-y-1">
+                        <label htmlFor="email" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                          {t.email}
+                        </label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                          <input
+                            id="email"
+                            name="email"
+                            required
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                            placeholder="name@university.edu"
+                            autoComplete="username email"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    {authError && (
-                      <p className="text-[11px] text-center font-medium text-red-500">{authError}</p>
-                    )}
-                    {authMessage && (
-                      <p className="text-[11px] text-center font-medium text-green-500">{authMessage}</p>
-                    )}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between ml-1">
+                          <label htmlFor="password" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                            {t.password}
+                          </label>
+                          {authMode === 'login' && (
+                            <button
+                              type="button"
+                              onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthMessage(''); }}
+                              className="text-[10px] text-teal-600 hover:text-teal-700 hover:underline font-medium transition-colors"
+                            >
+                              {t.forgotPasswordLink}
+                            </button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                          <input
+                            id="password"
+                            name="password"
+                            required
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full h-10 pl-10 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                            placeholder="••••••••"
+                            autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((v) => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-300 transition-colors"
+                            tabIndex={-1}
+                            aria-label={showPassword ? 'Verberg wachtwoord' : 'Toon wachtwoord'}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
 
-                    <Button type="submit" disabled={authLoading} className="w-full h-10 bg-teal-600 hover:bg-teal-700 rounded-xl gap-2 shadow-md shadow-teal-500/10">
-                      {authLoading ? 'Processing...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
-                    </Button>
-                  </form>
+                      {authError && (
+                        <p className="text-[11px] text-center font-medium text-red-500 bg-red-50 border border-red-100 rounded-lg p-2 leading-relaxed">{authError}</p>
+                      )}
+                      {authMessage && (
+                        <p className="text-[11px] text-center font-medium text-green-600 bg-green-50 border border-green-200 rounded-lg p-2 leading-relaxed">{authMessage}</p>
+                      )}
 
-                  <div className="relative py-1">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-100"></div>
-                    </div>
-                    <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-300">
-                      <span className="bg-white px-2">Or continue with</span>
-                    </div>
-                  </div>
+                      <Button type="submit" disabled={authLoading} className="w-full h-10 bg-teal-600 hover:bg-teal-700 rounded-xl gap-2 shadow-md shadow-teal-500/10">
+                        {authLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> {t.processing}</>
+                        ) : authMode === 'login' ? t.signIn : t.signUp}
+                      </Button>
+                    </form>
+                  )}
 
-                  <div className="grid grid-cols-1 gap-2">
-                    <button
-                      onClick={handleOAuth}
-                      className="flex items-center justify-center gap-2 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-xs font-medium text-slate-600"
-                    >
-                      <Github className="w-4 h-4" />
-                      Sign in with GitHub
-                    </button>
-                  </div>
+                  {authMode !== 'forgot' && (
+                    <>
+                      <div className="relative py-1">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
+                        </div>
+                        <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-300">
+                          <span className="bg-white dark:bg-slate-900 px-2">{t.orContinueWith}</span>
+                        </div>
+                      </div>
 
-                  <p className="text-center text-xs text-slate-400">
-                    {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}{' '}
-                    <button
-                      onClick={() => {
-                        setAuthMode(authMode === 'login' ? 'signup' : 'login');
-                        setAuthError('');
-                        setAuthMessage('');
-                      }}
-                      className="text-teal-600 font-bold hover:underline"
-                    >
-                      {authMode === 'login' ? 'Sign Up' : 'Sign In'}
-                    </button>
-                  </p>
+                      <div className="grid grid-cols-1 gap-2">
+                        <button
+                          onClick={handleOAuth}
+                          className="flex items-center justify-center gap-2 h-10 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:bg-slate-800/50 transition-colors text-xs font-medium text-slate-600 dark:text-slate-300"
+                        >
+                          <Github className="w-4 h-4" />
+                          {t.signInWithGithub}
+                        </button>
+                      </div>
+
+                      <p className="text-center text-xs text-slate-400 dark:text-slate-500">
+                        {authMode === 'login' ? t.noAccount : t.alreadyAccount}{' '}
+                        <button
+                          onClick={() => {
+                            setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                            setAuthError('');
+                            setAuthMessage('');
+                          }}
+                          className="text-teal-600 font-bold hover:underline"
+                        >
+                          {authMode === 'login' ? t.signUp : t.signIn}
+                        </button>
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
-        <div className="px-5 py-4 mt-auto border-t border-slate-50 flex items-center justify-between text-[10px] text-slate-400 font-medium bg-slate-50/50">
+        <div className="px-5 py-4 mt-auto flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-medium bg-white dark:bg-slate-900">
           <span>BiBaBench Buddy</span>
           <span>v{pkg.version}</span>
         </div>

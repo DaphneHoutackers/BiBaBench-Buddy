@@ -47,6 +47,9 @@ After each answer, end with 1-2 short natural follow-up suggestions in italics, 
 *Should I calculate a dilution series?*`;
 
 const STORAGE_KEY = 'bibabenchbuddy_ai_chats';
+function getChatStorageKey(userId) {
+  return userId ? `${STORAGE_KEY}_${userId}` : STORAGE_KEY;
+}
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -80,9 +83,10 @@ function createNewChat() {
   };
 }
 
-function loadChats() {
+function loadChats(userId) {
+  if (!userId) return null; // No history for guests
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getChatStorageKey(userId));
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -90,15 +94,16 @@ function loadChats() {
   }
 }
 
-function saveChats(chats) {
+function saveChats(chats, userId) {
+  if (!userId) return; // Don't save for guests
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+    localStorage.setItem(getChatStorageKey(userId), JSON.stringify(chats));
   } catch {}
 }
 
-export default function AIAssistant({ historyData }) {
+export default function AIAssistant({ historyData, settings, user }) {
   const initChats = () => {
-    const saved = loadChats();
+    const saved = loadChats(user?.id);
     if (saved && saved.length > 0) return saved;
     return [createNewChat()];
   };
@@ -107,7 +112,7 @@ export default function AIAssistant({ historyData }) {
 
   const [chats, setChats] = useState(initChats);
   const [activeChatId, setActiveChatId] = useState(() => {
-    const saved = loadChats();
+    const saved = loadChats(user?.id);
     return saved && saved.length > 0 ? saved[0].id : null;
   });
   const [input, setInput] = useState('');
@@ -129,8 +134,8 @@ export default function AIAssistant({ historyData }) {
   }, [activeChatId, chats]);
 
   useEffect(() => {
-    saveChats(chats);
-  }, [chats]);
+    saveChats(chats, user?.id);
+  }, [chats, user]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -187,6 +192,7 @@ export default function AIAssistant({ historyData }) {
       const history = msgs.slice(-6).map((m) => `${m.role}: ${m.content}`).join('\n');
 
       const result = await InvokeLLM({
+        settings,
         prompt: `Based on this lab calculation conversation, suggest 4 short follow-up questions the user might want to ask next. Make them specific, relevant and useful for a molecular biology lab context. Return ONLY a JSON object with a "suggestions" array of 4 strings.\n\nConversation:\n${history}`,
         response_json_schema: {
           type: 'object',
@@ -255,6 +261,7 @@ export default function AIAssistant({ historyData }) {
     let responseText;
     try {
       const response = await InvokeLLM({
+        settings,
         prompt: contextPrompt,
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
       });
@@ -458,25 +465,20 @@ export default function AIAssistant({ historyData }) {
                   <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tight">
                     Using{' '}
                     <span className="text-slate-500">
-                      {(() => {
-                        try {
-                          const s = JSON.parse(localStorage.getItem('bibabenchbuddy_settings') || '{}');
-                          const p = s.aiProvider || 'groq';
-                          const m =
-                            s.aiModel ||
-                            (p === 'groq'
-                              ? 'llama-3.3-70b-versatile'
-                              : p === 'openai'
-                              ? 'gpt-4o'
-                              : p === 'gemini'
-                              ? 'gemini-2.0-flash'
-                              : 'google/gemini-2.0-flash-001');
-                          return `${m} via ${p.toUpperCase()}`;
-                        } catch {
-                          return 'No AI provider configured';
-                        }
-                      })()}
-                    </span>
+                    {(() => {
+                      const p = settings?.aiProvider || 'groq';
+                      const m =
+                        settings?.aiModel ||
+                        (p === 'groq'
+                          ? 'llama-3.3-70b-versatile'
+                          : p === 'openai'
+                          ? 'gpt-4o'
+                          : p === 'gemini'
+                          ? 'gemini-2.0-flash'
+                          : 'google/gemini-2.0-flash-001');
+                      return `${m} via ${p.toUpperCase()}`;
+                    })()}
+                  </span>
                   </span>
                 </div>
 

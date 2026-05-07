@@ -44,7 +44,7 @@ function NumInput({ value, onChange, ...props }) {
 
 // DNA mass display in red
 function DnaMass({ ng }) {
-  return <span className="text-rose-600 font-semibold">({ng} ng)</span>;
+  return <span className="text-rose-600 dark:text-rose-400 font-semibold">({ng} ng)</span>;
 }
 
 export default function DigestCalculator({ externalTab, onTabChange, historyData, isActive }) {
@@ -270,13 +270,13 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
           <Scissors className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Restriction Digest</h2>
-          <p className="text-sm text-slate-500">Single or batch digest mix calculator</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Restriction Digest</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Single or batch digest mix calculator</p>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
-        <TabsList className="bg-slate-100">
+        <TabsList className="bg-slate-100 dark:bg-slate-800">
           <TabsTrigger value="single" className="flex items-center gap-2">
             <Scissors className="w-4 h-4" />
             Single Digest
@@ -290,45 +290,45 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         {/* ─── SINGLE ─── */}
         <TabsContent value="single" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
               <CardHeader className="pb-4">
-                <CardTitle className="text-base font-medium text-slate-700">Parameters</CardTitle>
+                <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Parameters</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">DNA Conc. (ng/µL)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">DNA Conc. (ng/µL)</Label>
                     <NumInput placeholder="e.g., 100" value={dnaConc} onChange={e => setDnaConc(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Desired DNA (ng)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Desired DNA (ng)</Label>
                     <NumInput placeholder="e.g., 1000" value={desiredDna} onChange={e => setDesiredDna(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Total Volume (µL)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Total Volume (µL)</Label>
                     <NumInput placeholder="e.g., 20" value={totalVolume} onChange={e => setTotalVolume(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Volume per Enzyme (µL)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Volume per Enzyme (µL)</Label>
                     <NumInput placeholder="e.g., 1" value={enzymeVolume} onChange={e => setEnzymeVolume(e.target.value)} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">DNA Type</Label>
+                  <Label className="text-sm text-slate-600 dark:text-slate-200">DNA Type</Label>
                   <div className="flex gap-2">
                     {['insert', 'vector'].map(role => (
                       <button key={role} onClick={() => setDnaRole(role)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-800/50'}`}>
                         {role === 'insert' ? '🧬 Insert' : '🔵 Vector'}
                       </button>
                     ))}
                   </div>
                   {dnaRole === 'vector' && (
-                    <p className="text-xs text-blue-600">Vector selected — FastAP (1 µL) will be added for dephosphorylation to reduce re-ligation.</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Vector selected — FastAP (1 µL) will be added for dephosphorylation to reduce re-ligation.</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">Enzyme Type</Label>
+                  <Label className="text-sm text-slate-600 dark:text-slate-200">Enzyme Type</Label>
                   <Select value={enzymeType} onValueChange={setEnzymeType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -339,11 +339,11 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     </SelectContent>
                   </Select>
                   {enzymeType === 'FastDigest' && (
-                    <p className="text-xs text-blue-600">FastDigest: 5-15 min @ 37°C, heat-inactivate @ 65°C for 5 min</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">FastDigest: 5-15 min @ 37°C, heat-inactivate @ 65°C for 5 min</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">Search & Add Enzymes</Label>
+                  <Label className="text-sm text-slate-600 dark:text-slate-200">Search & Add Enzymes</Label>
                   <EnzymeSearch
                     selectedEnzymes={selectedEnzymes}
                     onAdd={(e) => setSelectedEnzymes(prev => prev.includes(e) ? prev : [...prev, e])}
@@ -357,18 +357,18 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
             <div className="space-y-4">
               {results?.dilution && (
-                <Card className="shadow-sm bg-amber-50 border border-amber-200">
-                  <CardContent className="p-4 text-sm text-amber-800 font-medium">
+                <Card className="shadow-sm bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+                  <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-300 font-medium">
                     {generateDilutionWarning('DNA', results.dilution, LOW_VOL)}
                   </CardContent>
                 </Card>
               )}
 
-              <Card className={`border-0 shadow-sm transition-all ${results?.isValid ? 'bg-gradient-to-br from-rose-50 to-orange-50' : 'bg-white/80'}`}>
+              <Card className={`border-0 shadow-sm transition-all ${results?.isValid ? 'bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
-                      <FlaskConical className="w-4 h-4 text-rose-600" /> Digest Mix
+                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <FlaskConical className="w-4 h-4 text-rose-600 dark:text-rose-400" /> Digest Mix
                     </CardTitle>
                     {results?.isValid && (
                       <div className="flex gap-2">
@@ -389,44 +389,44 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                 </CardHeader>
                 <CardContent>
                   {results ? (
-                    <div className="space-y-1 bg-white p-4 rounded-lg" ref={singleTableRef}>
+                    <div className="space-y-1 bg-white dark:bg-slate-900 p-4 rounded-lg" ref={singleTableRef}>
                       {!results.isValid && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm mb-2">
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-400 text-sm mb-2">
                           ⚠ Volumes exceed total. Reduce DNA amount or increase total volume.
                         </div>
                       )}
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="bg-blue-50">
-                            <th className="text-left py-2 px-3 font-bold text-slate-700 rounded-l">Component</th>
-                            <th className="text-right py-2 px-3 font-bold text-slate-700 rounded-r">Volume (µL)</th>
+                          <tr className="bg-blue-50 dark:bg-blue-900/30">
+                            <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-l">Component</th>
+                            <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-r">Volume (µL)</th>
                           </tr>
                         </thead>
                         <tbody>
                           {singleRows.map((row, i) => (
-                            <tr key={i} className="border-b border-slate-100">
-                              <td className={`py-2 px-3 ${i === 0 ? 'font-semibold text-slate-700' : 'text-slate-600'}`}>
+                            <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
+                              <td className={`py-2 px-3 ${i === 0 ? 'font-semibold text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
                                 {row.label}
                                 {row.isDna && <> <DnaMass ng={desiredDna} /></>}
-                                {row.isLow && <span className="text-rose-600 text-xs ml-1">* (see dilution)</span>}
+                                {row.isLow && <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">* (see dilution)</span>}
                               </td>
-                              <td className={`py-2 px-3 text-right font-mono ${row.isDna ? 'text-red-600 font-semibold' : 'text-slate-700'}${row.isLow ? ' text-rose-600' : ''}`}>
+                              <td className={`py-2 px-3 text-right font-mono ${row.isDna ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-700 dark:text-slate-200'}${row.isLow ? ' text-rose-600 dark:text-rose-400' : ''}`}>
                                 {row.vol}
                               </td>
                             </tr>
                           ))}
-                          <tr style={{ borderTop: '2px solid #cbd5e1', background: '#f8fafc' }}>
-                            <td className="py-2 px-3 font-bold text-slate-800">Total (µL)</td>
-                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-800">{totalVolume}</td>
+                          <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+                            <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">Total (µL)</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{totalVolume}</td>
                           </tr>
                         </tbody>
                       </table>
-                      <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
-                        <p className="text-xs text-blue-700"><strong>Protocol:</strong> {results.protocol}</p>
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg mt-2">
+                        <p className="text-xs text-blue-700 dark:text-blue-300"><strong>Protocol:</strong> {results.protocol}</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-slate-400">
+                    <div className="text-center py-8 text-slate-400 dark:text-slate-500">
                       <Scissors className="w-12 h-12 mx-auto mb-3 opacity-30" />
                       <p>Enter parameters to calculate digest mix</p>
                     </div>
@@ -440,22 +440,22 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         {/* ─── BATCH ─── */}
         <TabsContent value="batch" className="mt-6">
           <div className="space-y-6">
-            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
               <CardHeader className="pb-4">
-                <CardTitle className="text-base font-medium text-slate-700">Batch Settings</CardTitle>
+                <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Batch Settings</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Total Volume (µL)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Total Volume (µL)</Label>
                     <NumInput value={batchTotalVol} onChange={e => setBatchTotalVol(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Vol per Enzyme (µL)</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Vol per Enzyme (µL)</Label>
                     <NumInput value={batchEnzymeVol} onChange={e => setBatchEnzymeVol(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Enzyme Type</Label>
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Enzyme Type</Label>
                     <Select value={batchEnzymeType} onValueChange={(v) => {
                       setBatchEnzymeType(v);
                       setBatchSamples(prev => prev.map(s => ({ ...s, enzymes: [] })));
@@ -471,16 +471,16 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   </div>
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-slate-100 grid sm:grid-cols-2 gap-6">
+                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 grid sm:grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-slate-700">Default DNA Mass (ng)</Label>
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Default DNA Mass (ng)</Label>
                     <div className="flex gap-2">
                       <NumInput value={batchDefaultNg} onChange={e => setBatchDefaultNg(e.target.value)} className="flex-1" />
-                      <Button variant="outline" size="sm" onClick={applyDefaultNgToAll} className="whitespace-nowrap">Apply to All</Button>
+                      <Button variant="outline" size="sm" onClick={applyDefaultNgToAll} className="whitespace-nowrap dark:text-slate-200">Apply to All</Button>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-slate-700">Default Enzymes</Label>
+                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Default Enzymes</Label>
                     <div className="space-y-2">
                       <EnzymeSearch
                         selectedEnzymes={batchDefaultEnzymes}
@@ -497,10 +497,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm bg-white/80">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium text-slate-700">DNA Samples</CardTitle>
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">DNA Samples</CardTitle>
                   <Button variant="outline" size="sm" onClick={() => {
                     const id = Math.max(...batchSamples.map(s => s.id)) + 1;
                     setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [] }]);
@@ -512,36 +512,36 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
               <CardContent>
                 <div className="space-y-4">
                   {batchSamples.map(s => (
-                    <div key={s.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
+                    <div key={s.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
                       <div className="flex gap-3 items-center flex-wrap">
                         <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm" placeholder="Name" />
                         <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-slate-400 ml-1">Conc. (ng/µL)</Label>
+                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 dark:text-slate-200 ml-1">Conc. (ng/µL)</Label>
                           <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc." />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-slate-400 ml-1">Desired (ng)</Label>
+                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 dark:text-slate-200 ml-1">Desired (ng)</Label>
                           <div className="flex items-center gap-1.5">
                             <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired" />
-                            <span className="text-xs font-semibold text-slate-400">ng</span>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">ng</span>
                           </div>
                         </div>
                         <div className="flex gap-1">
                           {['insert', 'vector'].map(role => (
                             <button key={role} onClick={() => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, dnaRole: role } : x))}
-                              className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                              className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-800/50'}`}>
                               {role === 'insert' ? '🧬' : '🔵'} {role}
                             </button>
                           ))}
                         </div>
                         {batchSamples.length > 1 && (
-                          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-500" onClick={() => setBatchSamples(batchSamples.filter(x => x.id !== s.id))}>
+                          <Button variant="ghost" size="icon" className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setBatchSamples(batchSamples.filter(x => x.id !== s.id))}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs text-slate-500">Enzymes for {s.name}</Label>
+                        <Label className="text-xs text-slate-700 dark:text-slate-200">Enzymes for {s.name}</Label>
                         <EnzymeSearch
                           selectedEnzymes={s.enzymes}
                           onAdd={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.includes(e) ? x.enzymes : [...x.enzymes, e] } : x))}
@@ -553,20 +553,20 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       </div>
                     </div>
                   ))}
-                  <p className="text-xs text-slate-400 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
                 </div>
               </CardContent>
             </Card>
 
             {batchResults && (
-              <Card className="border-0 shadow-sm bg-gradient-to-br from-rose-50 to-orange-50">
+              <Card className="border-0 shadow-sm bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/30">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
-                      <Table className="w-4 h-4 text-rose-600" /> Batch Digest Table
+                    <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <Table className="w-4 h-4 text-rose-600 dark:text-rose-400" /> Batch Digest Table
                     </CardTitle>
                     <div className="flex gap-2">
-                      <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
+                      <button onClick={copyBatch} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg transition-colors">
                         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         {copied ? 'Copied!' : 'Copy Table'}
                       </button>
@@ -575,10 +575,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={batchTableRef}>
+                  <div className="overflow-x-auto bg-white dark:bg-slate-900 p-4 rounded-lg" ref={batchTableRef}>
                     {/* Dilution warnings moved inside batch tableRef for image copy */}
                     {batchResults.some(r => r.dnaLow) && (
-                      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                      <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 space-y-1">
                         <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
                         {batchResults.filter(r => r.dnaLow).map(r => (
                           <div key={r.id} className="font-medium">
@@ -589,39 +589,39 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                     )}
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-blue-50">
-                          <th className="text-left py-2 px-3 font-bold text-slate-700">Component</th>
+                        <tr className="bg-blue-50 dark:bg-blue-900/30">
+                          <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Component</th>
                           {batchResults.map((r, i) => (
-                            <th key={i} className="text-right py-2 px-3 font-bold text-slate-700">{r.name}</th>
+                            <th key={i} className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">{r.name}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 font-semibold text-slate-700">MQ (µL)</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 font-semibold text-slate-700 dark:text-slate-200">MQ (µL)</td>
                           {batchResults.map((r, i) => <td key={i} className="text-right py-2 px-3 font-mono">{Math.max(0, r.waterVol).toFixed(2)}</td>)}
                         </tr>
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">
-                            DNA (µL) <span className="text-rose-600 text-xs">(ng varies)</span>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
+                            DNA (µL) <span className="text-rose-600 dark:text-rose-400 text-xs">(ng varies)</span>
                           </td>
                           {batchResults.map((r, i) => (
-                            <td key={i} className={`text-right py-2 px-3 font-mono font-semibold text-red-600 ${r.dnaLow ? 'text-rose-600' : ''}`}>
+                            <td key={i} className={`text-right py-2 px-3 font-mono font-semibold text-red-600 dark:text-red-400 ${r.dnaLow ? 'text-rose-600 dark:text-rose-400' : ''}`}>
                               {r.dnaVolume.toFixed(2)}{r.dnaLow ? '*' : ''}
                             </td>
                           ))}
                         </tr>
-                        <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-600">{batchBufferLabel} (µL)</td>
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-300">{batchBufferLabel} (µL)</td>
                           {batchResults.map((r, i) => <td key={i} className="text-right py-2 px-3 font-mono">{r.bufferVol.toFixed(2)}</td>)}
                         </tr>
                         {Array.from({ length: batchMaxEnzymes }, (_, j) => (
-                          <tr key={j} className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-600">RE{j + 1} ({batchEnzymeVol}µL)</td>
+                          <tr key={j} className="border-b border-slate-100 dark:border-slate-800">
+                            <td className="py-2 px-3 text-slate-600 dark:text-slate-300">RE{j + 1} ({batchEnzymeVol}µL)</td>
                             {batchResults.map((r, i) => (
                               <td key={i} className="text-right py-2 px-3 font-mono text-sm">
                                 {r.enzymes[j] ? (
-                                  <span className="text-rose-700 font-semibold">{getEnzymeDisplayName(r.enzymes[j])}</span>
+                                  <span className="text-rose-700 dark:text-rose-300 font-semibold">{getEnzymeDisplayName(r.enzymes[j])}</span>
                                 ) : (
                                   <span className="text-slate-300">–</span>
                                 )}
@@ -630,19 +630,19 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           </tr>
                         ))}
                         {batchResults.some(r => r.fastApVol > 0) && (
-                          <tr className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-600">FastAP (µL) <span className="text-xs text-blue-500">(vector only)</span></td>
+                          <tr className="border-b border-slate-100 dark:border-slate-800">
+                            <td className="py-2 px-3 text-slate-600 dark:text-slate-300">FastAP (µL) <span className="text-xs text-blue-500 dark:text-blue-400">(vector only)</span></td>
                             {batchResults.map((r, i) => <td key={i} className="text-right py-2 px-3 font-mono">{r.fastApVol > 0 ? r.fastApVol.toFixed(1) : '–'}</td>)}
                           </tr>
                         )}
-                        <tr style={{ borderTop: '2px solid #cbd5e1', background: '#f8fafc' }}>
-                          <td className="py-2 px-3 font-bold text-slate-800">Total (µL)</td>
-                          {batchResults.map((_, i) => <td key={i} className="text-right py-2 px-3 font-mono font-bold text-slate-800">{batchTotalVol}</td>)}
+                        <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
+                          <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">Total (µL)</td>
+                          {batchResults.map((_, i) => <td key={i} className="text-right py-2 px-3 font-mono font-bold text-slate-800 dark:text-slate-100">{batchTotalVol}</td>)}
                         </tr>
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-slate-400 mt-2">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
                     Buffer: {batchBufferLabel}
                     {batchEnzymeType === 'FastDigest' && ' · Protocol: 37°C, 5-15 min'}
                     {batchEnzymeType !== 'FastDigest' && ' · Protocol: 37°C, 1-2 hours'}

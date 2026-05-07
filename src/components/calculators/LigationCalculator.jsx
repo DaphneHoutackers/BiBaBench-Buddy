@@ -97,22 +97,22 @@ function MixTable({ rows, totalVolume }) {
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="bg-blue-50">
-          <th className="text-left py-1.5 px-3 font-bold text-slate-700 rounded-l">Component</th>
+        <tr className="bg-blue-50 dark:bg-blue-900/30">
+          <th className="text-left py-1.5 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-l">Component</th>
           {rows[0]?.cols?.map((col, i) => (
-            <th key={i} className="text-right py-1.5 px-3 font-bold text-slate-700">{col.header}</th>
+            <th key={i} className="text-right py-1.5 px-3 font-bold text-slate-700 dark:text-slate-200">{col.header}</th>
           ))}
         </tr>
       </thead>
       <tbody>
         {rows.map((row, i) => (
-          <tr key={i} className={row.isTotal ? 'border-t-2 border-slate-300 bg-slate-50' : 'border-b border-slate-100'}>
-            <td className={`py-1.5 px-3 ${row.isTotal ? 'font-bold text-slate-800' : row.isMQ ? 'font-semibold text-slate-700' : 'text-slate-600'}`}>
+          <tr key={i} className={row.isTotal ? 'border-t-2 border-slate-300 bg-slate-50 dark:bg-slate-800/50' : 'border-b border-slate-100 dark:border-slate-800'}>
+            <td className={`py-1.5 px-3 ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100' : row.isMQ ? 'font-semibold text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
               {row.label}
-              {row.subLabel && <span className="text-rose-600 font-semibold ml-1">({row.subLabel})</span>}
+              {row.subLabel && <span className="text-rose-600 dark:text-rose-400 font-semibold ml-1">({row.subLabel})</span>}
             </td>
             {row.cols?.map((col, j) => (
-              <td key={j} className={`py-1.5 px-3 text-right font-mono ${row.isTotal ? 'font-bold text-slate-800' : col.isDna ? 'text-red-600 font-semibold' : col.isDash ? 'text-slate-400' : 'text-slate-700'}`}>
+              <td key={j} className={`py-1.5 px-3 text-right font-mono ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100' : col.isDna ? 'text-red-600 dark:text-red-400 font-semibold' : col.isDash ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
                 {col.val}
               </td>
             ))}
@@ -226,28 +226,28 @@ function SingleLigation({ historyData, isActive, sessionId }) {
         {/* Row 1: Reaction settings + DNA cards side by side */}
         <div className="flex gap-3 flex-wrap sm:flex-nowrap">
           {/* Reaction Settings */}
-          <Card className="border border-slate-200 shadow-sm bg-white/80 backdrop-blur flex-shrink-0 w-full sm:w-auto">
-            <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700">Reaction Settings</CardTitle></CardHeader>
+          <Card className="border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur flex-shrink-0 w-full sm:w-auto">
+            <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reaction Settings</CardTitle></CardHeader>
             <CardContent className="pb-3">
               <div className="grid grid-cols-1 gap-2 min-w-[130px]">
                 <div>
-                  <Label className="text-xs text-slate-500">Ligase</Label>
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase</Label>
                   <Select value={ligase} onValueChange={setLigase}>
-                    <SelectTrigger className="border-slate-200 h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border-slate-200 dark:border-slate-700 h-7 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.keys(LIGASES).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Ligase vol (µL)</Label>
-                  <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 h-7 text-xs" />
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase vol (µL)</Label>
+                  <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Total vol (µL)</Label>
-                  <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 h-7 text-xs" />
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Total vol (µL)</Label>
+                  <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
                 </div>
                 <div className="flex items-center gap-2 pt-0.5">
                   <Switch checked={usePEG} onCheckedChange={setUsePEG} className="scale-90" />
-                  <Label className="text-xs text-slate-600">PEG4000{usePEG && <span className="text-slate-400 ml-1">({pegVol.toFixed(1)} µL)</span>}</Label>
+                  <Label className="text-xs text-slate-600 dark:text-slate-200">PEG4000{usePEG && <span className="text-slate-400 dark:text-slate-500 ml-1">({pegVol.toFixed(1)} µL)</span>}</Label>
                 </div>
               </div>
             </CardContent>
@@ -256,32 +256,32 @@ function SingleLigation({ historyData, isActive, sessionId }) {
           {/* Vector + Inserts in one row */}
           <div className="flex gap-2 flex-1 overflow-x-auto pb-1">
             {/* Vector card */}
-            <Card className="border border-slate-200 shadow-sm bg-white/80 backdrop-blur flex-shrink-0">
+            <Card className="border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur flex-shrink-0">
               <CardHeader className="pb-1.5 pt-3">
-                <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vector</CardTitle>
+                <CardTitle className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Vector</CardTitle>
               </CardHeader>
               <CardContent className="pb-3 pt-0 space-y-1.5 min-w-[120px]">
                 <div>
-                  <Label className="text-xs text-slate-500">Conc. (ng/µL)</Label>
-                  <NumInput placeholder="50" value={vectorConc} onChange={e => setVectorConc(e.target.value)} className="h-7 text-xs border-slate-200" />
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Conc. (ng/µL)</Label>
+                  <NumInput placeholder="50" value={vectorConc} onChange={e => setVectorConc(e.target.value)} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Length (bp)</Label>
-                  <NumInput placeholder="5000" value={vectorLength} onChange={e => setVectorLength(e.target.value)} className="h-7 text-xs border-slate-200" />
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Length (bp)</Label>
+                  <NumInput placeholder="5000" value={vectorLength} onChange={e => setVectorLength(e.target.value)} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Amount (ng)</Label>
-                  <NumInput placeholder="50" value={vectorAmount} onChange={e => setVectorAmount(e.target.value)} className="h-7 text-xs border-slate-200" />
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Amount (ng)</Label>
+                  <NumInput placeholder="50" value={vectorAmount} onChange={e => setVectorAmount(e.target.value)} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                 </div>
               </CardContent>
             </Card>
 
             {/* Inserts card — all inserts in one card */}
-            <Card className="border border-slate-200 shadow-sm bg-white/80 backdrop-blur flex-shrink-0">
+            <Card className="border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur flex-shrink-0">
               <CardHeader className="pb-1.5 pt-3">
                 <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Inserts</CardTitle>
-                  <Button variant="outline" size="sm" onClick={addInsert} className="gap-1 h-6 text-xs px-2 border-slate-200"><Plus className="w-3 h-3" /></Button>
+                  <CardTitle className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Inserts</CardTitle>
+                  <Button variant="outline" size="sm" onClick={addInsert} className="gap-1 h-6 text-xs px-2 border-slate-200 dark:border-slate-700 dark:text-slate-200"><Plus className="w-3 h-3" /></Button>
                 </div>
               </CardHeader>
               <CardContent className="pb-3 pt-0">
@@ -290,27 +290,27 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                     <div key={ins.id} className="space-y-1.5 min-w-[110px]">
                       <div className="flex items-center justify-between">
                         <Input value={ins.name} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, name: e.target.value } : i))}
-                          className="h-5 text-xs border-0 bg-transparent p-0 font-semibold text-slate-500 w-full" placeholder="Insert" />
+                          className="h-5 text-xs border-0 bg-transparent p-0 font-semibold text-slate-700 dark:text-slate-200 w-full" placeholder="Insert" />
                         {inserts.length > 1 && (
-                          <button onClick={() => setInserts(inserts.filter(i => i.id !== ins.id))} className="text-slate-300 hover:text-red-500 ml-1 flex-shrink-0"><Trash2 className="w-3 h-3" /></button>
+                          <button onClick={() => setInserts(inserts.filter(i => i.id !== ins.id))} className="text-slate-300 hover:text-red-500 dark:text-red-400 ml-1 flex-shrink-0"><Trash2 className="w-3 h-3" /></button>
                         )}
                       </div>
                       <div>
-                        <Label className="text-xs text-slate-500">Conc. (ng/µL)</Label>
-                        <NumInput placeholder="30" value={ins.conc} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, conc: e.target.value } : i))} className="h-7 text-xs border-slate-200" />
+                        <Label className="text-xs text-slate-700 dark:text-slate-200">Conc. (ng/µL)</Label>
+                        <NumInput placeholder="30" value={ins.conc} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, conc: e.target.value } : i))} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                       </div>
                       <div>
-                        <Label className="text-xs text-slate-500">Length (bp)</Label>
-                        <NumInput placeholder="1200" value={ins.length} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, length: e.target.value } : i))} className="h-7 text-xs border-slate-200" />
+                        <Label className="text-xs text-slate-700 dark:text-slate-200">Length (bp)</Label>
+                        <NumInput placeholder="1200" value={ins.length} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, length: e.target.value } : i))} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                       </div>
                       <div>
-                        <Label className="text-xs text-slate-500 flex items-center gap-1">
+                        <Label className="text-xs text-slate-700 dark:text-slate-200 flex items-center gap-1">
                           Ratio (ins:vec)
-                          <TooltipProvider><Tooltip><TooltipTrigger><Info className="w-3 h-3 text-slate-400" /></TooltipTrigger>
+                          <TooltipProvider><Tooltip><TooltipTrigger><Info className="w-3 h-3 text-slate-400 dark:text-slate-500" /></TooltipTrigger>
                             <TooltipContent><p className="text-xs">Molar excess of insert vs vector. E.g. 3 = 3:1</p></TooltipContent>
                           </Tooltip></TooltipProvider>
                         </Label>
-                        <NumInput placeholder="3" value={ins.ratio} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, ratio: e.target.value } : i))} className="h-7 text-xs border-slate-200" />
+                        <NumInput placeholder="3" value={ins.ratio} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, ratio: e.target.value } : i))} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                       </div>
                     </div>
                   ))}
@@ -324,15 +324,15 @@ function SingleLigation({ historyData, isActive, sessionId }) {
 
 
       <div className="space-y-3">
-        <Card className={`border-0 shadow-sm ${results?.isValid ? 'bg-gradient-to-br from-violet-50 to-purple-50' : 'bg-white/80'}`}>
+        <Card className={`border-0 shadow-sm ${results?.isValid ? 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
           <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                <FlaskConical className="w-4 h-4 text-violet-600" /> Ligation Mix
+              <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Ligation Mix
               </CardTitle>
               {results?.isValid && (
                 <div className="flex gap-2">
-                  <button onClick={copyTable} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-lg transition-colors">
+                  <button onClick={copyTable} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded-lg transition-colors">
                     {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
@@ -352,10 +352,10 @@ function SingleLigation({ historyData, isActive, sessionId }) {
           </CardHeader>
           <CardContent className="pt-0 pb-3">
             {results ? (
-              <div className="space-y-2 bg-white p-4 rounded-lg" ref={tableRef}>
+              <div className="space-y-2 bg-white dark:bg-slate-900 p-4 rounded-lg" ref={tableRef}>
                 {results.insertResults?.some(i => i.dilution) && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs font-medium space-y-1 mb-2">
-                    <div className="flex items-center gap-2 mb-1 text-sm text-amber-800">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-300 text-xs font-medium space-y-1 mb-2">
+                    <div className="flex items-center gap-2 mb-1 text-sm text-amber-800 dark:text-amber-300">
                       <AlertTriangle className="w-4 h-4" /> Dilution suggested
                     </div>
                     {results.insertResults.filter(i => i.dilution).map(ins => (
@@ -365,67 +365,67 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                     ))}
                   </div>
                 )}
-                {!results.isValid && <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">⚠ Volumes exceed total. Adjust parameters.</div>}
+                {!results.isValid && <div className="p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-400 text-xs">⚠ Volumes exceed total. Adjust parameters.</div>}
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-blue-50">
-                      <th className="text-left py-1.5 px-3 font-bold text-slate-700 rounded-l">Component</th>
-                      <th className="text-right py-1.5 px-3 font-bold text-slate-700">Ligation (µL)</th>
-                      <th className="text-right py-1.5 px-3 font-bold text-slate-700 rounded-r">Vec-only (µL)</th>
+                    <tr className="bg-blue-50 dark:bg-blue-900/30">
+                      <th className="text-left py-1.5 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-l">Component</th>
+                      <th className="text-right py-1.5 px-3 font-bold text-slate-700 dark:text-slate-200">Ligation (µL)</th>
+                      <th className="text-right py-1.5 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-r">Vec-only (µL)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-slate-100">
-                      <td className="py-1.5 px-3 font-semibold text-slate-700">MQ</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-700">{results.waterVol}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-700">{results.controlWaterVol}</td>
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-1.5 px-3 font-semibold text-slate-700 dark:text-slate-200">MQ</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{results.waterVol}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{results.controlWaterVol}</td>
                     </tr>
-                    <tr className="border-b border-slate-100">
-                      <td className="py-1.5 px-3 text-slate-600">Vector DNA <span className="text-rose-600 font-semibold">({vectorAmount} ng)</span></td>
-                      <td className="py-1.5 px-3 text-right font-mono text-red-600 font-semibold">{results.vectorVolume}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-red-600 font-semibold">{results.vectorVolume}</td>
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">Vector DNA <span className="text-rose-600 dark:text-rose-400 font-semibold">({vectorAmount} ng)</span></td>
+                      <td className="py-1.5 px-3 text-right font-mono text-red-600 dark:text-red-400 font-semibold">{results.vectorVolume}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-red-600 dark:text-red-400 font-semibold">{results.vectorVolume}</td>
                     </tr>
                     {results.insertResults.map(ins => {
                       const vol = ins.needsDilution && ins.dilution ? ins.dilution.newVol : ins.insertVol;
                       return (
-                        <tr key={ins.id} className="border-b border-slate-100">
-                          <td className="py-1.5 px-3 text-slate-600">{ins.name} <span className="text-rose-600 font-semibold">({ins.insertAmount} ng)</span>{ins.needsDilution && <span className="text-rose-600 text-xs ml-1">*</span>}</td>
-                          <td className="py-1.5 px-3 text-right font-mono text-red-600 font-semibold">{vol}</td>
-                          <td className="py-1.5 px-3 text-right text-slate-400">—</td>
+                        <tr key={ins.id} className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">{ins.name} <span className="text-rose-600 dark:text-rose-400 font-semibold">({ins.insertAmount} ng)</span>{ins.needsDilution && <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">*</span>}</td>
+                          <td className="py-1.5 px-3 text-right font-mono text-red-600 dark:text-red-400 font-semibold">{vol}</td>
+                          <td className="py-1.5 px-3 text-right text-slate-400 dark:text-slate-500">—</td>
                         </tr>
                       );
                     })}
-                    <tr className="border-b border-slate-100">
-                      <td className="py-1.5 px-3 text-slate-600">{results.bufferName}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-700">{results.bufferVol}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-700">{results.bufferVol}</td>
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">{results.bufferName}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{results.bufferVol}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{results.bufferVol}</td>
                     </tr>
-                    <tr className="border-b border-slate-100">
-                      <td className="py-1.5 px-3 text-slate-600">{ligase}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-700">{ligaseVol}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-700">{ligaseVol}</td>
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">{ligase}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{ligaseVol}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{ligaseVol}</td>
                     </tr>
                     {usePEG && (
-                      <tr className="border-b border-slate-100">
-                        <td className="py-1.5 px-3 text-slate-600">PEG4000</td>
-                        <td className="py-1.5 px-3 text-right font-mono text-slate-700">{pegVol.toFixed(1)}</td>
-                        <td className="py-1.5 px-3 text-right font-mono text-slate-700">{pegVol.toFixed(1)}</td>
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">PEG4000</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{pegVol.toFixed(1)}</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-slate-700 dark:text-slate-200">{pegVol.toFixed(1)}</td>
                       </tr>
                     )}
-                    <tr className="border-t-2 border-slate-300 bg-slate-50">
-                      <td className="py-1.5 px-3 font-bold text-slate-800">Total (µL)</td>
-                      <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-800">{totalVolume}</td>
-                      <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-800">{totalVolume}</td>
+                    <tr className="border-t-2 border-slate-300 bg-slate-50 dark:bg-slate-800/50">
+                      <td className="py-1.5 px-3 font-bold text-slate-800 dark:text-slate-100">Total (µL)</td>
+                      <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{totalVolume}</td>
+                      <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{totalVolume}</td>
                     </tr>
                   </tbody>
                 </table>
-                {results.insertResults.some(i => i.needsDilution) && <p className="text-xs text-rose-600 mt-1">* Volume after dilution — see suggestion above.</p>}
-                <div className="p-2 bg-blue-50 border border-blue-100 rounded-lg mt-1">
-                  <p className="text-xs text-blue-700"><strong>Protocol:</strong> {results.protocol}</p>
+                {results.insertResults.some(i => i.needsDilution) && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">* Volume after dilution — see suggestion above.</p>}
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg mt-1">
+                  <p className="text-xs text-blue-700 dark:text-blue-300"><strong>Protocol:</strong> {results.protocol}</p>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-slate-400">
+              <div className="text-center py-8 text-slate-400 dark:text-slate-500">
                 <Link2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Enter parameters to calculate ligation mix</p>
               </div>
@@ -603,28 +603,28 @@ function MultiLigation({ historyData, isActive, sessionId }) {
   return (
     <div className="space-y-4">
       {/* Shared reaction settings */}
-      <Card className="border-0 shadow-sm bg-white/80">
-        <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700">Shared Reaction Settings</CardTitle></CardHeader>
+      <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+        <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Shared Reaction Settings</CardTitle></CardHeader>
         <CardContent className="pb-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
-              <Label className="text-xs text-slate-500">Ligase</Label>
+              <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase</Label>
               <Select value={ligase} onValueChange={setLigase}>
-                <SelectTrigger className="border-slate-200 h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border-slate-200 dark:border-slate-700 h-7 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.keys(LIGASES).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-slate-500">Ligase vol (µL)</Label>
-              <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 h-7 text-xs" />
+              <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase vol (µL)</Label>
+              <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
             </div>
             <div>
-              <Label className="text-xs text-slate-500">Total vol (µL)</Label>
-              <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 h-7 text-xs" />
+              <Label className="text-xs text-slate-700 dark:text-slate-200">Total vol (µL)</Label>
+              <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
             </div>
             <div className="flex items-end gap-2 pb-0.5">
               <Switch checked={usePEG} onCheckedChange={setUsePEG} className="scale-90" />
-              <Label className="text-xs text-slate-600">PEG4000{usePEG && <span className="text-slate-400 ml-1">({pegVol.toFixed(1)} µL)</span>}</Label>
+              <Label className="text-xs text-slate-600 dark:text-slate-200">PEG4000{usePEG && <span className="text-slate-400 dark:text-slate-500 ml-1">({pegVol.toFixed(1)} µL)</span>}</Label>
             </div>
           </div>
         </CardContent>
@@ -632,12 +632,12 @@ function MultiLigation({ historyData, isActive, sessionId }) {
 
       {/* Ligation inputs */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-700">Ligations</h3>
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Ligations</h3>
         <div className="grid md:grid-cols-2 gap-3">
           {ligations.map((lig, ligIdx) => {
             const color = LIGATION_COLORS[ligIdx % LIGATION_COLORS.length];
             return (
-              <Card key={lig.id} className="border-0 shadow-sm" style={{ borderLeft: `3px solid ${color.border}`, background: `${color.header}22` }}>
+              <Card key={lig.id} className="border-0 shadow-sm bg-white/50 dark:bg-white/5" style={{ borderLeft: `3px solid ${color.border}` }}>
                 <CardHeader className="pb-1.5 pt-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
@@ -646,7 +646,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
                         className="h-6 text-xs font-semibold border-0 bg-transparent p-0 w-28" style={{ color: color.text }} />
                     </div>
                     {ligations.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={() => removeLigation(lig.id)}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 dark:text-slate-200 hover:text-red-500 dark:text-red-400" onClick={() => removeLigation(lig.id)}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
@@ -656,19 +656,19 @@ function MultiLigation({ historyData, isActive, sessionId }) {
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {/* Vector */}
                     <div className="min-w-[110px] flex-shrink-0">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Vector</p>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide mb-1">Vector</p>
                       <div className="space-y-1">
                         <div>
-                          <Label className="text-xs text-slate-400">Conc. (ng/µL)</Label>
-                          <NumInput value={lig.vectorConc} onChange={e => updateLigation(lig.id, 'vectorConc', e.target.value)} placeholder="50" className="h-6 text-xs border-slate-200" />
+                          <Label className="text-xs text-slate-700 dark:text-slate-200">Conc. (ng/µL)</Label>
+                          <NumInput value={lig.vectorConc} onChange={e => updateLigation(lig.id, 'vectorConc', e.target.value)} placeholder="50" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                         </div>
                         <div>
-                          <Label className="text-xs text-slate-400">Length (bp)</Label>
-                          <NumInput value={lig.vectorLength} onChange={e => updateLigation(lig.id, 'vectorLength', e.target.value)} placeholder="5000" className="h-6 text-xs border-slate-200" />
+                          <Label className="text-xs text-slate-700 dark:text-slate-200">Length (bp)</Label>
+                          <NumInput value={lig.vectorLength} onChange={e => updateLigation(lig.id, 'vectorLength', e.target.value)} placeholder="5000" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                         </div>
                         <div>
-                          <Label className="text-xs text-slate-400">Amount (ng)</Label>
-                          <NumInput value={lig.vectorAmount} onChange={e => updateLigation(lig.id, 'vectorAmount', e.target.value)} placeholder="50" className="h-6 text-xs border-slate-200" />
+                          <Label className="text-xs text-slate-700 dark:text-slate-200">Amount (ng)</Label>
+                          <NumInput value={lig.vectorAmount} onChange={e => updateLigation(lig.id, 'vectorAmount', e.target.value)} placeholder="50" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                         </div>
                       </div>
                     </div>
@@ -677,24 +677,24 @@ function MultiLigation({ historyData, isActive, sessionId }) {
                       <div key={ins.id} className="min-w-[110px] flex-shrink-0">
                         <div className="flex items-center justify-between mb-1">
                           <Input value={ins.name} onChange={e => updateInsert(lig.id, ins.id, 'name', e.target.value)}
-                            className="h-4 text-xs border-0 bg-transparent p-0 font-semibold text-slate-400 uppercase tracking-wide w-full" />
+                            className="h-4 text-xs border-0 bg-transparent p-0 font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide w-full" />
                           <div className="flex gap-0.5 ml-1 flex-shrink-0">
-                            <button onClick={() => addInsert(lig.id)} className="text-slate-300 hover:text-violet-600"><Plus className="w-3 h-3" /></button>
-                            {lig.inserts.length > 1 && <button onClick={() => removeInsert(lig.id, ins.id)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>}
+                            <button onClick={() => addInsert(lig.id)} className="text-slate-300 hover:text-violet-600 dark:text-violet-400"><Plus className="w-3 h-3" /></button>
+                            {lig.inserts.length > 1 && <button onClick={() => removeInsert(lig.id, ins.id)} className="text-slate-300 hover:text-red-500 dark:text-red-400"><Trash2 className="w-3 h-3" /></button>}
                           </div>
                         </div>
                         <div className="space-y-1">
                           <div>
-                            <Label className="text-xs text-slate-400">Conc. (ng/µL)</Label>
-                            <NumInput value={ins.conc} onChange={e => updateInsert(lig.id, ins.id, 'conc', e.target.value)} placeholder="30" className="h-6 text-xs border-slate-200" />
+                            <Label className="text-xs text-slate-700 dark:text-slate-200">Conc. (ng/µL)</Label>
+                            <NumInput value={ins.conc} onChange={e => updateInsert(lig.id, ins.id, 'conc', e.target.value)} placeholder="30" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                           </div>
                           <div>
-                            <Label className="text-xs text-slate-400">Length (bp)</Label>
-                            <NumInput value={ins.length} onChange={e => updateInsert(lig.id, ins.id, 'length', e.target.value)} placeholder="1200" className="h-6 text-xs border-slate-200" />
+                            <Label className="text-xs text-slate-700 dark:text-slate-200">Length (bp)</Label>
+                            <NumInput value={ins.length} onChange={e => updateInsert(lig.id, ins.id, 'length', e.target.value)} placeholder="1200" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                           </div>
                           <div>
-                            <Label className="text-xs text-slate-400">Ratio</Label>
-                            <NumInput value={ins.ratio} onChange={e => updateInsert(lig.id, ins.id, 'ratio', e.target.value)} placeholder="3" className="h-6 text-xs border-slate-200" />
+                            <Label className="text-xs text-slate-700 dark:text-slate-200">Ratio</Label>
+                            <NumInput value={ins.ratio} onChange={e => updateInsert(lig.id, ins.id, 'ratio', e.target.value)} placeholder="3" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                           </div>
                         </div>
                       </div>
@@ -709,14 +709,14 @@ function MultiLigation({ historyData, isActive, sessionId }) {
       </div>
 
       {/* Combined results table */}
-      <Card className="border-0 shadow-sm bg-gradient-to-br from-violet-50 to-purple-50">
+      <Card className="border-0 shadow-sm bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20">
         <CardHeader className="pb-2 pt-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-slate-700 flex items-center gap-2">
-              <Table className="w-4 h-4 text-violet-600" /> Combined Ligation Table
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
+              <Table className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Combined Ligation Table
             </CardTitle>
             <div className="flex gap-2">
-              <button onClick={copyMultiTable} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1 rounded-lg transition-colors">
+              <button onClick={copyMultiTable} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded-lg transition-colors">
                 {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? 'Copied!' : 'Copy Table'}
               </button>
@@ -725,10 +725,10 @@ function MultiLigation({ historyData, isActive, sessionId }) {
           </div>
         </CardHeader>
         <CardContent className="pb-3">
-          <div className="overflow-x-auto bg-white p-4 rounded-lg" ref={tableRef}>
+          <div className="overflow-x-auto bg-white dark:bg-slate-900 p-4 rounded-lg" ref={tableRef}>
             {/* MultiLigation Dilution Warnings moved inside tableRef */}
             {allResults.some(r => r && r.insertResults.some(i => i.dilution)) && (
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+              <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 space-y-1">
                 <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
                 {allResults.map((r, i) => {
                   if (!r) return null;
@@ -743,24 +743,24 @@ function MultiLigation({ historyData, isActive, sessionId }) {
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr>
-                  <th className="text-left py-1.5 px-3 bg-slate-100 text-slate-600 font-bold border border-slate-200 min-w-[140px]">Component</th>
+                  <th className="text-left py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700 min-w-[140px]">Component</th>
                   {ligations.map((lig, i) => {
                     const color = LIGATION_COLORS[i % LIGATION_COLORS.length];
                     return (
-                      <th key={lig.id} colSpan={2} className="py-1.5 px-3 text-center font-bold border border-slate-200" style={{ background: color.header, color: color.text }}>
+                      <th key={lig.id} colSpan={2} className="py-1.5 px-3 text-center font-bold border border-slate-200 dark:border-slate-700" style={{ background: color.header, color: color.text }}>
                         {lig.label}
                       </th>
                     );
                   })}
                 </tr>
                 <tr>
-                  <th className="py-1 px-3 bg-slate-50 border border-slate-200"></th>
+                  <th className="py-1 px-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"></th>
                   {ligations.map((lig, i) => {
                     const color = LIGATION_COLORS[i % LIGATION_COLORS.length];
                     return (
                       <React.Fragment key={lig.id}>
-                        <th className="py-1 px-3 text-center font-semibold border border-slate-200" style={{ background: `${color.header}88`, color: color.text }}>Lig. (µL)</th>
-                        <th className="py-1 px-3 text-center font-semibold border border-slate-200" style={{ background: `${color.header}44`, color: color.text }}>Vec-only (µL)</th>
+                        <th className="py-1 px-3 text-center font-semibold border border-slate-200 dark:border-slate-700" style={{ background: `${color.header}88`, color: color.text }}>Lig. (µL)</th>
+                        <th className="py-1 px-3 text-center font-semibold border border-slate-200 dark:border-slate-700" style={{ background: `${color.header}44`, color: color.text }}>Vec-only (µL)</th>
                       </React.Fragment>
                     );
                   })}
@@ -768,15 +768,15 @@ function MultiLigation({ historyData, isActive, sessionId }) {
               </thead>
               <tbody>
                 {tableRows.map((row, rowIdx) => (
-                  <tr key={rowIdx} className={row.isTotal ? '' : 'border-b border-slate-100'} style={row.isTotal ? { borderTop: '2px solid #cbd5e1', background: '#f8fafc' } : {}}>
-                    <td className={`py-1.5 px-3 border border-slate-100 ${row.isTotal ? 'font-bold text-slate-800' : row.isMQ ? 'font-semibold text-slate-700' : 'text-slate-600'}`}>
+                  <tr key={rowIdx} className={row.isTotal ? 'border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50' : 'border-b border-slate-100 dark:border-slate-800'}>
+                    <td className={`py-1.5 px-3 border border-slate-100 dark:border-slate-800 ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100' : row.isMQ ? 'font-semibold text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
                       {row.label}
                       {row.sub && row.sub.some(Boolean) && <span className="text-rose-500 ml-1">({row.sub.find(Boolean)})</span>}
                     </td>
                     {row.cells.map(([a, b], i) => (
                       <React.Fragment key={i}>
-                        <td className={`py-1.5 px-3 text-center font-mono border border-slate-100 ${row.isTotal ? 'font-bold text-slate-800' : row.isDna && a !== '—' ? 'text-red-600 font-semibold' : 'text-slate-700'}`}>{a}</td>
-                        <td className={`py-1.5 px-3 text-center font-mono border border-slate-100 ${row.isTotal ? 'font-bold text-slate-800' : row.isDna && b !== '—' ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>{b}</td>
+                        <td className={`py-1.5 px-3 text-center font-mono border border-slate-100 dark:border-slate-800 ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100' : row.isDna && a !== '—' ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-700 dark:text-slate-200'}`}>{a}</td>
+                        <td className={`py-1.5 px-3 text-center font-mono border border-slate-100 dark:border-slate-800 ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100' : row.isDna && b !== '—' ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>{b}</td>
                       </React.Fragment>
                     ))}
                   </tr>
@@ -784,8 +784,8 @@ function MultiLigation({ historyData, isActive, sessionId }) {
               </tbody>
             </table>
           </div>
-          <div className="p-2 bg-blue-50 border border-blue-100 rounded-lg mt-2">
-            <p className="text-xs text-blue-700"><strong>Protocol:</strong> {ligaseInfo.temp}</p>
+          <div className="p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg mt-2">
+            <p className="text-xs text-blue-700 dark:text-blue-300"><strong>Protocol:</strong> {ligaseInfo.temp}</p>
           </div>
         </CardContent>
       </Card>
@@ -809,13 +809,13 @@ export default function LigationCalculator({ historyData, isActive }) {
             <Link2 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Ligation</h2>
-            <p className="text-sm text-slate-500">Single or multiple ligation mixes with molar ratio calculations</p>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Ligation</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Single or multiple ligation mixes with molar ratio calculations</p>
           </div>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="bg-slate-100">
+          <TabsList className="bg-slate-100 dark:bg-slate-800">
             <TabsTrigger value="single" className="flex items-center gap-2">
               <BsOpencollective className="w-4 h-4" />
               Single Ligation

@@ -49,7 +49,7 @@ export default function CopyTableButton({ getData, label = "Copy Table" }) {
       variant="outline"
       size="sm"
       onClick={handleCopy}
-      className="text-slate-600 border-slate-200 hover:bg-slate-50 gap-2"
+      className="text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 gap-2"
     >
       {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
       {copied ? 'Copied!' : label}

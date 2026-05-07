@@ -34,9 +34,22 @@ import logo from '@/assets/icon-512.png';
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
 
-function loadSettings() {
+function getSettingsKey(userId) {
+  return userId ? `${SETTINGS_KEY}_${userId}` : SETTINGS_KEY;
+}
+
+function loadSettings(userId) {
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    const key = getSettingsKey(userId);
+    const saved = localStorage.getItem(key);
+    if (!saved) return null;
+    const settings = JSON.parse(saved);
+    if (!userId) {
+      // Never allow API keys for guests
+      const apiKeys = ['groqApiKey', 'openaiApiKey', 'geminiApiKey', 'openrouterApiKey', 'anthropicApiKey', 'deepseekApiKey'];
+      apiKeys.forEach(k => delete settings[k]);
+    }
+    return settings;
   } catch {
     return null;
   }
@@ -96,7 +109,7 @@ const TOOL_GROUPS = [
   },
   {
     id: 'protocols',
-    label: 'Protocols & Lab Essentials',
+    label: 'Other Tools',
     tools: [
       { id: 'buffer', name: 'Buffers', icon: GoBeaker, gradient: 'from-orange-600 to-yellow-200', description: 'Recipes & custom lysis buffer' },
       { id: 'protocols', name: 'Protocol Library', icon: BookOpen, gradient: 'from-yellow-400 to-red-600', description: 'Workflows & AI protocol generator' },
@@ -111,7 +124,7 @@ const ALL_IDS = [
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron, isMobile }) {
+function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, iconTextColor, onRestoreHistory, isMacElectron, isMobile, labels, lang }) {
   const [expandedCalc, setExpandedCalc] = useState(null);
   const [historyExpanded, setHistoryExpanded] = useState(true);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
@@ -121,7 +134,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
     if (active && TOOL_TABS[active]) setExpandedCalc(active);
   }, [active]);
 
-  const btnBase = (isActive) => `w-full flex items-center gap-2 px-2.5 py-1.5 min-h-[35px] rounded-lg text-sm font-medium mb-1 transition-all ${isActive
+  const btnBase = (isActive) => `w-full flex items-center gap-2 px-2.5 py-1 min-h-[32px] rounded-lg text-sm font-medium mb-0.5 transition-all ${isActive
     ? (isDark ? 'bg-white/15 text-white' : 'bg-teal-50 text-teal-700 border border-teal-200')
     : (isDark ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')
     }`;
@@ -145,7 +158,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
       <div className={`${isMacElectron ? 'h-12' : 'h-14'} border-b flex-shrink-0 ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
 
       {/* Home Button */}
-      <div className="px-2 pt-4 pb-2 border-b mb-2">
+      <div className="px-2 pt-3 pb-1.5 border-b mb-1.5">
         <button
           onClick={() => onSelect(null)}
           className={btnBase(active === null)}
@@ -153,13 +166,13 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
           <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${iconStyle ? '' : 'bg-gradient-to-br from-slate-700 to-slate-900'}`} style={iconStyle || {}}>
             <HomeIcon className={`w-2.5 h-2.5 ${iconTextColor || 'text-white'}`} />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider px-1">Homepage</span>
+          <span className="text-xs font-bold uppercase tracking-wider px-1">{labels.homepage}</span>
         </button>
       </div>
 
       {/* Calculators */}
-      <div className="px-2 pt-2 pb-1">
-        <p className={`text-xs font-bold uppercase tracking-wider px-1 mb-1.5 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>Calculators</p>
+      <div className="px-2 pt-1 pb-0.5">
+        <p className={`text-xs font-bold uppercase tracking-wider px-1 mb-1.5 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>{labels.calculators}</p>
         {CALCULATORS.map(c => {
           const isActive = active === c.id;
           const hasTabs = !!TOOL_TABS[c.id];
@@ -197,7 +210,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 
       {/* Tool groups */}
       {TOOL_GROUPS.map(group => (
-        <div key={group.id} className="px-2 pt-1 pb-1">
+        <div key={group.id} className="px-2 pt-0.5 pb-0.5">
           <p className={`text-xs font-bold uppercase tracking-wider px-1 mb-1 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>{group.label}</p>
           {group.tools.map(t => {
             const isActive = active === t.id;
@@ -217,7 +230,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                   {hasTabs && <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''} ${isDark ? 'text-white/30' : 'text-slate-300'}`} />}
                 </button>
                 {hasTabs && isExpanded && (
-                  <div className="ml-5 mb-1 space-y-0.5">
+                  <div className="ml-5 mb-0.5 space-y-0.5">
                     {TOOL_TABS[t.id].map(tab => (
                       <button key={tab.id} onClick={() => { onSelect(t.id); onSelectTab(t.id, tab.id); }}
                         className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${isActive && activeTab[t.id] === tab.id
@@ -242,7 +255,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
           className="flex items-center justify-between w-full px-1 mb-2 group"
         >
           <p className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white/40 group-hover:text-white/70' : 'text-slate-400 group-hover:text-slate-600'}`}>
-            <Clock className="w-3.5 h-3.5" /> History
+            <Clock className="w-3.5 h-3.5" /> {labels.history}
           </p>
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${historyExpanded ? 'rotate-180' : ''} ${isDark ? 'text-white/30' : 'text-slate-300'}`} />
         </button>
@@ -252,13 +265,13 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
             <div className="flex justify-end px-1 mb-2">
               {history.length > 0 && (
                 <button onClick={clearHistory} className={`text-[10px] uppercase font-bold hover:underline ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>
-                  Clear All
+                  {labels.clearAll}
                 </button>
               )}
             </div>
 
             {history.length === 0 ? (
-              <p className={`text-xs text-center p-4 italic ${isDark ? 'text-white/20' : 'text-slate-300'}`}>Empty</p>
+              <p className={`text-xs text-center p-4 italic ${isDark ? 'text-white/20' : 'text-slate-300'}`}>{labels.empty}</p>
             ) : (
               <div className="overflow-y-auto space-y-0.5 pr-1" style={{ maxHeight: '160px' }}>
                 {history.map(item => {
@@ -275,8 +288,8 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                         <p className={`text-xs font-medium truncate ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
                           {displayTitle}
                         </p>
-                        <p className={`text-[10px] truncate ${isDark ? 'text-white/40' : 'text-slate-400'}`}>
-                          {displayDate.toLocaleDateString('nl-NL')} · {displayDate.toLocaleTimeString('nl-NL', {
+                    <p className={`text-[10px] truncate ${isDark ? 'text-white/40' : 'text-slate-400'}`}>
+                          {displayDate.toLocaleDateString(lang === 'nl' ? 'nl-NL' : 'en-US')} · {displayDate.toLocaleTimeString(lang === 'nl' ? 'nl-NL' : 'en-US', {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
@@ -309,35 +322,46 @@ const ALL_BODY_THEME_CLASSES = Object.values(APP_THEMES).map(t => t.bodyClass).f
 export default function Home() {
   const isMobile = useIsMobile();
   const [active, setActive] = useState(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState(() => loadSettings() || DEFAULT_SETTINGS);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState({});
-  const [historyData, setHistoryData] = useState(null);
-
-  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
-  const isMacElectron = isElectron && navigator.platform.toUpperCase().includes('MAC');
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    if (!isSyncEnabled()) {
+      setSettings(loadSettings() || DEFAULT_SETTINGS);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      const initialSettings = loadSettings(u?.id) || DEFAULT_SETTINGS;
+      setSettings(initialSettings);
+      if (u) syncSettingsFromRemote(u.id);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) {
+        syncSettingsFromRemote(u.id);
+      } else {
+        setSettings(loadSettings() || DEFAULT_SETTINGS);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const key = getSettingsKey(user?.id);
+    localStorage.setItem(key, JSON.stringify(settings));
     document.documentElement.style.fontSize = settings.fontSize || '16px';
     const currentTheme = APP_THEMES[settings.appTheme] || APP_THEMES.default;
     if (currentTheme.isDark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-    // Apply bodyClass for themes that use custom CSS (e.g. macos26-theme)
     document.body.classList.remove(...ALL_BODY_THEME_CLASSES);
     if (currentTheme.bodyClass) document.body.classList.add(currentTheme.bodyClass);
-  }, [settings]);
-
-  useEffect(() => {
-    if (isSyncEnabled()) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          syncSettingsFromRemote(session.user.id);
-        }
-      });
-    }
-  }, []);
+  }, [settings, user]);
 
   const syncSettingsFromRemote = async userId => {
     try {
@@ -350,11 +374,32 @@ export default function Home() {
       if (!error && data?.settings) {
         const mergedSettings = { ...DEFAULT_SETTINGS, ...data.settings };
         setSettings(mergedSettings);
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
+        const key = getSettingsKey(userId);
+        localStorage.setItem(key, JSON.stringify(mergedSettings));
       }
     } catch (err) {
       console.warn('Sync failed:', err);
     }
+  };
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState({});
+  const [historyData, setHistoryData] = useState(null);
+
+  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+  const isMacElectron = isElectron && navigator.platform.toUpperCase().includes('MAC');
+
+  const lang = settings.language || 'en';
+  const labels = {
+    back: lang === 'nl' ? 'Terug' : 'Back',
+    aiAssistant: lang === 'nl' ? 'AI Assistent' : 'AI Assistant',
+    settings: lang === 'nl' ? 'Instellingen' : 'Settings',
+    homepage: lang === 'nl' ? 'Homepage' : 'Homepage',
+    calculators: lang === 'nl' ? 'Calculators' : 'Calculators',
+    history: lang === 'nl' ? 'Geschiedenis' : 'History',
+    clearAll: lang === 'nl' ? 'Alles wissen' : 'Clear All',
+    empty: lang === 'nl' ? 'Leeg' : 'Empty',
   };
 
   const theme = APP_THEMES[settings.appTheme] || APP_THEMES.default;
@@ -391,7 +436,7 @@ export default function Home() {
   const getComponent = id => {
     const isAct = active === id;
     const hData = isAct ? historyData : null;
-    const calculatorProps = { historyData: hData, isActive: isAct, isDark, theme };
+    const calculatorProps = { historyData: hData, isActive: isAct, isDark, theme, settings, user };
 
     switch (id) {
       case 'digest':
@@ -458,7 +503,7 @@ export default function Home() {
                   className={`min-h-[44px] px-3 flex items-center gap-1.5 text-sm rounded-xl touch-manipulation transition-colors ml-1 ${backBtnColor} ${isDark ? 'hover:bg-white/10' : 'hover:bg-slate-100'
                     }`}
                 >
-                  <ArrowLeft className="w-5 h-5" /> Back
+                  <ArrowLeft className="w-5 h-5" /> {labels.back}
                 </button>
               )}
             </div>
@@ -470,10 +515,10 @@ export default function Home() {
                   ? 'bg-fuchsia-600/20 text-fuchsia-200 border border-fuchsia-500/30 hover:bg-fuchsia-600/40'
                   : 'bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-100 hover:bg-fuchsia-100'
                   }`}
-                title="AI Assistent"
+                title={labels.aiAssistant}
               >
                 <RiRobot2Line className="w-4 h-4" />
-                <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">AI Assistent</span>
+                <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">{labels.aiAssistant}</span>
               </button>
 
               <button
@@ -512,6 +557,8 @@ export default function Home() {
               }}
               isMacElectron={isMacElectron}
               isMobile={isMobile}
+              labels={labels}
+              lang={lang}
             />
           </>
         )}

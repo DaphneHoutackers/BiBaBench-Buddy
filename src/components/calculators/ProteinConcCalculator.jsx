@@ -362,13 +362,13 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           <Beaker className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Protein Concentration</h2>
-          <p className="text-sm text-slate-500">BCA / Bradford standard curve & SDS-PAGE sample prep</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Protein Concentration</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">BCA / Bradford standard curve & SDS-PAGE sample prep</p>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
-        <TabsList className="bg-slate-100">
+        <TabsList className="bg-slate-100 dark:bg-slate-800">
           <TabsTrigger value="standards" className="flex items-center gap-2">
             <BsGraphUpArrow className="w-4 h-4" />
             Standard Curve & Samples
@@ -381,33 +381,33 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
 
         {/* ─── STANDARDS ─── */}
         <TabsContent value="standards" className="mt-3 space-y-4">
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-medium text-slate-800">Assay Setup</CardTitle>
+              <CardTitle className="text-base font-medium text-slate-800 dark:text-slate-200">Assay Setup</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm text-slate-600 w-52 flex-shrink-0">Working reagent vol (mL)</Label>
-                  <NumInput value={wrVolume} onChange={e => setWrVolume(e.target.value)} placeholder="1" className="border-slate-200 h-8 w-28 text-sm" />
-                  <p className="text-xs text-slate-400">mL</p>
+                  <Label className="text-sm text-slate-600 dark:text-slate-200 w-52 flex-shrink-0">Working reagent vol (mL)</Label>
+                  <NumInput value={wrVolume} onChange={e => setWrVolume(e.target.value)} placeholder="1" className="border-slate-200 dark:border-slate-700 h-8 w-28 text-sm" />
+                  <p className="text-xs text-slate-400 dark:text-slate-500">mL</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm text-slate-600 w-52 flex-shrink-0">Sample vol added to WR (µL)</Label>
-                  <NumInput value={sampleVolInWR} onChange={e => setSampleVolInWR(e.target.value)} placeholder="10" className="border-slate-200 h-8 w-28 text-sm" />
-                  <p className="text-xs text-slate-400">×{((sVol + wrVol * 1000) / sVol).toFixed(0)} dilution factor</p>
+                  <Label className="text-sm text-slate-600 dark:text-slate-200 w-52 flex-shrink-0">Sample vol added to WR (µL)</Label>
+                  <NumInput value={sampleVolInWR} onChange={e => setSampleVolInWR(e.target.value)} placeholder="10" className="border-slate-200 dark:border-slate-700 h-8 w-28 text-sm" />
+                  <p className="text-xs text-slate-400 dark:text-slate-500">×{((sVol + wrVol * 1000) / sVol).toFixed(0)} dilution factor</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Standards table */}
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium text-slate-700">a) Standards Table</CardTitle>
+                <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">a) Standards Table</CardTitle>
                 <div className="flex items-center gap-2">
-                  <button onClick={copyStandards} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors">
+                  <button onClick={copyStandards} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg transition-colors">
                     {copiedStd ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                     {copiedStd ? 'Copied!' : 'Copy'}
                   </button>
@@ -416,22 +416,22 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div ref={standardsTableRef} className="space-y-2 bg-white p-1 rounded-xl">
+              <div ref={standardsTableRef} className="space-y-2 bg-white dark:bg-slate-900 p-1 rounded-xl">
               {/* Batch paste */}
-              <div className="grid sm:grid-cols-2 gap-4 p-3 bg-slate-50 rounded-lg">
+              <div className="grid sm:grid-cols-2 gap-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-500">Paste concentrations (comma/newline separated)</Label>
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Paste concentrations (comma/newline separated)</Label>
                   <div className="flex gap-1">
                     <textarea value={batchConcInput} onChange={e => setBatchConcInput(e.target.value)}
-                      className="flex-1 h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" placeholder="0, 0.25, 0.5, 1, 2..." />
-                    <button onClick={applyBatchConcs} className="px-2 py-1 bg-pink-600 text-white text-xs rounded-md hover:bg-pink-700">Apply</button>
+                      className="flex-1 h-14 text-xs font-mono border border-slate-200 dark:border-slate-700 rounded-md p-1.5 resize-none" placeholder="0, 0.25, 0.5, 1, 2..." />
+                    <button onClick={applyBatchConcs} className="px-2 py-1 bg-pink-600 text-white text-xs rounded-md hover:bg-pink-700 dark:text-slate-200">Apply</button>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-500">Paste absorbances (comma/newline separated)</Label>
+                  <Label className="text-xs text-slate-700 dark:text-slate-200">Paste absorbances (comma/newline separated)</Label>
                   <div className="flex gap-1">
                     <textarea value={batchAbsInput} onChange={e => setBatchAbsInput(e.target.value)}
-                      className="flex-1 h-14 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none" placeholder="0.05, 0.12, 0.22..." />
+                      className="flex-1 h-14 text-xs font-mono border border-slate-200 dark:border-slate-700 rounded-md p-1.5 resize-none" placeholder="0.05, 0.12, 0.22..." />
                     <button onClick={applyBatchAbs} className="px-2 py-1 bg-pink-600 text-white text-xs rounded-md hover:bg-pink-700">Apply</button>
                   </div>
                 </div>
@@ -440,9 +440,9 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-pink-50">
-                    <th className="text-left py-1 px-2 font-bold text-slate-700 w-2/10">Std (µg/mL)</th>
-                    <th className="text-center py-1 px-1 font-bold text-slate-700 w-4/10">2mg/mL BSA (µL) per {wrVolume}mL WR</th>
-                    <th className="text-center py-1 px-2 font-bold text-slate-700 w-4/10">Absorbance (A<sub>562</sub>)</th>
+                    <th className="text-left py-1 px-2 font-bold text-slate-700 dark:text-slate-200 w-2/10">Std (µg/mL)</th>
+                    <th className="text-center py-1 px-1 font-bold text-slate-700 dark:text-slate-200 w-4/10">2mg/mL BSA (µL) per {wrVolume}mL WR</th>
+                    <th className="text-center py-1 px-2 font-bold text-slate-700 dark:text-slate-200 w-4/10">Absorbance (A<sub>562</sub>)</th>
                     <th className="py-1 px-1 w-1/10"></th>
                   </tr>
                 </thead>
@@ -450,17 +450,17 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                   {standards.map((s, i) => {
                     const c = parseFloat(s.conc);
                     return (
-                      <tr key={s.id} className="border-b border-slate-100">
+                      <tr key={s.id} className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-1 px-2 text-right w-2/10">
                           <NumInput value={s.conc} onChange={e => setStandards(standards.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))}
-                            className="w-24 h-7 text-sm border-slate-200" placeholder="µg/mL" />
+                            className="w-24 h-7 text-sm border-slate-200 dark:border-slate-700" placeholder="µg/mL" />
                         </td>
                         <td className="py-1 px-10 text-left font-roboto text-pink-700 text-sm w-4/10">
                           {!isNaN(c) ? (c === 0 ? '0' : (bsaVolForStd(c) * wrVol).toFixed(3)) : '—'}
                         </td>
                         <td className="py-1 px-4 text-right w-4/10">
                           <NumInput value={s.abs} onChange={e => setStandards(standards.map(x => x.id === s.id ? { ...x, abs: e.target.value } : x))}
-                            className="w-full h-7 text-sm text-right border-slate-200" placeholder="0.000" />
+                            className="w-full h-7 text-sm text-right border-slate-200 dark:border-slate-700" placeholder="0.000" />
                         </td>
                         <td className="py-1 px-1 w-8">
                           {standards.length > 2 && (
@@ -476,7 +476,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                 </tbody>
                 </table>
                 </div>
-                <button onClick={addStandard} className="flex items-center gap-1 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1.5 rounded-lg w-full justify-center mt-1">
+                <button onClick={addStandard} className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-2 py-1.5 rounded-lg w-full justify-center mt-1">
                 <Plus className="w-3 h-3" /> Add Standard
                 </button>
                 </CardContent>
@@ -486,26 +486,26 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           {regression && (
             <Card className="border-0 shadow-sm bg-gradient-to-br from-pink-50 to-rose-50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
+                <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <BsGraphUpArrow className="w-4 h-4 text-pink-600" /> Standard Curve (Y = mX + c)
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid sm:grid-cols-3 gap-4 text-center">
-                  <div className="bg-white rounded-xl p-4 border border-pink-200">
-                    <p className="text-xs text-slate-500 mb-1">Slope (m)</p>
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-pink-200">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Slope (m)</p>
                     <p className="text-xl font-bold text-pink-700">{regression.slope.toFixed(6)}</p>
                   </div>
-                  <div className="bg-white rounded-xl p-4 border border-pink-200">
-                    <p className="text-xs text-slate-500 mb-1">Intercept (c)</p>
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-pink-200">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Intercept (c)</p>
                     <p className="text-xl font-bold text-pink-700">{regression.intercept.toFixed(4)}</p>
                   </div>
-                  <div className="bg-white rounded-xl p-4 border border-pink-200">
-                    <p className="text-xs text-slate-500 mb-1">R²</p>
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-pink-200">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">R²</p>
                     <p className={`text-xl font-bold ${regression.r2 >= 0.99 ? 'text-green-600' : 'text-amber-600'}`}>{regression.r2.toFixed(4)}</p>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-3 text-center font-mono">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 text-center font-mono">
                   Conc (µg/mL) = (Abs − {regression.intercept.toFixed(4)}) / {regression.slope.toFixed(6)}
                 </p>
               </CardContent>
@@ -513,12 +513,12 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           )}
 
           {/* b) Samples table */}
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium text-slate-700">b) Samples Table</CardTitle>
+                <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">b) Samples Table</CardTitle>
                 <div className="flex items-center gap-2">
-                  <button onClick={copySamples} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg">
+                  <button onClick={copySamples} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg">
                     {copiedSamples ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                     {copiedSamples ? 'Copied!' : 'Copy'}
                   </button>
@@ -527,15 +527,15 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div ref={samplesTableRef} className="space-y-3 bg-white p-2 rounded-xl">
+              <div ref={samplesTableRef} className="space-y-3 bg-white dark:bg-slate-900 p-2 rounded-xl">
               {/* Batch paste for samples */}
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <Label className="text-xs text-slate-500">Paste sample absorbances, optionally with sample ID (comma/newline separated)</Label>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                <Label className="text-xs text-slate-700 dark:text-slate-200">Paste sample absorbances, optionally with sample ID (comma/newline separated)</Label>
                 <div className="flex gap-1 mt-1">
                   <textarea
                     value={batchSampleAbsInput}
                     onChange={e => setBatchSampleAbsInput(e.target.value)}
-                    className="flex-1 h-24 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none"
+                    className="flex-1 h-24 text-xs font-mono border border-slate-200 dark:border-slate-700 rounded-md p-1.5 resize-none"
                     placeholder={`Example:  
 A1 #1: 0,609 
 A1 #2: 0,479 
@@ -545,16 +545,16 @@ or only:
 0,479 
 1,542`}
                   />
-                  <button onClick={applyBatchSampleAbs} className="px-2 py-10 bg-pink-600 text-white text-xs rounded-md hover:bg-pink-700 self-start">Apply</button>
+                  <button onClick={applyBatchSampleAbs} className="px-2 py-10 bg-pink-600 text-white text-xs rounded-md hover:bg-pink-700 self-start dark:text-slate-200">Apply</button>
                 </div>
               </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-pink-50">
-                    <th className="text-left py-2 px-3 font-bold text-slate-700">Sample ID</th>
-                    <th className="text-center py-2 px-3 font-bold text-slate-700">Absorbance</th>
-                    <th className="text-right py-2 px-3 font-bold text-slate-700">Conc in WR (µg/mL)</th>
-                    <th className="text-right py-2 px-3 font-bold text-slate-700">Lysate Conc (ng/µL)</th>
+                    <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Sample ID</th>
+                    <th className="text-center py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Absorbance</th>
+                    <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Conc in WR (µg/mL)</th>
+                    <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Lysate Conc (ng/µL)</th>
                     <th className="py-2 px-2"></th>
                   </tr>
                 </thead>
@@ -562,15 +562,15 @@ or only:
                   {unknowns.map((u, i) => {
                     const res = unknownResults[i];
                     return (
-                      <tr key={u.id} className="border-b border-slate-100">
+                      <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-1.5 px-3">
                           <Input value={u.name} onChange={e => setUnknowns(unknowns.map(x => x.id === u.id ? { ...x, name: e.target.value } : x))}
-                            className="h-6 w-28 text-sm border-slate-200" />
+                            className="h-6 w-28 text-sm border-slate-200 dark:border-slate-700" />
                         </td>
                         <td className="py-1.5 px-3 text-right">
                           <NumInput value={u.abs} placeholder="0.000"
                             onChange={e => setUnknowns(unknowns.map(x => x.id === u.id ? { ...x, abs: e.target.value } : x))}
-                            className="w-24 h-6 text-sm text-right border-slate-200 ml-auto" />
+                            className="w-24 h-6 text-sm text-right border-slate-200 dark:border-slate-700 ml-auto" />
                         </td>
                         <td className="py-1.5 px-3 text-right font-mono text-pink-700 font-semibold">
                           {res?.concInWR || '—'}
@@ -599,36 +599,36 @@ or only:
               <button onClick={() => {
                 const id = Math.max(...unknowns.map(u => u.id)) + 1;
                 setUnknowns([...unknowns, { id, name: `Sample ${id}`, abs: '' }]);
-              }} className="flex items-center gap-1 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-2 py-1.5 rounded-lg w-full justify-center mt-1">
+              }} className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-2 py-1.5 rounded-lg w-full justify-center mt-1">
                 <Plus className="w-3 h-3" /> Add Sample
               </button>
-              {!regression && <p className="text-xs text-slate-400 mt-2">Enter standard absorbances above to enable sample calculations.</p>}
+              {!regression && <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Enter standard absorbances above to enable sample calculations.</p>}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* ─── SDS-PAGE PREP ─── */}
         <TabsContent value="prep" className="mt-6 space-y-6">
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-medium text-slate-700">Sample Parameters</CardTitle>
+              <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Sample Parameters</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">Protein to load (µg)</Label>
-                  <NumInput value={proteinLoad} onChange={e => setProteinLoad(e.target.value)} placeholder="15" className="border-slate-200" />
+                  <Label className="text-sm text-slate-600 dark:text-slate-200">Protein to load (µg)</Label>
+                  <NumInput value={proteinLoad} onChange={e => setProteinLoad(e.target.value)} placeholder="15" className="border-slate-200 dark:border-slate-700" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">Sample buffer stock (×)</Label>
-                  <NumInput value={sampleBufferX} onChange={e => setSampleBufferX(e.target.value)} placeholder="6" className="border-slate-200" />
+                  <Label className="text-sm text-slate-600 dark:text-slate-200">Sample buffer stock (×)</Label>
+                  <NumInput value={sampleBufferX} onChange={e => setSampleBufferX(e.target.value)} placeholder="6" className="border-slate-200 dark:border-slate-700" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm text-slate-600">Total volume (µL)</Label>
-                  <NumInput value={prepTotalVol} onChange={e => setPrepTotalVol(e.target.value)} placeholder="40" className="border-slate-200" />
+                  <Label className="text-sm text-slate-600 dark:text-slate-200">Total volume (µL)</Label>
+                  <NumInput value={prepTotalVol} onChange={e => setPrepTotalVol(e.target.value)} placeholder="40" className="border-slate-200 dark:border-slate-700" />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2">Samples are auto-imported from the Standard Curve tab. Complete sample up to {prepTotalVol} µL with <strong>lysis buffer</strong>.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Samples are auto-imported from the Standard Curve tab. Complete sample up to {prepTotalVol} µL with <strong>lysis buffer</strong>.</p>
             </CardContent>
           </Card>
 
@@ -636,11 +636,11 @@ or only:
             <Card className="border-0 shadow-sm bg-gradient-to-br from-pink-50 to-rose-50">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium text-slate-700 flex items-center gap-2">
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
                     <FlaskConical className="w-4 h-4 text-pink-600" /> Sample preparaten mix ({prepCalcs.length} samples)
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    <button onClick={copyPrep} className="flex items-center gap-1.5 text-sm text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg">
+                    <button onClick={copyPrep} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg">
                       {copiedPrep ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                       {copiedPrep ? 'Copied!' : 'Copy Table'}
                     </button>
@@ -649,46 +649,46 @@ or only:
                 </div>
               </CardHeader>
               <CardContent>
-                <div ref={prepTableRef} className="space-y-4 bg-white p-2 rounded-xl">
+                <div ref={prepTableRef} className="space-y-4 bg-white dark:bg-slate-900 p-2 rounded-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-blue-50">
-                        <th className="text-left py-2 px-3 font-bold text-slate-700">Component</th>
+                      <tr className="bg-blue-50 dark:bg-blue-900/30">
+                        <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Component</th>
                         {prepCalcs.map(s => (
-                          <th key={s.id} className="text-right py-2 px-3 font-bold text-slate-700">{s.name}</th>
+                          <th key={s.id} className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200">{s.name}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-slate-100">
-                        <td className="py-2 px-3 font-semibold text-slate-700">Lysis buffer</td>
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <td className="py-2 px-3 font-semibold text-slate-700 dark:text-slate-200">Lysis buffer</td>
                         {prepCalcs.map(s => (
                           <td key={s.id} className="py-2 px-3 text-right font-mono font-semibold">{s.lysisVol}</td>
                         ))}
                       </tr>
-                      <tr className="border-b border-slate-100">
-                        <td className="py-2 px-3 text-slate-600">
-                          Lysate <span className="text-rose-600 font-semibold">({load} µg)</span>
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
+                          Lysate <span className="text-rose-600 dark:text-rose-400 font-semibold">({load} µg)</span>
                         </td>
                         {prepCalcs.map(s => (
-                          <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold text-rose-600 ${s.isLow ? '' : s.overflow ? '' : ''}`}>
+                          <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold text-rose-600 dark:text-rose-400 ${s.isLow ? '' : s.overflow ? '' : ''}`}>
                             {s.lysateVol}{s.isLow ? '*' : ''}
                           </td>
                         ))}
                       </tr>
-                      <tr className="border-b border-slate-100">
-                        <td className="py-2 px-3 text-slate-600">{bufX}× Sample Buffer</td>
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">{bufX}× Sample Buffer</td>
                         {prepCalcs.map(s => (
-                          <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold ${s.overflow ? 'text-red-600' : ''}`}>
+                          <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold ${s.overflow ? 'text-red-600 dark:text-red-400' : ''}`}>
                             {s.bufferVol}
                           </td>
                         ))}
                       </tr>
-                      <tr className="bg-slate-100">
-                        <td className="py-2 px-3 font-bold text-slate-700">Total (µL)</td>
+                      <tr className="bg-slate-100 dark:bg-slate-800">
+                        <td className="py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Total (µL)</td>
                         {prepCalcs.map(s => (
-                         <td key={s.id} className="py-2 px-3 text-right font-mono font-bold text-slate-800">
+                         <td key={s.id} className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
                             {s.overflow ? s.adjTotalVol : prepTotalVol}
                           </td>
                         ))}
@@ -699,24 +699,24 @@ or only:
                 {prepCalcs.filter(s => s.overflow).map((s, i) => (
                   <div key={`ov-${i}`} className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-xs text-red-700 font-semibold">⚠ {s.name}: sample too dilute — lysate volume ({s.lysateVol} µL) exceeds the desired total volume ({prepTotalVol} µL).</p>
-                    <p className="text-xs text-red-600 mt-1">
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                       Adjusted total volume: <strong>{s.adjTotalVol} µL</strong> &nbsp;|&nbsp;
                       Adjusted {bufX}× sample buffer: <strong>{s.bufferVol} µL</strong> (to maintain 1× final concentration)
                     </p>
-                    <p className="text-xs text-red-500 mt-0.5">Consider concentrating the sample or reducing the protein load.</p>
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">Consider concentrating the sample or reducing the protein load.</p>
                   </div>
                 ))}
                 {prepCalcs.some(s => s.isLow) && prepCalcs.filter(s => s.isLow).map((s, i) => (
-                  <p key={i} className="text-xs text-amber-700 mt-1">⚠ <strong>{s.name}</strong> requires only {s.lysateVol} µL (&lt;0.5 µL) — consider reducing protein load or using a more concentrated sample.</p>
+                  <p key={i} className="text-xs text-amber-700 dark:text-amber-400 mt-1">⚠ <strong>{s.name}</strong> requires only {s.lysateVol} µL (&lt;0.5 µL) — consider reducing protein load or using a more concentrated sample.</p>
                 ))}
-                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
-                  <p className="text-xs text-blue-700">Heat at 95°C for 5-10 min before loading. Keep on ice until loading.</p>
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg mt-2">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">Heat at 95°C for 5-10 min before loading. Keep on ice until loading.</p>
                 </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="text-center py-12 text-slate-400">
+            <div className="text-center py-12 text-slate-400 dark:text-slate-500">
               <Beaker className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>Enter sample absorbances in the Standard Curve tab to auto-populate samples here.</p>
             </div>

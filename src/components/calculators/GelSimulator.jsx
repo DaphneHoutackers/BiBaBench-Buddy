@@ -255,19 +255,19 @@ function EnzymePickerInline({ selectedEnzymes, onAdd, onRemove }) {
   return (
     <div className="space-y-2">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
         <Input
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Search enzymes..."
-          className="pl-8 h-8 text-sm border-slate-200"
+          className="pl-8 h-8 text-sm border-slate-200 dark:border-slate-700"
         />
       </div>
 
       {query && (
-        <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg bg-white divide-y divide-slate-50">
+        <div className="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 divide-y divide-slate-50">
           {uniqueFiltered.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-2">No enzymes found</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No enzymes found</p>
           ) : (
             uniqueFiltered.slice(0, 20).map(enzyme => (
               <button
@@ -278,10 +278,10 @@ function EnzymePickerInline({ selectedEnzymes, onAdd, onRemove }) {
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-rose-50 flex items-center justify-between"
               >
-                <span className="font-medium text-slate-700">
+                <span className="font-medium text-slate-700 dark:text-slate-200">
                   {getEnzymeDisplayName(enzyme.name)}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
                   {enzyme.seq}
                 </span>
               </button>
@@ -295,7 +295,7 @@ function EnzymePickerInline({ selectedEnzymes, onAdd, onRemove }) {
           {selectedEnzymes.map(e => (
             <span
               key={e}
-              className="flex items-center gap-1 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-full px-2 py-0.5 font-medium"
+              className="flex items-center gap-1 text-xs bg-rose-50 border border-rose-200 text-rose-700 dark:text-rose-300 rounded-full px-2 py-0.5 font-medium"
             >
               {getEnzymeDisplayName(e)}
               <button onClick={() => onRemove(e)} className="hover:text-red-700">
@@ -466,14 +466,14 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
   };
 
     return (
-    <Card className="border-0 shadow-sm bg-white">
+    <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
-        <CardTitle className="text-sm font-medium text-slate-700">Gel — {agarose}% Agarose</CardTitle>
+        <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Gel — {agarose}% Agarose</CardTitle>
           <div className="flex items-center gap-2">
-            {onBandClick && <span className="text-xs text-slate-400">Click a band to mark/unmark for excision</span>}
+            {onBandClick && <span className="text-xs text-slate-400 dark:text-slate-500">Click a band to mark/unmark for excision</span>}
             <button onClick={copyImage}
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors">
+              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-200 hover:text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg transition-colors">
               {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy Image'}
             </button>
@@ -490,7 +490,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
           {activeLanes.map((lane, idx) => {
             const laneColor = (laneColors && laneColors[lane.id]) || LANE_COLORS[idx % LANE_COLORS.length];
             return (
-              <div key={lane.id} className="flex items-center gap-1.5 text-xs text-slate-500">
+              <div key={lane.id} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 {onLaneColorChange ? (
                   <label className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer relative border border-slate-300" style={{ background: laneColor }} title="Change label color">
                     <input type="color" value={laneColor} onChange={e => onLaneColorChange(lane.id, e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
@@ -502,7 +502,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
               </div>
             );
           })}
-          {onLaneColorChange && activeLanes.length > 0 && <span className="text-xs text-slate-400 italic">Click color swatch to change label color</span>}
+          {onLaneColorChange && activeLanes.length > 0 && <span className="text-xs text-slate-400 dark:text-slate-500 italic">Click color swatch to change label color</span>}
         </div>
       </CardContent>
     </Card>
@@ -692,13 +692,13 @@ function WesternBlotTab() {
     <div className="grid md:grid-cols-2 gap-4">
       <div className="space-y-3">
         {/* Ladder + Gel type selection */}
-        <Card className="border-0 shadow-sm bg-white/80">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700">Gel & Ladder Settings</CardTitle></CardHeader>
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Gel & Ladder Settings</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-600">Protein Ladder</Label>
+              <Label className="text-xs text-slate-600 dark:text-slate-200">Protein Ladder</Label>
               <Select value={selectedLadder} onValueChange={setSelectedLadder}>
-                <SelectTrigger className="border-slate-200 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border-slate-200 dark:border-slate-700 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.keys(PROTEIN_LADDERS).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                 </SelectContent>
@@ -706,36 +706,36 @@ function WesternBlotTab() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-600">SDS-PAGE Gel Type</Label>
+                <Label className="text-xs text-slate-600 dark:text-slate-200">SDS-PAGE Gel Type</Label>
                 <Select value={gelType} onValueChange={handleGelTypeChange}>
-                  <SelectTrigger className="border-slate-200 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-slate-200 dark:border-slate-700 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.keys(WB_GEL_TYPES).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-600">Gel %</Label>
+                <Label className="text-xs text-slate-600 dark:text-slate-200">Gel %</Label>
                 <Select value={gelPct} onValueChange={setGelPct}>
-                  <SelectTrigger className="border-slate-200 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="border-slate-200 dark:border-slate-700 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {WB_GEL_TYPES[gelType].map(p => <SelectItem key={p} value={p}>{p}%</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <p className="text-xs text-slate-400">Band positions adjust automatically for the selected gel type and percentage.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Band positions adjust automatically for the selected gel type and percentage.</p>
           </CardContent>
         </Card>
 
         {/* Protein inputs */}
-        <Card className="border-0 shadow-sm bg-white/80">
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700">Proteins of Interest</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Proteins of Interest</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {proteins.map((prot) => (
-              <div key={prot.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
+              <div key={prot.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
                 <div className="flex items-center gap-2">
                   {/* Clickable color swatch */}
                   <label className="w-5 h-5 rounded cursor-pointer border-2 border-slate-300 flex-shrink-0 relative" style={{ background: prot.color || '#ef4444' }} title="Click to change color">
@@ -744,32 +744,32 @@ function WesternBlotTab() {
                   </label>
                   <Input value={prot.name}
                     onChange={e => updateProtein(prot.id, 'name', e.target.value)}
-                    className="h-7 text-sm border-slate-200 w-32 bg-white" placeholder="Protein name" />
+                    className="h-7 text-sm border-slate-200 dark:border-slate-700 w-32 bg-white dark:bg-slate-900" placeholder="Protein name" />
                   {proteins.length > 1 && (
-                    <button onClick={() => setProteins(proteins.filter(p => p.id !== prot.id))} className="text-slate-300 hover:text-red-500 ml-auto">
+                    <button onClick={() => setProteins(proteins.filter(p => p.id !== prot.id))} className="text-slate-300 hover:text-red-500 dark:text-red-400 ml-auto">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
                 <div className="flex gap-2">
                   <select value={prot.inputType} onChange={e => updateProtein(prot.id, 'inputType', e.target.value)}
-                    className="border border-slate-200 rounded-md h-7 px-2 text-xs bg-white">
+                    className="border border-slate-200 dark:border-slate-700 rounded-md h-7 px-2 text-xs bg-white dark:bg-slate-900">
                     <option value="kda">kDa value</option>
                     <option value="aa">AA sequence</option>
                   </select>
                   {prot.inputType === 'kda' ? (
                     <NumInput value={prot.input} onChange={e => updateProtein(prot.id, 'input', e.target.value)}
-                      placeholder="e.g. 55" className="h-7 text-xs border-slate-200 bg-white flex-1" />
+                      placeholder="e.g. 55" className="h-7 text-xs border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-1" />
                   ) : (
                     <textarea value={prot.input} onChange={e => updateProtein(prot.id, 'input', e.target.value)}
-                      className="w-full h-16 text-xs font-mono border border-slate-200 rounded-md p-2 resize-none bg-white"
+                      className="w-full h-16 text-xs font-mono border border-slate-200 dark:border-slate-700 rounded-md p-2 resize-none bg-white dark:bg-slate-900"
                       placeholder="Paste amino acid sequence (single-letter codes)..." />
                   )}
                 </div>
-                {prot.kda && <p className="text-xs text-slate-500">Calculated: <strong>{prot.kda} kDa</strong></p>}
+                {prot.kda && <p className="text-xs text-slate-500 dark:text-slate-400">Calculated: <strong>{prot.kda} kDa</strong></p>}
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={addProtein} className="gap-1 h-7 text-xs w-full">
+            <Button variant="outline" size="sm" onClick={addProtein} className="gap-1 h-7 text-xs w-full dark:text-slate-200">
               <Plus className="w-3 h-3" /> Add Protein
             </Button>
           </CardContent>
@@ -777,12 +777,12 @@ function WesternBlotTab() {
       </div>
 
       {/* WB canvas */}
-      <Card className="border-0 shadow-sm bg-white">
+      <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-slate-700">Western Blot Preview</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Western Blot Preview</CardTitle>
             <button onClick={copyImage}
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors">
+              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg transition-colors">
               {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy Image'}
             </button>
@@ -794,7 +794,7 @@ function WesternBlotTab() {
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {proteins.map((p) => (
-              <div key={p.id} className="flex items-center gap-1.5 text-xs text-slate-500">
+              <div key={p.id} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: p.color || '#ef4444' }} />
                 <span>{p.name}{p.kda ? ` — ${p.kda} kDa` : ''}</span>
               </div>
@@ -941,13 +941,13 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
           <Microscope className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Gel & WB Simulator</h2>
-          <p className="text-sm text-slate-500">Unified DNA gel and Western Blot analysis</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Gel & WB Simulator</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Unified DNA gel and Western Blot analysis</p>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="bg-slate-100">
+        <TabsList className="bg-slate-100 dark:bg-slate-800">
           <TabsTrigger value="dna" className="flex items-center gap-2">
             <Microscope className="w-4 h-4" />
             DNA Gel
@@ -961,29 +961,29 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
         <TabsContent value="dna" className="mt-4" forceMount style={{ display: tab === 'dna' ? undefined : 'none' }}>
           <div className="grid lg:grid-cols-2 gap-4">
             <div className="space-y-3">
-              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
-                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700">Gel Configuration</CardTitle></CardHeader>
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Gel Configuration</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs text-slate-600">DNA Ladder</Label>
+                      <Label className="text-xs text-slate-600 dark:text-slate-200">DNA Ladder</Label>
                       <Select value={selectedLadder} onValueChange={setSelectedLadder}>
-                        <SelectTrigger className="border-slate-200 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="border-slate-200 dark:border-slate-700 h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>{Object.keys(LADDERS).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-slate-600">Agarose (%)</Label>
-                      <NumInput value={agarose} onChange={e => setAgarose(e.target.value)} className="h-8 text-xs border-slate-200" />
+                      <Label className="text-xs text-slate-600 dark:text-slate-200">Agarose (%)</Label>
+                      <NumInput value={agarose} onChange={e => setAgarose(e.target.value)} className="h-8 text-xs border-slate-200 dark:border-slate-700" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-slate-500">Voltage: <span className="font-bold">{voltage}V</span></Label>
+                      <Label className="text-[11px] text-slate-700 dark:text-slate-200">Voltage: <span className="font-bold">{voltage}V</span></Label>
                       <input type="range" min="50" max="200" step="5" value={voltage} onChange={e=>setVoltage(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-slate-500">Time: <span className="font-bold">{runtime}m</span></Label>
+                      <Label className="text-[11px] text-slate-700 dark:text-slate-200">Time: <span className="font-bold">{runtime}m</span></Label>
                       <input type="range" min="10" max="120" step="5" value={runtime} onChange={e=>setRuntime(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
                     </div>
                   </div>
@@ -991,26 +991,26 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
               </Card>
 
               <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Lanes & Samples</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 px-1">Lanes & Samples</h3>
                 {dnaLanes.map((lane, idx) => (
-                  <Card key={lane.id} className={`border border-slate-200 transition-all ${lane.type === 'sequence' ? 'border-l-4 border-l-rose-500' : 'border-l-4 border-l-blue-500'}`}>
+                  <Card key={lane.id} className={`border border-slate-200 dark:border-slate-700 transition-all ${lane.type === 'sequence' ? 'border-l-4 border-l-rose-500' : 'border-l-4 border-l-blue-500'}`}>
                     <CardContent className="p-3 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded shadow-sm border border-slate-200" style={{ background: LANE_COLORS[idx % LANE_COLORS.length] }} />
+                          <div className="w-4 h-4 rounded shadow-sm border border-slate-200 dark:border-slate-700" style={{ background: LANE_COLORS[idx % LANE_COLORS.length] }} />
                           <Input value={lane.label} onChange={e => updateLane(lane.id, 'label', e.target.value)} 
-                            className="h-7 text-sm font-semibold border-transparent hover:border-slate-200 focus:bg-white w-32 bg-transparent" />
+                            className="h-7 text-sm font-semibold border-transparent hover:border-slate-200 dark:border-slate-700 focus:bg-white dark:bg-slate-900 w-32 bg-transparent" />
                         </div>
-                        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
                           <button onClick={() => updateLane(lane.id, 'type', 'manual')}
-                            className={`px-2 py-0.5 text-[11px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
+                            className={`px-2 py-0.5 text-[11px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             Manual
                           </button>
                           <button onClick={() => updateLane(lane.id, 'type', 'sequence')}
-                            className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'sequence' ? 'bg-white shadow-sm text-rose-600' : 'text-slate-500'}`}>
+                            className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'sequence' ? 'bg-white dark:bg-slate-900 shadow-sm text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             Digest
                           </button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-400 hover:text-red-500" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
                             <X className="w-3 h-3" />
                           </Button>
                         </div>
@@ -1018,31 +1018,31 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
 
                       {lane.type === 'manual' ? (
                         <div className="space-y-1.5">
-                          <Label className="text-[11px] text-slate-500 uppercase font-bold">DNA Fragments</Label>
+                          <Label className="text-[11px] text-slate-700 dark:text-slate-200 uppercase font-bold">DNA Fragments</Label>
                           <Input value={lane.manualFragments} onChange={e => updateLane(lane.id, 'manualFragments', e.target.value)}
-                            className="h-8 text-sm border-slate-200 bg-white font-mono" placeholder="Fragment sizes bp (e.g. 500, 1200, 3000)" />
+                            className="h-8 text-sm border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono" placeholder="Fragment sizes bp (e.g. 500, 1200, 3000)" />
                         </div>
                       ) : (
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] text-slate-500 uppercase font-bold">DNA Sequence</Label>
+                            <Label className="text-[11px] text-slate-700 dark:text-slate-200 uppercase font-bold">DNA Sequence</Label>
                             <textarea value={lane.sequence} onChange={e => updateLane(lane.id, 'sequence', e.target.value)}
-                              className="w-full h-16 text-[10px] font-mono border border-slate-200 rounded-md p-2 resize-none bg-white" placeholder="Paste DNA sequence..." />
+                              className="w-full h-16 text-[10px] font-mono border border-slate-200 dark:border-slate-700 rounded-md p-2 resize-none bg-white dark:bg-slate-900" placeholder="Paste DNA sequence..." />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[10px] text-slate-500 uppercase font-bold">Enzymes</Label>
+                            <Label className="text-[10px] text-slate-700 dark:text-slate-200 uppercase font-bold">Enzymes</Label>
                             <EnzymePickerInline selectedEnzymes={lane.enzymes} 
                               onAdd={enz => updateLane(lane.id, 'enzymes', [...lane.enzymes, enz])}
                               onRemove={enz => updateLane(lane.id, 'enzymes', lane.enzymes.filter(x => x !== enz))} />
                           </div>
                           <div className="flex items-center gap-2">
                             <input type="checkbox" id={`circ-${lane.id}`} checked={lane.circular} onChange={e => updateLane(lane.id, 'circular', e.target.checked)} className="rounded border-slate-300" />
-                            <Label htmlFor={`circ-${lane.id}`} className="text-[11px] text-slate-600 cursor-pointer">Circular (plasmid)</Label>
+                            <Label htmlFor={`circ-${lane.id}`} className="text-[11px] text-slate-600 dark:text-slate-200 cursor-pointer">Circular (plasmid)</Label>
                           </div>
                           {digestCache[lane.id]?.fragments?.length > 0 && (
                             <div className="pt-1 flex flex-wrap gap-1">
                               {digestCache[lane.id].fragments.map((bp, k) => (
-                                <span key={k} className="bg-rose-50 text-rose-700 border border-rose-100 rounded px-1.5 py-0.5 text-[10px] font-mono">
+                                <span key={k} className="bg-rose-50 text-rose-700 dark:text-rose-300 border border-rose-100 rounded px-1.5 py-0.5 text-[10px] font-mono">
                                   {bp}bp
                                 </span>
                               ))}
@@ -1053,7 +1053,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
                     </CardContent>
                   </Card>
                 ))}
-                <Button variant="outline" size="sm" onClick={addLane} className="w-full h-9 border-dashed border-slate-300 text-slate-500 hover:bg-slate-50 hover:border-slate-400">
+                <Button variant="outline" size="sm" onClick={addLane} className="w-full h-9 border-dashed border-slate-300 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:bg-slate-800/50 hover:border-slate-400">
                   <Plus className="w-4 h-4 mr-2" /> Add New Lane
                 </Button>
               </div>
@@ -1075,24 +1075,24 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
               />
               
               {/* Automated Digest Legend */}
-              <Card className="border-0 shadow-sm bg-indigo-50/50">
-                <CardHeader className="pb-1 pt-3"><CardTitle className="text-[11px] font-bold uppercase text-indigo-600">Digest Summary</CardTitle></CardHeader>
+              <Card className="border-0 shadow-sm bg-indigo-50 dark:bg-indigo-900/30/50">
+                <CardHeader className="pb-1 pt-3"><CardTitle className="text-[11px] font-bold uppercase text-indigo-600 dark:text-indigo-400 dark:text-slate-200">Digest Summary</CardTitle></CardHeader>
                 <CardContent className="pb-3 space-y-2">
                   {dnaLanes.filter(l => l.type === 'sequence').map(lane => {
                     const cache = digestCache[lane.id];
                     return (
-                      <div key={lane.id} className="text-[11px] bg-white rounded border border-indigo-100 p-2">
-                        <p className="font-bold text-slate-700">{lane.label}: {cache?.fragments?.length || 0} fragments</p>
+                      <div key={lane.id} className="text-[11px] bg-white dark:bg-slate-900 rounded border border-indigo-100 dark:border-indigo-800 p-2">
+                        <p className="font-bold text-slate-700 dark:text-slate-200">{lane.label}: {cache?.fragments?.length || 0} fragments</p>
                         {cache?.enzymeSites?.map((e, idx) => (
-                          <p key={idx} className="text-slate-500 ml-2">
-                            <span className="text-rose-600 font-semibold">{getEnzymeDisplayName(e.enzyme)}</span>: {e.sites.length} cuts
+                          <p key={idx} className="text-slate-500 dark:text-slate-400 ml-2">
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">{getEnzymeDisplayName(e.enzyme)}</span>: {e.sites.length} cuts
                           </p>
                         ))}
                       </div>
                     );
                   })}
                   {dnaLanes.filter(l => l.type === 'sequence').length === 0 && (
-                    <p className="text-[10px] text-slate-400 italic">No restriction digest lanes active.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">No restriction digest lanes active.</p>
                   )}
                 </CardContent>
               </Card>

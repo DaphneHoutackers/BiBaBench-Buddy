@@ -289,13 +289,13 @@ export default function BufferCalculator({ historyData, isActive }) {
           <Beaker className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Buffer Preparation</h2>
-          <p className="text-sm text-slate-500">Recipes, component functions & complete protocols</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Buffer Preparation</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Recipes, component functions & complete protocols</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-100">
+        <TabsList className="bg-slate-100 dark:bg-slate-800">
           <TabsTrigger value="recipes" className="flex items-center gap-2">
             <FlaskConical className="w-4 h-4" />
             Buffer Recipes
@@ -316,7 +316,7 @@ export default function BufferCalculator({ historyData, isActive }) {
           />
         </TabsContent>
         <TabsContent value="lysis" className="mt-4">
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardContent className="p-5">
               <LysisBufferBuilder historyData={historyData} isActive={isActive} sessionId={sessionId.current} />
             </CardContent>
@@ -324,19 +324,19 @@ export default function BufferCalculator({ historyData, isActive }) {
         </TabsContent>
         <TabsContent value="recipes" className="mt-4 space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base font-medium text-slate-700">Select Buffer</CardTitle>
+            <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Select Buffer</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm text-slate-600">Buffer Type</Label>
+              <Label className="text-sm text-slate-600 dark:text-slate-200">Buffer Type</Label>
               <Select value={selectedBuffer} onValueChange={setSelectedBuffer}>
-                <SelectTrigger className="border-slate-200"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border-slate-200 dark:border-slate-700"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map(cat => (
                     <React.Fragment key={cat}>
-                      <div className="px-2 py-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">{cat}</div>
+                      <div className="px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">{cat}</div>
                       {Object.entries(allBuffers).filter(([, b]) => b.category === cat).map(([name]) => (
                         <SelectItem key={name} value={name} className="pl-4">{name}</SelectItem>
                       ))}
@@ -346,17 +346,17 @@ export default function BufferCalculator({ historyData, isActive }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm text-slate-600">Desired Final Volume (mL)</Label>
-              <NumInput placeholder="e.g., 500" value={desiredVolume} onChange={e => setDesiredVolume(e.target.value)} className="border-slate-200" />
+              <Label className="text-sm text-slate-600 dark:text-slate-200">Desired Final Volume (mL)</Label>
+              <NumInput placeholder="e.g., 500" value={desiredVolume} onChange={e => setDesiredVolume(e.target.value)} className="border-slate-200 dark:border-slate-700" />
             </div>
-            <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm text-slate-600 dark:text-slate-300">
               <strong>Standard recipe:</strong> {buffer.finalVolume} mL
               {buffer.pH && <> · <strong>Target pH:</strong> {buffer.pH}</>}
               {buffer.storage && <> · <strong>Storage:</strong> {buffer.storage}</>}
             </div>
             {hasToxic && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-red-700">
                   <strong>⚠ Toxic components present. Wear gloves throughout.</strong>
                   {hasFumeHood && ' Some steps require a fume hood — see protocol below.'}
@@ -366,9 +366,9 @@ export default function BufferCalculator({ historyData, isActive }) {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-orange-50">
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base font-medium text-slate-700 flex items-center justify-between w-full">
+            <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center justify-between w-full">
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-amber-600" />
                 Recipe for {desiredVolume} mL
@@ -376,7 +376,7 @@ export default function BufferCalculator({ historyData, isActive }) {
               {savedRecipes[safeSelected] && (
                 <button 
                   onClick={() => deleteCustomRecipe(safeSelected)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400 hover:bg-red-50 transition-colors"
                   title="Delete custom recipe"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -387,48 +387,48 @@ export default function BufferCalculator({ historyData, isActive }) {
           <CardContent>
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-blue-50">
-                  <th className="text-left py-2 px-3 font-bold text-slate-700 rounded-l">Component</th>
-                  <th className="text-left py-2 px-3 font-bold text-slate-500 text-xs">Function</th>
-                  <th className="text-right py-2 px-3 font-bold text-slate-700 rounded-r">Amount</th>
+                <tr className="bg-blue-50 dark:bg-blue-900/30">
+                  <th className="text-left py-2 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-l">Component</th>
+                  <th className="text-left py-2 px-3 font-bold text-slate-500 dark:text-slate-400 text-xs">Function</th>
+                  <th className="text-right py-2 px-3 font-bold text-slate-700 dark:text-slate-200 rounded-r">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {scaledComponents.map((comp, idx) => (
-                  <tr key={idx} className={`border-b border-slate-100 ${comp.toxic ? 'bg-red-50/40' : ''}`}>
+                  <tr key={idx} className={`border-b border-slate-100 dark:border-slate-800 ${comp.toxic ? 'bg-red-50/40' : ''}`}>
                     <td className="py-2 px-3">
-                      <span className={comp.toxic ? 'text-red-700 font-medium' : 'text-slate-700'}>
+                      <span className={comp.toxic ? 'text-red-700 font-medium' : 'text-slate-700 dark:text-slate-200'}>
                         {comp.name}
-                        {comp.toxic && <span className="ml-1 text-xs text-red-600">☠ gloves</span>}
+                        {comp.toxic && <span className="ml-1 text-xs text-red-600 dark:text-red-400">☠ gloves</span>}
                         {comp.fumeHood && <span className="ml-1 text-xs text-purple-600">🔬 hood</span>}
                         {comp.slowAdd && <span className="ml-1 text-xs text-amber-600">⚡ slow</span>}
-                        {comp.addOnIce && <span className="ml-1 text-xs text-blue-600">🧊 ice</span>}
+                        {comp.addOnIce && <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">🧊 ice</span>}
                       </span>
-                      <div className="text-xs text-slate-400">{comp.finalConc}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500">{comp.finalConc}</div>
                     </td>
-                    <td className="py-2 px-3 text-xs text-slate-400 max-w-xs">{comp.fn}</td>
-                    <td className="py-2 px-3 text-right font-mono font-semibold text-slate-800 whitespace-nowrap">
+                    <td className="py-2 px-3 text-xs text-slate-400 dark:text-slate-500 max-w-xs">{comp.fn}</td>
+                    <td className="py-2 px-3 text-right font-mono font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">
                       {comp.scaledAmount} {comp.unit}
                     </td>
                   </tr>
                 ))}
-                <tr className="border-b border-slate-100">
-                  <td className="py-2 px-3 text-slate-600">MQ to final volume</td>
-                  <td className="py-2 px-3 text-xs text-slate-400">Adjust total volume</td>
+                <tr className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="py-2 px-3 text-slate-600 dark:text-slate-300">MQ to final volume</td>
+                  <td className="py-2 px-3 text-xs text-slate-400 dark:text-slate-500">Adjust total volume</td>
                   <td className="py-2 px-3 text-right font-mono font-semibold">{desiredVolume} mL</td>
                 </tr>
               </tbody>
             </table>
 
             {buffer.pH && (
-              <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border border-amber-200 mt-3">
-                <span className="text-sm font-medium text-slate-700">Target pH</span>
-                <span className="font-mono font-bold text-amber-700">{buffer.pH}</span>
+              <div className="flex justify-between items-center py-2 px-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-800 mt-3">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Target pH</span>
+                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{buffer.pH}</span>
               </div>
             )}
             {buffer.notes && (
-              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mt-2">
-                <p className="text-xs text-blue-700"><strong>Notes:</strong> {buffer.notes}</p>
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg mt-2">
+                <p className="text-xs text-blue-700 dark:text-blue-300"><strong>Notes:</strong> {buffer.notes}</p>
               </div>
             )}
           </CardContent>
@@ -436,27 +436,27 @@ export default function BufferCalculator({ historyData, isActive }) {
           </div>
 
           {/* Protocol section */}
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <button
               className="w-full flex items-center justify-between p-5"
               onClick={() => setShowProtocol(v => !v)}
             >
-              <span className="font-medium text-slate-700">Full Preparation Protocol</span>
-              {showProtocol ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+              <span className="font-medium text-slate-700 dark:text-slate-200">Full Preparation Protocol</span>
+              {showProtocol ? <ChevronUp className="w-5 h-5 text-slate-400 dark:text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-400 dark:text-slate-500" />}
             </button>
             {showProtocol && (
               <CardContent className="pt-0 pb-5">
                 {hasToxic && (
                   <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-red-700 font-medium">
                       ☠ Toxic substances involved. Gloves must be worn at all times.
                       {hasFumeHood && ' Work in fume hood for volatile/toxic steps as indicated.'}
                     </p>
                   </div>
                 )}
-                <div className="bg-slate-50 rounded-lg p-4">
-                  <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                  <pre className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
                     {buffer.protocol}
                   </pre>
                 </div>

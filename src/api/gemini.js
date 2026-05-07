@@ -5,7 +5,7 @@
 
 const getSettings = () => {
   try {
-    return JSON.parse(localStorage.getItem('bibabenchbuddy_settings') || '{}');
+    return JSON.parse(localStorage.getItem('biba_bench_buddy_settings') || '{}');
   } catch {
     return {};
   }
@@ -36,7 +36,7 @@ const PROVIDER_CONFIGS = {
  */
 export async function InvokeLLM(args = {}) {
   const { prompt, response_json_schema } = args;
-  const settings = getSettings();
+  const settings = args.settings || getSettings();
   const provider = settings.aiProvider || 'groq';
   const model = settings.aiModel || PROVIDER_CONFIGS[provider]?.defaultModel;
   const apiKey = settings[`${provider}ApiKey`];

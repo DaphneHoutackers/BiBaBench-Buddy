@@ -414,9 +414,9 @@ const PROTOCOLS = [
 ];
 
 const SPECIAL_STYLES = {
-  ice: { bg: 'bg-blue-50 border-blue-200', badge: 'bg-blue-100 text-blue-700', label: '🧊 On Ice' },
+  ice: { bg: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700', badge: 'bg-blue-100 text-blue-700 dark:text-blue-300', label: '🧊 On Ice' },
   toxic: { bg: 'bg-red-50 border-red-200', badge: 'bg-red-100 text-red-700', label: '☠️ Toxic — Gloves Required' },
-  warning: { bg: 'bg-amber-50 border-amber-200', badge: 'bg-amber-100 text-amber-700', label: '⚠️ Caution' },
+  warning: { bg: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800', badge: 'bg-amber-100 text-amber-700 dark:text-amber-400', label: '⚠️ Caution' },
   'fume hood': { bg: 'bg-purple-50 border-purple-200', badge: 'bg-purple-100 text-purple-700', label: '🔬 Fume Hood' },
   temp: { bg: 'bg-orange-50 border-orange-200', badge: 'bg-orange-100 text-orange-700', label: '🌡️ Temperature' },
 };
@@ -430,18 +430,18 @@ function ProtocolCard({ protocol }) {
   const calcResult = protocol.calc ? protocol.calc(calcVals) : null;
 
   return (
-    <Card className="border-0 shadow-sm bg-white">
+    <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
       <button className="w-full text-left p-5 flex items-start justify-between gap-4" onClick={() => setOpen(o => !o)}>
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="font-semibold text-slate-800">{protocol.name}</span>
-            <Badge className="bg-slate-100 text-slate-600 text-xs">{protocol.category}</Badge>
+            <span className="font-semibold text-slate-800 dark:text-slate-100">{protocol.name}</span>
+            <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">{protocol.category}</Badge>
           </div>
           <div className="flex flex-wrap gap-1">
-            {protocol.tags.map(t => <span key={t} className="text-xs text-slate-400">#{t}</span>)}
+            {protocol.tags.map(t => <span key={t} className="text-xs text-slate-400 dark:text-slate-500">#{t}</span>)}
           </div>
         </div>
-        {open ? <ChevronUp className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />}
+        {open ? <ChevronUp className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0 mt-0.5" /> : <ChevronDown className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0 mt-0.5" />}
       </button>
 
       {open && (
@@ -452,12 +452,12 @@ function ProtocolCard({ protocol }) {
               <div className="flex flex-wrap gap-3">
                 {protocol.calcFields.map(f => (
                   <div key={f.id} className="space-y-1">
-                    <Label className="text-xs text-teal-700">{f.label}</Label>
+                    <Label className="text-xs text-teal-700 dark:text-slate-200">{f.label}</Label>
                     {f.isSelect ? (
                       <select
                         value={calcVals[f.id]}
                         onChange={e => setCalcVals({ ...calcVals, [f.id]: e.target.value })}
-                        className="h-8 w-40 text-sm border border-teal-300 rounded-md px-2 bg-white"
+                        className="h-8 w-40 text-sm border border-teal-300 rounded-md px-2 bg-white dark:bg-slate-900"
                       >
                         {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
@@ -468,7 +468,7 @@ function ProtocolCard({ protocol }) {
                 ))}
               </div>
               {calcResult && (
-                <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-teal-200">
+                <div className="flex items-center gap-2 p-2 bg-white dark:bg-slate-900 rounded-lg border border-teal-200">
                   <FlaskConical className="w-4 h-4 text-teal-600 flex-shrink-0" />
                   <p className="text-sm text-teal-800 font-medium">{calcResult}</p>
                 </div>
@@ -479,15 +479,15 @@ function ProtocolCard({ protocol }) {
             {protocol.steps.map((step, i) => {
               const style = step.special ? SPECIAL_STYLES[step.special] : null;
               return (
-                <li key={i} className={`flex gap-3 p-3 rounded-lg border text-sm ${style ? style.bg : 'bg-slate-50 border-slate-100'}`}>
-                  <span className="font-bold text-slate-500 w-5 flex-shrink-0">{i + 1}.</span>
+                <li key={i} className={`flex gap-3 p-3 rounded-lg border text-sm ${style ? style.bg : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'}`}>
+                  <span className="font-bold text-slate-500 dark:text-slate-400 w-5 flex-shrink-0">{i + 1}.</span>
                   <div className="flex-1">
-                    <span className="text-slate-700">{step.text}</span>
+                    <span className="text-slate-700 dark:text-slate-200">{step.text}</span>
                     {step.param && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {Object.entries(step.param.options).map(([key, val]) => (
-                          <span key={key} className="text-xs bg-white border border-slate-200 rounded-full px-2 py-0.5 text-slate-600">
-                            <span className="text-slate-400">{key}:</span> {val}
+                          <span key={key} className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-2 py-0.5 text-slate-600 dark:text-slate-300">
+                            <span className="text-slate-400 dark:text-slate-500">{key}:</span> {val}
                           </span>
                         ))}
                       </div>
@@ -557,13 +557,13 @@ export default function ProtocolLibrary({ historyData, isActive }) {
           <BookOpen className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">Protocol Library</h2>
-          <p className="text-sm text-slate-500">Standard workflows with scaling calculators and safety notes</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Protocol Library</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Standard workflows with scaling calculators and safety notes</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-100">
+        <TabsList className="bg-slate-100 dark:bg-slate-800">
           <TabsTrigger value="library" className="flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
             Library
@@ -577,13 +577,13 @@ export default function ProtocolLibrary({ historyData, isActive }) {
         <TabsContent value="library" className="mt-4 space-y-4">
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search protocols..." className="pl-9 border-slate-200" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search protocols..." className="pl-9 border-slate-200 dark:border-slate-700" />
             </div>
             <div className="flex gap-2 flex-wrap">
               {categories.map(cat => (
                 <button key={cat} onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-800/50'}`}>
                   {cat}
                 </button>
               ))}
@@ -591,7 +591,7 @@ export default function ProtocolLibrary({ historyData, isActive }) {
           </div>
           <div className="space-y-3">
             {filtered.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-slate-400 dark:text-slate-500">
                 <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>No protocols found</p>
               </div>
@@ -602,7 +602,7 @@ export default function ProtocolLibrary({ historyData, isActive }) {
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">
-          <Card className="border-0 shadow-sm bg-white/80">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
             <CardContent className="p-5">
               <ProtocolAIChat historyData={historyData} />
             </CardContent>
