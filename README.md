@@ -32,22 +32,34 @@ BiBaBenchBuddy is a desktop and web application designed for molecular biology w
 - Buffer library & calculator
 - Clean, fast, mobile-friendly interface
 
-
 ## Use & Installation
 
 ### 🌐 WebApp [Open webapp ↗](https://bi-ba-bench-buddy.vercel.app/)
 
-The latest version is accessible from any browser via this link:
-**[https://bi-ba-bench-buddy.app](https://bi-ba-bench-buddy.vercel.app/)**
+The latest webapp version is accessible in any browser at:  
+**[https://bi-ba-bench-buddy.vercel.app/](https://bi-ba-bench-buddy.vercel.app/)**
 
 ### 💻 Desktop Application [![release](https://img.shields.io/github/v/release/DaphneHoutackers/BiBaBench-Buddy)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
 
 For a standalone experience with native performance:
 
-- **Download:** [![Download for macOS](https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-blue?logo=apple)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-mac-arm64.dmg)
-- **Windows Version:** [![Download for Windows](https://img.shields.io/badge/Download-Windows-green?logo=windows)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup-.exe)
-- **All versions:** [Releases overview](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
+- **macOS version:**  
+  [![Download for macOS](https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-mac-arm64.dmg)
+- **Windows version:**  
+  [![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup.exe)
+- **All versions & changelog:**  
+  [Releases overview](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
 
+#### ⚠️ macOS: “App is damaged and can’t be opened” warning? ⚠️ 
+
+If you see the warning  
+‘BiBaBench-Buddy.app is damaged and can’t be opened. You should move it to the Trash’  
+when opening the app for the first time, run the following command in your Terminal:
+
+```bash
+xattr -cr "/Applications/BiBaBench-Buddy.app"
+```
+After running this, try opening the app again. The warning should now be resolved.
 
 ## Usage
 
