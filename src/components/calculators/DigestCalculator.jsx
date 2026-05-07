@@ -109,7 +109,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         addHistoryItem({
           id: sessionId.current,
           toolId: 'digest',
-          toolName: 'Restriction Digest',
+          toolName: 'Digestion',
           data: {
             preview:
               tab === 'single'
@@ -249,7 +249,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
           <BiGame className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Restriction Digest</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Digestion</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Single or batch digest mix calculator</p>
         </div>
       </div>
@@ -269,7 +269,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         {/* ─── SINGLE ─── */}
         <TabsContent value="single" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Parameters</CardTitle>
               </CardHeader>
@@ -421,7 +421,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         {/* ─── BATCH ─── */}
         <TabsContent value="batch" className="mt-6">
           <div className="space-y-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Batch Settings</CardTitle>
               </CardHeader>
@@ -471,7 +471,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                         enzymeType={batchEnzymeType}
                         compact
                       />
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Select enzymes per sample. Only {batchEnzymeType} enzymes are shown.</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic mt-1 leading-tight">{batchEnzymeType} enzymes are shown.</p>
                       <Button variant="outline" size="sm" onClick={applyDefaultEnzymesToAll} className="w-full">Apply to All</Button>
                     </div>
                   </div>
@@ -479,7 +479,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+            <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">DNA Samples</CardTitle>
@@ -498,11 +498,11 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       <div className="flex gap-3 items-center flex-wrap">
                         <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm" placeholder="Name" />
                         <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 dark:text-slate-200 ml-1">Conc. (ng/µL)</Label>
+                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 ml-1">Conc. (ng/µL)</Label>
                           <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc." />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 dark:text-slate-200 ml-1">Desired (ng)</Label>
+                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 ml-1">Desired (ng)</Label>
                           <div className="flex items-center gap-1.5">
                             <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired" />
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">ng</span>

@@ -183,7 +183,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
       addHistoryItem({
         id: sessionId.current,
         toolId: 'protein',
-        toolName: 'Protein Concentration Calculator',
+        toolName: 'BCA assay',
         data: {
           preview,
           tab,
@@ -363,7 +363,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           <HiMiniChartBar className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Protein Concentration</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">BCA assay</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">BCA / Bradford standard curve & SDS-PAGE sample prep</p>
         </div>
       </div>
@@ -382,7 +382,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
 
         {/* ─── STANDARDS ─── */}
         <TabsContent value="standards" className="mt-3 space-y-4">
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium text-slate-800 dark:text-slate-200">Assay Setup</CardTitle>
             </CardHeader>
@@ -608,7 +608,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           </div>
 
           {/* b) Samples table */}
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">b) Samples Table</CardTitle>
@@ -702,7 +702,7 @@ or only:
 
         {/* ─── SDS-PAGE PREP ─── */}
         <TabsContent value="prep" className="mt-6 space-y-6">
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Sample Parameters</CardTitle>
             </CardHeader>

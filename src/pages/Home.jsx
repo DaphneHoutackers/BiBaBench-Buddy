@@ -62,12 +62,12 @@ const DEFAULT_SETTINGS = {
 };
 
 const CALCULATORS = [
-  { id: 'digest', name: 'Restriction Digest', icon: BiGame, gradient: 'from-rose-500 to-purple-400', description: 'Plan single/batch enzyme cuts' },
-  { id: 'ligation', name: 'Ligation', icon: BsOpencollective, gradient: 'from-orange-500 to-pink-500', description: 'Insert/vector molar ratios' },
-  { id: 'gibson', name: 'Gibson Assembly', icon: PiCircleDashedBold, gradient: 'from-rose-400 to-purple-500', description: 'Multi-fragment assembly' },
-  { id: 'pcr', name: 'PCR', icon: BiTransferAlt, gradient: 'from-pink-500 to-orange-500', description: 'Master mix & Ta calculator' },
-  { id: 'dilution', name: 'Dilutions', icon: SlCalculator, gradient: 'from-rose-500 to-pink-500', description: 'C1V1 & serial dilutions' },
-  { id: 'protein', name: 'Protein Conc.', icon: HiMiniChartBar, gradient: 'from-purple-500 to-pink-500', description: 'Standard curve & SDS-PAGE prep' },
+  { id: 'digest', name: 'Digestion', icon: BiGame, gradient: 'from-rose-500 to-purple-400' },
+  { id: 'ligation', name: 'Ligation', icon: BsOpencollective, gradient: 'from-orange-500 to-pink-500' },
+  { id: 'gibson', name: 'Gibson Assembly', icon: PiCircleDashedBold, gradient: 'from-rose-400 to-purple-500' },
+  { id: 'pcr', name: 'PCR', icon: BiTransferAlt, gradient: 'from-pink-500 to-orange-500' },
+  { id: 'dilution', name: 'Dilutions', icon: SlCalculator, gradient: 'from-rose-500 to-pink-500' },
+  { id: 'protein', name: 'BCA assay', icon: HiMiniChartBar, gradient: 'from-purple-500 to-pink-500' },
 ];
 // Tools with their sub-tabs (for sidebar navigation)
 const TOOL_TABS = {
@@ -92,7 +92,7 @@ const TOOL_TABS = {
     { id: 'lysis', label: 'Custom Lysis Buffer' },
   ],
   protein: [
-    { id: 'standards', label: 'Protein Conc.' },
+    { id: 'standards', label: 'BCA assay' },
     { id: 'prep', label: 'SDS-PAGE Prep' },
   ],
 };
@@ -102,17 +102,17 @@ const TOOL_GROUPS = [
     id: 'lab',
     label: 'Lab & Visualization',
     tools: [
-      { id: 'gel', name: 'Gel Simulator', icon: FaSortAmountDown, gradient: 'from-blue-600 to-cyan-500', description: 'Visualize band patterns' },
-      { id: 'plasmid', name: 'Sequence Analyzer', icon: BiDna, gradient: 'from-teal-500 to-sky-500', description: 'DNA maps & restriction sites' },
-      { id: 'image-annotator', name: 'Image Annotator', icon: ImageIcon, gradient: 'from-green-500 to-blue-500', description: 'Label gels, blots & lab images' },
+      { id: 'gel', name: 'Gel Simulator', icon: FaSortAmountDown, gradient: 'from-blue-600 to-cyan-500' },
+      { id: 'plasmid', name: 'Sequence Analyzer', icon: BiDna, gradient: 'from-teal-500 to-sky-500' },
+      { id: 'image-annotator', name: 'Image Annotator', icon: ImageIcon, gradient: 'from-green-500 to-blue-500' },
     ],
   },
   {
     id: 'protocols',
     label: 'Other Tools',
     tools: [
-      { id: 'buffer', name: 'Buffers', icon: GoBeaker, gradient: 'from-orange-600 to-yellow-200', description: 'Recipes & custom lysis buffer' },
-      { id: 'protocols', name: 'Protocol Library', icon: BookOpen, gradient: 'from-yellow-400 to-red-600', description: 'Workflows & AI protocol generator' },
+      { id: 'buffer', name: 'Buffers', icon: GoBeaker, gradient: 'from-orange-600 to-yellow-200' },
+      { id: 'protocols', name: 'Protocol Library', icon: BookOpen, gradient: 'from-yellow-400 to-red-600' },
     ],
   },
 ];
@@ -620,8 +620,7 @@ export default function Home() {
                             <div className={`inline-flex rounded-xl shadow-lg mb-3 p-3 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
                               <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-5 h-5 sm:w-6 sm:h-6`} />
                             </div>
-                            <p className={`text-sm sm:text-base font-semibold leading-tight mb-1 ${cardTextPrimary}`}>{tool.name}</p>
-                            <p className={`mt-1 ${cardTextSecondary} text-[10px] md:text-[11px] leading-tight pr-2 sm:pr-4 line-clamp-2`}>{tool.description}</p>
+                            <p className={`text-sm sm:text-base font-semibold leading-tight ${cardTextPrimary}`}>{tool.name}</p>
                           </button>
                         ))}
                       </div>

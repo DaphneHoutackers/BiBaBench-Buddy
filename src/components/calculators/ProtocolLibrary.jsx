@@ -136,7 +136,7 @@ const PROTOCOLS = [
     category: 'Cloning',
     tags: ['digestion', 'restriction enzyme', 'RE', 'cloning'],
     steps: [
-      { text: 'Calculate required volumes using the Restriction Digest Calculator. Use ≥500 ng DNA for analytical, 1-5 µg for preparative digest.', special: null },
+      { text: 'Calculate required volumes using the Digestion Calculator. Use ≥500 ng DNA for analytical, 1-5 µg for preparative digest.', special: null },
       { text: 'Set up on ice. Add MQ first, then DNA, then buffer (10×), then enzyme(s) last to prevent star activity.', special: 'ice' },
       { text: 'Incubate at optimal temperature (typically 37°C). For FastDigest enzymes: 5-15 min. For standard NEB enzymes: 1-2 h.', special: 'temp', param: { label: 'Enzyme type', options: { 'NEB CutSmart': '37°C × 1-2 h', 'Thermo FastDigest': '37°C × 5-15 min', 'Temp-sensitive (e.g., BclI)': '60°C × 1 h' } } },
       { text: 'Heat inactivate if applicable: 65°C × 20 min (most NEB enzymes) or 80°C × 20 min. Check NEB website for enzyme-specific protocols.', special: 'temp' },
@@ -205,7 +205,7 @@ const PROTOCOLS = [
       { text: 'Add 150 µL of Micro BCA Working Reagent to each well already containing 150 µL standard or sample (total volume 300 µL per well). Mix by pipetting 10× or with plate shaker at low speed for 30 s.', special: null },
       { text: 'Cover plate with adhesive film or lid. Incubate at 37°C × 2 h without shaking. Do NOT use elevated temperatures — Micro BCA uses lower protein concentrations than standard BCA and is more sensitive to heat.', special: 'temp' },
       { text: 'Remove plate, allow to cool to RT for 5-10 min. Measure absorbance at 562 nm on microplate reader.', special: null },
-      { text: 'Subtract background (0 µg/mL standard = blank). Plot A562 vs concentration. Enter values into the Protein Concentration Calculator (Standard Curve tab) to generate regression and determine sample concentrations.', special: null },
+      { text: 'Subtract background (0 µg/mL standard = blank). Plot A562 vs concentration. Enter values into the BCA assay (Standard Curve tab) to generate regression and determine sample concentrations.', special: null },
     ]
   },
   {
@@ -214,13 +214,13 @@ const PROTOCOLS = [
     category: 'Protein',
     tags: ['BCA', 'protein concentration', 'assay', 'standard curve'],
     steps: [
-      { text: 'Prepare BSA standards at 0, 0.25, 0.5, 1, 2, 5, 10, 20, 40 µg/mL. Use the Protein Concentration Calculator for volumes (2 mg/mL BSA stock).', special: null },
+      { text: 'Prepare BSA standards at 0, 0.25, 0.5, 1, 2, 5, 10, 20, 40 µg/mL. Use the BCA assay for volumes (2 mg/mL BSA stock).', special: null },
       { text: 'Add 10-25 µL sample or standard per well. Samples in same buffer as standards.', special: null },
       { text: 'Prepare BCA Working Reagent: Mix Reagent A and Reagent B in 50:1 ratio (v/v). Prepare fresh and use within 24 h.', special: null },
       { text: 'Add 200 µL (96-well) or 2 mL (tube) BCA Working Reagent per sample/standard.', special: null },
       { text: 'Incubate at 37°C × 30 min (standard) or 60°C × 30 min (enhanced sensitivity). Do not shake during incubation.', special: 'temp', param: { label: 'Sensitivity', options: { 'Standard range (20-2000 µg/mL)': '37°C × 30 min', 'Enhanced sensitivity (<25 µg/mL)': '60°C × 30 min', 'Room temperature': 'RT × 2 h' } } },
       { text: 'Cool to RT. Measure at A562 nm.', special: null },
-      { text: 'Enter values into Protein Concentration Calculator to generate regression curve and sample concentrations.', special: null },
+      { text: 'Enter values into BCA assay to generate regression curve and sample concentrations.', special: null },
     ]
   },
   {
@@ -602,7 +602,7 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user 
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
             <CardContent className="p-5">
               <ProtocolAIChat historyData={historyData} settings={settings} user={user} />
             </CardContent>
