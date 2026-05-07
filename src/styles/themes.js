@@ -1,5 +1,6 @@
 
 import { NotebookText, LucideDotSquare, FlaskConical, Glasses, Zap, Snowflake, Columns2, Mountain } from 'lucide-react';
+import { LuRainbow } from "react-icons/lu";
 
 export const FONT_SIZES = [
   { label: 'Small', value: '14px' },
@@ -92,7 +93,7 @@ export const APP_THEMES = {
     iconStyle: { background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.5)' },
   },
   macos26: {
-    label: 'macOS 26 Tahoe',
+    label: 'macOS Tahoe',
     icon: Mountain,
     group: 'special',
     // Rich "Lake Tahoe at dusk" — dark navy sky fading to deep azure water
@@ -115,7 +116,7 @@ export const APP_THEMES = {
   },
   pride: {
     label: 'LGBTQ+',
-    emoji: '🏳️‍🌈',
+    icon: LuRainbow,
     group: 'special',
     bg: 'linear-gradient(45deg, #fce7f3 0%, #e0e7ff 50%, #d1fae5 100%)',
     cardBg: 'bg-white/80 backdrop-blur',
@@ -180,7 +181,7 @@ export const APP_THEMES = {
   sage: {
     label: 'Sage',
     group: 'muted',
-    bg: '#e4ebe6',
+    bg: '#e4ebe9',
     cardBg: 'bg-[#f2f6f3]',
     cardBorder: 'border-[#a8bfac]',
     textPrimary: 'text-[#2d3d30]',
@@ -229,13 +230,13 @@ export const APP_THEMES = {
   girlyPink: {
     label: 'Girly Pink',
     group: 'muted',
-    bg: '#fff0f6',
-    cardBg: 'bg-white/90',
+    bg: 'linear-gradient(135deg, #fff1f5 20%, #ff95c0 80%)',
+    cardBg: 'bg-white/80',
     cardBorder: 'border-pink-200',
     textPrimary: 'text-pink-900',
     textSecondary: 'text-pink-500',
     headerClass: 'pink-theme',
     bodyClass: 'pink-theme',
-    iconStyle: { background: 'linear-gradient(135deg, #ff85c0 0%, #f759ab 100%)' },
+    iconStyle: { background: 'linear-gradient(135deg, #ff85c0 10%, #f759fb 90%)' },
   },
 };
