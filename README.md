@@ -6,7 +6,7 @@
 <a href="https://bi-ba-bench-buddy.vercel.app/">
   <img src="https://img.shields.io/badge/Open-Webapp-BF5FFF?style=for-the-badge&logo=vercel&logoColor=white" height="20" />
 </a>
-<a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-mac-arm64.dmg">
+<a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBench-Buddy-mac-arm64.dmg">
   <img src="https://img.shields.io/badge/Download-macOS-black?style=for-the-badge&logo=apple&logoColor=white" height="20" />
 </a>
 <a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest/download/BiBaBenchBuddy-Setup.exe">
