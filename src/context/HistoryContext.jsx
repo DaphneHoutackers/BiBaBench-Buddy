@@ -7,32 +7,28 @@ const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
 
 
 function normalizeRemoteItem(row) {
+  const ts = row.timestamp || Date.now();
   return {
     id: row.id,
-    toolId: row.tool_id,
-    toolName: row.tool_name,
-    timestamp: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
-    createdAt: row.created_at,
+    toolId: row.toolid,
+    toolName: row.toolname,
+    timestamp: ts,
+    createdAt: new Date(ts).toISOString(),
     data: row.data,
     synced: true,
   };
 }
 
 function buildRemoteRow(item, userId) {
-  const createdAt = item.createdAt
-    ? item.createdAt
-    : item.timestamp
-      ? new Date(item.timestamp).toISOString()
-      : new Date().toISOString();
+  const ts = item.timestamp || (item.createdAt ? new Date(item.createdAt).getTime() : Date.now());
 
   return {
     id: item.id || makeId(),
     user_id: userId,
-    tool_id: item.toolId,
-    tool_name: item.toolName,
-    created_at: createdAt,
+    toolid: item.toolId,
+    toolname: item.toolName,
+    timestamp: ts,
     data: item.data,
-    synced: true,
   };
 }
 
@@ -99,7 +95,7 @@ export function HistoryProvider({ children }) {
       .from('tool_history')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('timestamp', { ascending: false })
       .limit(100);
 
     if (error || !data) return;

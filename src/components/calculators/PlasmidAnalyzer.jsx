@@ -710,19 +710,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   };
 
   const handleSave = () => {
-       if (hasChanged) {
-        const updated = prev.map(i => i.id === activeEntryId ? { 
-          ...i, 
-          features, 
-          primers, 
-          selectedEnzymes, 
-          isCircular, 
-          name: seqName,
-          dateEdited: new Date().toISOString()
-        } : i);
-        saveLib(updated);
-        return updated;
-      };
     const text = rawInput.trim(); if (!text) return;
     let parsed;
     if (text.startsWith('>')) parsed = parseFasta(text);
