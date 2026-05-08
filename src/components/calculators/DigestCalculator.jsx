@@ -421,20 +421,43 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
         {/* ─── BATCH ─── */}
         <TabsContent value="batch" className="mt-6">
           <div className="space-y-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Batch Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm text-slate-600 dark:text-slate-200">Total Volume (µL)</Label>
-                    <NumInput value={batchTotalVol} onChange={e => setBatchTotalVol(e.target.value)} />
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Batch Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-4 items-start">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Total Volume</Label>
+                      <div className="flex items-center gap-2">
+                        <NumInput value={batchTotalVol} onChange={e => setBatchTotalVol(e.target.value)} className="w-28" />
+                        <span className="text-sm text-slate-500 dark:text-slate-400">µL</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Vol per Enzyme</Label>
+                      <div className="flex items-center gap-2">
+                        <NumInput value={batchEnzymeVol} onChange={e => setBatchEnzymeVol(e.target.value)} className="w-28" />
+                        <span className="text-sm text-slate-500 dark:text-slate-400">µL</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-600 dark:text-slate-200">Default DNA Mass</Label>
+                      <div className="flex items-center gap-2">
+                        <NumInput value={batchDefaultNg} onChange={e => setBatchDefaultNg(e.target.value)} className="w-28" />
+                        <span className="text-sm text-slate-500 dark:text-slate-400">ng</span>
+                        <Button variant="outline" size="sm" onClick={applyDefaultNgToAll} className="dark:text-slate-200">Apply to All</Button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm text-slate-600 dark:text-slate-200">Vol per Enzyme (µL)</Label>
-                    <NumInput value={batchEnzymeVol} onChange={e => setBatchEnzymeVol(e.target.value)} />
-                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Enzyme Settings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
                   <div className="space-y-2">
                     <Label className="text-sm text-slate-600 dark:text-slate-200">Enzyme Type</Label>
                     <Select value={batchEnzymeType} onValueChange={(v) => {
@@ -450,34 +473,22 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 grid sm:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Default DNA Mass (ng)</Label>
-                    <div className="flex gap-2">
-                      <NumInput value={batchDefaultNg} onChange={e => setBatchDefaultNg(e.target.value)} className="flex-1" />
-                      <Button variant="outline" size="sm" onClick={applyDefaultNgToAll} className="whitespace-nowrap dark:text-slate-200">Apply to All</Button>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-600 dark:text-slate-200">Default Enzymes</Label>
+                    <EnzymeSearch
+                      selectedEnzymes={batchDefaultEnzymes}
+                      onAdd={(e) => setBatchDefaultEnzymes(prev => prev.includes(e) ? prev : [...prev, e])}
+                      onRemove={(e) => setBatchDefaultEnzymes(prev => prev.filter(x => x !== e))}
+                      enzymes={batchFilteredEnzymes}
+                      enzymeType={batchEnzymeType}
+                      compact
+                      action={<Button variant="outline" size="sm" onClick={applyDefaultEnzymesToAll} className="dark:text-slate-200">Apply to All</Button>}
+                    />
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic leading-tight">{batchEnzymeType} enzymes are shown.</p>
                   </div>
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">Default Enzymes</Label>
-                    <div className="space-y-2">
-                      <EnzymeSearch
-                        selectedEnzymes={batchDefaultEnzymes}
-                        onAdd={(e) => setBatchDefaultEnzymes(prev => prev.includes(e) ? prev : [...prev, e])}
-                        onRemove={(e) => setBatchDefaultEnzymes(prev => prev.filter(x => x !== e))}
-                        enzymes={batchFilteredEnzymes}
-                        enzymeType={batchEnzymeType}
-                        compact
-                      />
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium italic mt-1 leading-tight">{batchEnzymeType} enzymes are shown.</p>
-                      <Button variant="outline" size="sm" onClick={applyDefaultEnzymesToAll} className="w-full">Apply to All</Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
             <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
               <CardHeader className="pb-4">
@@ -494,19 +505,41 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
               <CardContent>
                 <div className="space-y-4">
                   {batchSamples.map(s => (
-                    <div key={s.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
-                      <div className="flex gap-3 items-center flex-wrap">
-                        <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm" placeholder="Name" />
+                    <div key={s.id} className="relative p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                      {batchSamples.length > 1 && (
+                        <Button variant="ghost" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400" onClick={() => setBatchSamples(batchSamples.filter(x => x.id !== s.id))}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <div className="flex gap-3 items-end flex-wrap pr-8">
                         <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 ml-1">Conc. (ng/µL)</Label>
-                          <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-28 text-sm" placeholder="Conc." />
+                          <Label className="text-[10px] font-bold text-slate-700 dark:text-slate-200 ml-1">Label</Label>
+                          <Input value={s.name} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-24 text-sm" placeholder="Name" />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold text-slate-700 dark:text-slate-200 ml-1">Desired (ng)</Label>
+                          <Label className="text-[10px] font-bold text-slate-700 dark:text-slate-200 ml-1">Conc. (ng/µL)</Label>
                           <div className="flex items-center gap-1.5">
-                            <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-24 text-sm" placeholder="Desired" />
+                            <NumInput value={s.conc} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-20 text-sm" placeholder="Conc." />
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">ng/µL</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold text-slate-700 dark:text-slate-200 ml-1">Desired amount (ng)</Label>
+                          <div className="flex items-center gap-1.5">
+                            <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-20 text-sm" placeholder="Desired" />
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">ng</span>
                           </div>
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-[160px]">
+                          <Label className="text-[10px] font-bold text-slate-700 dark:text-slate-200 ml-1">Enzymes for {s.name}</Label>
+                          <EnzymeSearch
+                            selectedEnzymes={s.enzymes}
+                            onAdd={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.includes(e) ? x.enzymes : [...x.enzymes, e] } : x))}
+                            onRemove={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.filter(z => z !== e) } : x))}
+                            enzymes={batchFilteredEnzymes}
+                            enzymeType={batchEnzymeType}
+                            badgeColor="rose"
+                          />
                         </div>
                         <div className="flex gap-1">
                           {['insert', 'vector'].map(role => (
@@ -516,22 +549,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                             </button>
                           ))}
                         </div>
-                        {batchSamples.length > 1 && (
-                          <Button variant="ghost" size="icon" className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setBatchSamples(batchSamples.filter(x => x.id !== s.id))}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-slate-700 dark:text-slate-200">Enzymes for {s.name}</Label>
-                        <EnzymeSearch
-                          selectedEnzymes={s.enzymes}
-                          onAdd={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.includes(e) ? x.enzymes : [...x.enzymes, e] } : x))}
-                          onRemove={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, enzymes: x.enzymes.filter(z => z !== e) } : x))}
-                          enzymes={batchFilteredEnzymes}
-                          enzymeType={batchEnzymeType}
-                          badgeColor="rose"
-                        />
                       </div>
                     </div>
                   ))}

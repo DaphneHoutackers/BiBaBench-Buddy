@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { X, Search } from 'lucide-react';
 
-export default function EnzymeSearch({ selectedEnzymes, onAdd, onRemove, enzymes, badgeColor = "teal", enzymeType = "Standard" }) {
+export default function EnzymeSearch({ selectedEnzymes, onAdd, onRemove, enzymes, badgeColor = "teal", enzymeType = "Standard", action }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -83,16 +83,19 @@ export default function EnzymeSearch({ selectedEnzymes, onAdd, onRemove, enzymes
 
   return (
     <div className="space-y-2" ref={containerRef}>
-      <div className="relative" ref={inputRef}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search enzyme..."
-          className="pl-9 border-slate-200 focus:border-teal-500"
-        />
-        {dropdown}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1" ref={inputRef}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder="Search enzyme..."
+            className="pl-9 border-slate-200 focus:border-teal-500"
+          />
+          {dropdown}
+        </div>
+        {action}
       </div>
 
       {selectedEnzymes.length > 0 && (
