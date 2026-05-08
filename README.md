@@ -19,7 +19,7 @@
 
 BiBaBenchBuddy is a desktop and web application designed for molecular biology workflows. It provides practical tools for calculations, visualization, and protocol support, helping streamline routine lab work and reduce manual errors.
 
-<img width="800" height="600" alt="Schermafbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
+<img width="700" height="500" alt="Schermafbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
 
 ## Features
 
