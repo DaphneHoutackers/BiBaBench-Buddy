@@ -57,7 +57,7 @@ If you see the warning
 when opening the app for the first time, run the following command in your Terminal:
 
 ```bash
-xattr -cr "/Applications/BiBaBench-Buddy.app"
+xattr -cr "/Applications/BiBaBench Buddy.app"
 ```
 After running this, try opening the app again. The warning should now be resolved.
 
