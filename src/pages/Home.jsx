@@ -29,6 +29,7 @@ import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import logo from '@/assets/icon-512.png';
 
@@ -320,37 +321,18 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 const ALL_BODY_THEME_CLASSES = Object.values(APP_THEMES).map(t => t.bodyClass).filter(Boolean);
 
 export default function Home() {
+  const { user, profile } = useAuth();
   const isMobile = useIsMobile();
   const [active, setActive] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (!isSyncEnabled()) {
-      setSettings(loadSettings() || DEFAULT_SETTINGS);
-      return;
+    const initialSettings = loadSettings(user?.id) || DEFAULT_SETTINGS;
+    setSettings(initialSettings);
+    if (user && isSyncEnabled()) {
+      syncSettingsFromRemote(user.id);
     }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      const initialSettings = loadSettings(u?.id) || DEFAULT_SETTINGS;
-      setSettings(initialSettings);
-      if (u) syncSettingsFromRemote(u.id);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u) {
-        syncSettingsFromRemote(u.id);
-      } else {
-        setSettings(loadSettings() || DEFAULT_SETTINGS);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const key = getSettingsKey(user?.id);
@@ -527,11 +509,38 @@ export default function Home() {
 
               <button
                 onClick={() => setShowSettings(true)}
-                className={`w-11 h-11 flex items-center justify-center rounded-xl touch-manipulation transition-colors ${settingsBtnColor}`}
-                  style={{ WebkitAppRegion: 'no-drag' }}
-                title="Settings"
+                className="group relative flex items-center justify-center transition-all duration-300 active:scale-95"
+                style={{ WebkitAppRegion: 'no-drag' }}
+                title={user ? (profile?.display_name || user.email) : "Settings"}
               >
-                <Settings className="w-5 h-5" />
+                {user ? (
+                  <div 
+                    className="w-9 h-9 rounded-full border-2 border-white/20 shadow-md flex items-center justify-center text-white text-sm font-bold overflow-hidden transition-all group-hover:border-teal-400 group-hover:shadow-teal-500/20"
+                    style={{ 
+                      background: (!profile?.avatar_url && profile?.avatar_bg) 
+                        ? profile.avatar_bg 
+                        : (!profile?.avatar_url ? 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)' : 'transparent'),
+                    }}
+                  >
+                    {profile?.avatar_url ? (
+                      <div 
+                        className="w-full h-full"
+                        style={{
+                          backgroundImage: `url(${profile.avatar_url})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: `${settings.avatarOffsetX ?? 50}% ${settings.avatarOffsetY ?? 50}%`,
+                          transform: `scale(${settings.avatarZoom ?? 1})`,
+                        }}
+                      />
+                    ) : (
+                      (profile?.display_name || user.email || '?')[0].toUpperCase()
+                    )}
+                  </div>
+                ) : (
+                  <div className={`w-11 h-11 flex items-center justify-center rounded-xl touch-manipulation transition-colors ${settingsBtnColor}`}>
+                    <Settings className="w-5 h-5" />
+                  </div>
+                )}
               </button>
             </div>
           </div>
@@ -680,7 +689,6 @@ export default function Home() {
       {showSettings && (
         <SettingsPanel
           settings={settings}
-          currentUser={user}
           onChange={setSettings}
           onClose={() => setShowSettings(false)}
         />

@@ -20,10 +20,17 @@ import {
   EyeOff,
   KeyRound,
   ArrowLeft,
+  Upload,
+  Image as ImageIcon,
+  CheckCircle2,
+  Pencil,
+  PaintBucket,
+  Move
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
 import { supabase, isSyncEnabled, getAppUrl } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
 import { FONT_SIZES, APP_THEMES } from '@/styles/themes';
 import pkg from '../../../package.json';
 
@@ -86,6 +93,20 @@ const TRANSLATIONS = {
     passwordTooShort: 'Password must be at least 6 characters.',
     rateLimit: 'Too many attempts. Please try again in a minute.',
     genericError: 'An error occurred.',
+    displayName: 'Display Name',
+    changeDisplayName: 'Change Display Name',
+    save: 'Save',
+    cancel: 'Cancel',
+    uploadPicture: 'Upload Picture',
+    chooseColor: 'Choose Background',
+    initials: 'Initials',
+    profileIcon: 'Profile Icon',
+    moreColors: 'More Colors',
+    uploadImage: 'Upload Image',
+    adjustAvatar: 'Adjust Avatar',
+    zoom: 'Zoom',
+    horizontal: 'Horizontal',
+    vertical: 'Vertical',
   },
   nl: {
     settings: 'Instellingen',
@@ -140,6 +161,20 @@ const TRANSLATIONS = {
     passwordTooShort: 'Wachtwoord moet minimaal 6 tekens bevatten.',
     rateLimit: 'Te veel pogingen. Probeer het over een minuut opnieuw.',
     genericError: 'Er is een fout opgetreden.',
+    displayName: 'Weergavenaam',
+    changeDisplayName: 'Weergavenaam wijzigen',
+    save: 'Opslaan',
+    cancel: 'Annuleren',
+    uploadPicture: 'Foto uploaden',
+    chooseColor: 'Kies Achtergrond',
+    initials: 'Initialen',
+    profileIcon: 'Profielicoon',
+    moreColors: 'Meer kleuren',
+    uploadImage: 'Afbeelding uploaden',
+    adjustAvatar: 'Avatar aanpassen',
+    zoom: 'Zoomen',
+    horizontal: 'Horizontaal',
+    vertical: 'Verticaal',
   }
 };
 
@@ -181,7 +216,19 @@ const AI_PROVIDERS = {
   }
 };
 
-export default function SettingsPanel({ settings, onChange, onClose, currentUser }) {
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)', // Teal
+  'linear-gradient(135deg, #4db4f5 10%, #0c50ed 90%)', // Blue
+  'linear-gradient(135deg, #ef4db4 10%, #f97bee 90%)', // Pink
+  'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', // Amber
+  'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', // Violet
+  'linear-gradient(135deg, #94a3b8 0%, #475569 100%)', // Slate
+  'linear-gradient(135deg, #f87171 0%, #dc2626 100%)', // Red
+  'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)', // Orange
+];
+
+export default function SettingsPanel({ settings, onChange, onClose }) {
+  const { user: authUser, profile, setProfile, refreshProfile } = useAuth();
   const [valStatus, setValStatus] = React.useState({});
   const [orModels, setOrModels] = React.useState([]);
   const [isFetchingOr, setIsFetchingOr] = React.useState(false);
@@ -194,11 +241,43 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
   const loadingTimeoutRef = useRef(null);
+
+  const getInitials = (name, fallbackEmail) => {
+    if (name) {
+      const parts = name.split(' ').filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return name[0].toUpperCase();
+    }
+    if (fallbackEmail) return fallbackEmail[0].toUpperCase();
+    return '?';
+  };
+
+  const handleCustomColorChange = async (e) => {
+    const color = e.target.value;
+    if (!authUser) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ avatar_bg: color, avatar_url: null })
+        .eq('id', authUser.id);
+      
+      if (error) throw error;
+      refreshProfile();
+    } catch (err) {
+      console.error('Error updating avatar color:', err);
+    }
+  };
 
   React.useEffect(() => {
     if (settings.aiProvider === 'openrouter' && orModels.length === 0) {
@@ -416,7 +495,15 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            data: {
+              display_name: displayName
+            }
+          }
+        });
         if (error) throw error;
 
         setAuthError('');
@@ -475,6 +562,70 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
   const handleSignOut = async () => {
     if (!isSyncEnabled()) return;
     await supabase.auth.signOut();
+  };
+
+  const handleUpdateDisplayName = async () => {
+    if (!authUser || !displayName.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ "Display name": displayName.trim() })
+        .eq('id', authUser.id);
+      
+      if (error) throw error;
+      setIsEditingProfile(false);
+      refreshProfile();
+    } catch (err) {
+      console.error('Error updating display name:', err);
+    }
+  };
+
+  const handleAvatarColorSelect = async (color) => {
+    if (!authUser) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ avatar_bg: color, avatar_url: null })
+        .eq('id', authUser.id);
+      
+      if (error) throw error;
+      refreshProfile();
+    } catch (err) {
+      console.error('Error updating avatar color:', err);
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !authUser) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${authUser.id}/${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', authUser.id);
+
+      if (updateError) throw updateError;
+      refreshProfile();
+    } catch (err) {
+      console.error('Error uploading avatar:', err);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const lang = settings.language || 'en';
@@ -698,7 +849,7 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
                   <Lock className="w-3.5 h-3.5" /> {t.apiKeys}
                 </p>
 
-                {!currentUser && (
+                {!authUser && (
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                     <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
                       {settings.language === 'nl' 
@@ -754,7 +905,7 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
                       value={settings[item.key] || ''}
                       onChange={(e) => onChange({ ...settings, [item.key]: e.target.value })}
                       placeholder={item.ph}
-                      disabled={!currentUser}
+                      disabled={!authUser}
                       className="w-full h-9 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
                     />
                   </div>
@@ -783,33 +934,241 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
                   <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-500" />
                   <p className="text-sm">{t.loadingSession}</p>
                 </div>
-              ) : user ? (
+              ) : authUser ? (
                 <>
-                  <div className="flex flex-col items-center py-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 flex items-center justify-center text-white text-2xl font-bold mb-3 shadow-lg">
-                      {(user.user_metadata?.full_name || user.email || '?')[0].toUpperCase()}
+                  <div className="flex flex-col items-center py-4 space-y-4">
+                    <div className="relative group">
+                      <div 
+                        className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl transition-all duration-300 overflow-hidden ring-4 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-800"
+                        style={{ 
+                          background: (!profile?.avatar_url && profile?.avatar_bg) 
+                            ? profile.avatar_bg 
+                            : (!profile?.avatar_url ? 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)' : 'transparent'),
+                        }}
+                      >
+                        {profile?.avatar_url ? (
+                          <div 
+                            className="w-full h-full transition-transform duration-200"
+                            style={{
+                              backgroundImage: `url(${profile.avatar_url})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: `${settings.avatarOffsetX ?? 50}% ${settings.avatarOffsetY ?? 50}%`,
+                              transform: `scale(${settings.avatarZoom ?? 1})`,
+                            }}
+                          />
+                        ) : (
+                          getInitials(profile?.display_name, authUser.email)
+                        )}
+                      </div>
+                      
+                      <button 
+                        onClick={() => setIsEditingAvatar(!isEditingAvatar)}
+                        className="absolute bottom-0 right-0 w-8 h-8 bg-teal-600 hover:bg-teal-700 rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-white dark:border-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900"
+                      >
+                        <Pencil className="w-4 h-4 text-white" />
+                      </button>
                     </div>
-                    <p className="text-base font-semibold text-slate-800 dark:text-slate-100">
-                      {user.user_metadata?.full_name || user.email.split('@')[0]}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-0.5">{t.authenticatedUser}</p>
-                  </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                      <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{t.email}</p>
-                        <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">{user.email}</p>
+                    {isEditingAvatar && (
+                      <div className="w-full space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl mt-2 animate-in fade-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
+                            <Upload className="w-3.5 h-3.5" /> {t.uploadPicture}
+                          </p>
+                          <label className="flex items-center justify-center gap-2 w-full h-10 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors cursor-pointer text-sm text-slate-600 dark:text-slate-300">
+                            {isUploading ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <ImageIcon className="w-4 h-4" /> {t.uploadImage}
+                              </>
+                            )}
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,.svg" 
+                              onChange={(e) => {
+                                handleAvatarUpload(e);
+                                e.target.value = ''; // Reset to allow re-uploading same file
+                              }} 
+                              disabled={isUploading} 
+                            />
+                          </label>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
+                            <Palette className="w-3.5 h-3.5" /> {t.chooseColor}
+                          </p>
+                          <div className="grid grid-cols-4 gap-2">
+                            {AVATAR_GRADIENTS.map((gradient, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleAvatarColorSelect(gradient)}
+                                className={`w-full aspect-square rounded-xl border-2 transition-all p-0.5 relative ${
+                                  profile?.avatar_bg === gradient && !profile?.avatar_url
+                                    ? 'border-teal-500 scale-105 shadow-md'
+                                    : 'border-transparent hover:scale-105 shadow-sm'
+                                }`}
+                              >
+                                <div className="w-full h-full rounded-lg" style={{ background: gradient }} />
+                                {profile?.avatar_bg === gradient && !profile?.avatar_url && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <CheckCircle2 className="w-4 h-4 text-white drop-shadow-md" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                            {/* Preset solid colors */}
+                            {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'].map((color, idx) => (
+                              <button
+                                key={`solid-${idx}`}
+                                onClick={() => handleAvatarColorSelect(color)}
+                                className={`w-full aspect-square rounded-xl border-2 transition-all p-0.5 relative ${
+                                  profile?.avatar_bg === color && !profile?.avatar_url
+                                    ? 'border-teal-500 scale-105 shadow-md'
+                                    : 'border-transparent hover:scale-105 shadow-sm'
+                                }`}
+                              >
+                                <div className="w-full h-full rounded-lg" style={{ background: color }} />
+                                {profile?.avatar_bg === color && !profile?.avatar_url && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <CheckCircle2 className="w-4 h-4 text-white drop-shadow-md" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          
+                          <div className="mt-2 flex items-center gap-2 relative">
+                            <label className="flex-1 flex items-center justify-center gap-2 h-9 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs font-medium text-slate-600 dark:text-slate-300 relative overflow-hidden">
+                              <PaintBucket className="w-3.5 h-3.5" /> {t.moreColors}
+                              <input 
+                                type="color" 
+                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" 
+                                value={profile?.avatar_bg?.startsWith('#') ? profile.avatar_bg.slice(0,7) : '#000000'}
+                                onChange={handleCustomColorChange}
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        {profile?.avatar_url && (
+                          <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
+                              <Move className="w-3.5 h-3.5" /> {t.adjustAvatar}
+                            </p>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[10px] text-slate-500 font-medium">
+                                <span>{t.zoom}</span>
+                                <span>{Math.round((settings.avatarZoom || 1) * 100)}%</span>
+                              </div>
+                              <input 
+                                type="range" 
+                                min="1" 
+                                max="3" 
+                                step="0.01" 
+                                value={settings.avatarZoom || 1} 
+                                onChange={(e) => onChange({ ...settings, avatarZoom: parseFloat(e.target.value) })}
+                                className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] text-slate-500 font-medium">{t.horizontal}</span>
+                                <input 
+                                  type="range" 
+                                  min="0" 
+                                  max="100" 
+                                  value={settings.avatarOffsetX ?? 50} 
+                                  onChange={(e) => onChange({ ...settings, avatarOffsetX: parseInt(e.target.value) })}
+                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] text-slate-500 font-medium">{t.vertical}</span>
+                                <input 
+                                  type="range" 
+                                  min="0" 
+                                  max="100" 
+                                  value={settings.avatarOffsetY ?? 50} 
+                                  onChange={(e) => onChange({ ...settings, avatarOffsetY: parseInt(e.target.value) })}
+                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="w-full space-y-3 mt-2">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                          {t.displayName}
+                        </label>
+                        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                          {isEditingProfile ? (
+                            <div className="flex gap-2 w-full">
+                              <input
+                                type="text"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                className="flex-1 h-8 px-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-teal-500/20 outline-none bg-white dark:bg-slate-900"
+                                placeholder={authUser.email.split('@')[0]}
+                                autoFocus
+                              />
+                              <Button 
+                                size="sm" 
+                                className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 transition-all shrink-0 shadow-sm"
+                                onClick={handleUpdateDisplayName}
+                              >
+                                {t.save}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="h-8 px-3 text-xs shrink-0 text-slate-500"
+                                onClick={() => {
+                                  setIsEditingProfile(false);
+                                  setDisplayName(profile?.display_name || '');
+                                }}
+                              >
+                                {t.cancel}
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-200 ml-1">
+                                {profile?.display_name || authUser.email.split('@')[0]}
+                              </span>
+                              <button 
+                                onClick={() => {
+                                  setDisplayName(profile?.display_name || '');
+                                  setIsEditingProfile(true);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-teal-600 transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                      <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{t.memberSince}</p>
-                        <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </p>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-colors">
+                        <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{t.memberSince}</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">
+                            {new Date(authUser.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -886,6 +1245,26 @@ export default function SettingsPanel({ settings, onChange, onClose, currentUser
                   ) : (
                     /* ── Login / Signup form ── */
                     <form onSubmit={handleEmailAuth} className="space-y-3">
+                      {authMode === 'signup' && (
+                        <div className="space-y-1">
+                          <label htmlFor="displayName" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                            {t.displayName}
+                          </label>
+                          <div className="relative">
+                            <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                            <input
+                              id="displayName"
+                              name="displayName"
+                              required
+                              type="text"
+                              value={displayName}
+                              onChange={(e) => setDisplayName(e.target.value)}
+                              className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                              placeholder="Your Name"
+                            />
+                          </div>
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <label htmlFor="email" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
                           {t.email}

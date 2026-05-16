@@ -5,8 +5,27 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
+
+  const fetchProfile = async (userId) => {
+    if (!supabase || !userId) return;
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.warn('Error fetching profile:', error);
+    } else {
+      setProfile({
+        ...data,
+        display_name: data?.["Display name"]
+      });
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -30,8 +49,13 @@ export const AuthProvider = ({ children }) => {
       if (error) {
         setAuthError(error);
         setUser(null);
+        setProfile(null);
       } else {
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        }
       }
 
       setIsLoadingAuth(false);
@@ -40,9 +64,15 @@ export const AuthProvider = ({ children }) => {
     loadSession();
 
     const { data: listener } =
-      supabase?.auth.onAuthStateChange((_event, session) => {
+      supabase?.auth.onAuthStateChange(async (_event, session) => {
         if (!mounted) return;
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        } else {
+          setProfile(null);
+        }
         setIsLoadingAuth(false);
       }) || { data: { subscription: { unsubscribe() {} } } };
 
@@ -70,6 +100,9 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        profile,
+        setProfile,
+        refreshProfile: () => fetchProfile(user?.id),
         isAuthenticated: !!user,
         isLoadingAuth,
         isLoadingPublicSettings: false,
