@@ -20,12 +20,7 @@ import {
   EyeOff,
   KeyRound,
   ArrowLeft,
-  Upload,
-  Image as ImageIcon,
-  CheckCircle2,
   Pencil,
-  PaintBucket,
-  Move
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
@@ -93,8 +88,8 @@ const TRANSLATIONS = {
     passwordTooShort: 'Password must be at least 6 characters.',
     rateLimit: 'Too many attempts. Please try again in a minute.',
     genericError: 'An error occurred.',
-    displayName: 'Display Name',
-    changeDisplayName: 'Change Display Name',
+    displayName: 'Username',
+    changeDisplayName: 'Change Username',
     save: 'Save',
     cancel: 'Cancel',
     uploadPicture: 'Upload Picture',
@@ -161,8 +156,8 @@ const TRANSLATIONS = {
     passwordTooShort: 'Wachtwoord moet minimaal 6 tekens bevatten.',
     rateLimit: 'Te veel pogingen. Probeer het over een minuut opnieuw.',
     genericError: 'Er is een fout opgetreden.',
-    displayName: 'Weergavenaam',
-    changeDisplayName: 'Weergavenaam wijzigen',
+    displayName: 'Gebruikersnaam',
+    changeDisplayName: 'Gebruikersnaam wijzigen',
     save: 'Opslaan',
     cancel: 'Annuleren',
     uploadPicture: 'Foto uploaden',
@@ -243,7 +238,6 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -269,7 +263,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     try {
       const { error } = await supabase
         .from('users')
-        .update({ avatar_bg: color, avatar_url: null })
+        .update({ avatar_bg: color })
         .eq('id', authUser.id);
       
       if (error) throw error;
@@ -569,10 +563,21 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     try {
       const { error } = await supabase
         .from('users')
-        .update({ "Display name": displayName.trim() })
-        .eq('id', authUser.id);
+        .upsert({ 
+          id: authUser.id,
+          "Display name": displayName.trim() 
+        }, { onConflict: 'id' });
       
       if (error) throw error;
+      
+      // Update local profile state immediately for better UX
+      if (setProfile) {
+        setProfile(prev => ({
+          ...prev,
+          display_name: displayName.trim()
+        }));
+      }
+      
       setIsEditingProfile(false);
       refreshProfile();
     } catch (err) {
@@ -580,53 +585,9 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     }
   };
 
-  const handleAvatarColorSelect = async (color) => {
-    if (!authUser) return;
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ avatar_bg: color, avatar_url: null })
-        .eq('id', authUser.id);
-      
-      if (error) throw error;
-      refreshProfile();
-    } catch (err) {
-      console.error('Error updating avatar color:', err);
-    }
-  };
 
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !authUser) return;
 
-    setIsUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${authUser.id}/${Math.random()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', authUser.id);
-
-      if (updateError) throw updateError;
-      refreshProfile();
-    } catch (err) {
-      console.error('Error uploading avatar:', err);
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const lang = settings.language || 'en';
   const t = TRANSLATIONS[lang];
@@ -937,229 +898,72 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               ) : authUser ? (
                 <>
                   <div className="flex flex-col items-center py-4 space-y-4">
-                    <div className="relative group">
-                      <div 
-                        className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl transition-all duration-300 overflow-hidden ring-4 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-800"
-                        style={{ 
-                          background: (!profile?.avatar_url && profile?.avatar_bg) 
-                            ? profile.avatar_bg 
-                            : (!profile?.avatar_url ? 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)' : 'transparent'),
-                        }}
-                      >
-                        {profile?.avatar_url ? (
-                          <div 
-                            className="w-full h-full transition-transform duration-200"
-                            style={{
-                              backgroundImage: `url(${profile.avatar_url})`,
-                              backgroundSize: 'cover',
-                              backgroundPosition: `${settings.avatarOffsetX ?? 50}% ${settings.avatarOffsetY ?? 50}%`,
-                              transform: `scale(${settings.avatarZoom ?? 1})`,
-                            }}
-                          />
-                        ) : (
-                          getInitials(profile?.display_name, authUser.email)
-                        )}
-                      </div>
-                      
-                      <button 
-                        onClick={() => setIsEditingAvatar(!isEditingAvatar)}
-                        className="absolute bottom-0 right-0 w-8 h-8 bg-teal-600 hover:bg-teal-700 rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-white dark:border-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-                      >
-                        <Pencil className="w-4 h-4 text-white" />
-                      </button>
+                    <div 
+                      className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl transition-all duration-300 overflow-hidden ring-4 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-800"
+                      style={{ 
+                        background: profile?.avatar_bg || 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)',
+                      }}
+                    >
+                      {getInitials(profile?.display_name, authUser.email)}
                     </div>
+                  </div>
 
-                    {isEditingAvatar && (
-                      <div className="w-full space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl mt-2 animate-in fade-in slide-in-from-top-2">
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
-                            <Upload className="w-3.5 h-3.5" /> {t.uploadPicture}
-                          </p>
-                          <label className="flex items-center justify-center gap-2 w-full h-10 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors cursor-pointer text-sm text-slate-600 dark:text-slate-300">
-                            {isUploading ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <>
-                                <ImageIcon className="w-4 h-4" /> {t.uploadImage}
-                              </>
-                            )}
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*,.svg" 
-                              onChange={(e) => {
-                                handleAvatarUpload(e);
-                                e.target.value = ''; // Reset to allow re-uploading same file
-                              }} 
-                              disabled={isUploading} 
+                  <div className="w-full space-y-3 mt-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                        {t.displayName}
+                      </label>
+                      <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                        {isEditingProfile ? (
+                          <div className="flex gap-2 w-full">
+                            <input
+                              type="text"
+                              value={displayName}
+                              onChange={(e) => setDisplayName(e.target.value)}
+                              className="flex-1 h-8 px-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-teal-500/20 outline-none bg-white dark:bg-slate-900"
+                              placeholder={authUser.email.split('@')[0]}
+                              autoFocus
                             />
-                          </label>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
-                            <Palette className="w-3.5 h-3.5" /> {t.chooseColor}
-                          </p>
-                          <div className="grid grid-cols-4 gap-2">
-                            {AVATAR_GRADIENTS.map((gradient, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleAvatarColorSelect(gradient)}
-                                className={`w-full aspect-square rounded-xl border-2 transition-all p-0.5 relative ${
-                                  profile?.avatar_bg === gradient && !profile?.avatar_url
-                                    ? 'border-teal-500 scale-105 shadow-md'
-                                    : 'border-transparent hover:scale-105 shadow-sm'
-                                }`}
-                              >
-                                <div className="w-full h-full rounded-lg" style={{ background: gradient }} />
-                                {profile?.avatar_bg === gradient && !profile?.avatar_url && (
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <CheckCircle2 className="w-4 h-4 text-white drop-shadow-md" />
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-                            {/* Preset solid colors */}
-                            {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'].map((color, idx) => (
-                              <button
-                                key={`solid-${idx}`}
-                                onClick={() => handleAvatarColorSelect(color)}
-                                className={`w-full aspect-square rounded-xl border-2 transition-all p-0.5 relative ${
-                                  profile?.avatar_bg === color && !profile?.avatar_url
-                                    ? 'border-teal-500 scale-105 shadow-md'
-                                    : 'border-transparent hover:scale-105 shadow-sm'
-                                }`}
-                              >
-                                <div className="w-full h-full rounded-lg" style={{ background: color }} />
-                                {profile?.avatar_bg === color && !profile?.avatar_url && (
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <CheckCircle2 className="w-4 h-4 text-white drop-shadow-md" />
-                                  </div>
-                                )}
-                              </button>
-                            ))}
+                            <Button 
+                              size="sm" 
+                              className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 transition-all shrink-0 shadow-sm"
+                              onClick={handleUpdateDisplayName}
+                            >
+                              {t.save}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="h-8 px-3 text-xs shrink-0 text-slate-500"
+                              onClick={() => {
+                                setIsEditingProfile(false);
+                                setDisplayName(profile?.display_name || '');
+                              }}
+                            >
+                              {t.cancel}
+                            </Button>
                           </div>
-                          
-                          <div className="mt-2 flex items-center gap-2 relative">
-                            <label className="flex-1 flex items-center justify-center gap-2 h-9 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs font-medium text-slate-600 dark:text-slate-300 relative overflow-hidden">
-                              <PaintBucket className="w-3.5 h-3.5" /> {t.moreColors}
-                              <input 
-                                type="color" 
-                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" 
-                                value={profile?.avatar_bg?.startsWith('#') ? profile.avatar_bg.slice(0,7) : '#000000'}
-                                onChange={handleCustomColorChange}
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        {profile?.avatar_url && (
-                          <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
-                              <Move className="w-3.5 h-3.5" /> {t.adjustAvatar}
-                            </p>
-                            <div className="space-y-1.5">
-                              <div className="flex justify-between text-[10px] text-slate-500 font-medium">
-                                <span>{t.zoom}</span>
-                                <span>{Math.round((settings.avatarZoom || 1) * 100)}%</span>
-                              </div>
-                              <input 
-                                type="range" 
-                                min="1" 
-                                max="3" 
-                                step="0.01" 
-                                value={settings.avatarZoom || 1} 
-                                onChange={(e) => onChange({ ...settings, avatarZoom: parseFloat(e.target.value) })}
-                                className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1.5">
-                                <span className="text-[10px] text-slate-500 font-medium">{t.horizontal}</span>
-                                <input 
-                                  type="range" 
-                                  min="0" 
-                                  max="100" 
-                                  value={settings.avatarOffsetX ?? 50} 
-                                  onChange={(e) => onChange({ ...settings, avatarOffsetX: parseInt(e.target.value) })}
-                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <span className="text-[10px] text-slate-500 font-medium">{t.vertical}</span>
-                                <input 
-                                  type="range" 
-                                  min="0" 
-                                  max="100" 
-                                  value={settings.avatarOffsetY ?? 50} 
-                                  onChange={(e) => onChange({ ...settings, avatarOffsetY: parseInt(e.target.value) })}
-                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
-                                />
-                              </div>
-                            </div>
-                          </div>
+                        ) : (
+                          <>
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200 ml-1">
+                              {profile?.display_name || authUser.email.split('@')[0]}
+                            </span>
+                            <button 
+                              onClick={() => {
+                                setDisplayName(profile?.display_name || '');
+                                setIsEditingProfile(true);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-teal-600 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
-                      </div>
-                    )}
-
-                    <div className="w-full space-y-3 mt-2">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
-                          {t.displayName}
-                        </label>
-                        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                          {isEditingProfile ? (
-                            <div className="flex gap-2 w-full">
-                              <input
-                                type="text"
-                                value={displayName}
-                                onChange={(e) => setDisplayName(e.target.value)}
-                                className="flex-1 h-8 px-2 text-sm border border-slate-200 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-teal-500/20 outline-none bg-white dark:bg-slate-900"
-                                placeholder={authUser.email.split('@')[0]}
-                                autoFocus
-                              />
-                              <Button 
-                                size="sm" 
-                                className="h-8 px-3 text-xs bg-teal-600 hover:bg-teal-700 transition-all shrink-0 shadow-sm"
-                                onClick={handleUpdateDisplayName}
-                              >
-                                {t.save}
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                className="h-8 px-3 text-xs shrink-0 text-slate-500"
-                                onClick={() => {
-                                  setIsEditingProfile(false);
-                                  setDisplayName(profile?.display_name || '');
-                                }}
-                              >
-                                {t.cancel}
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <span className="text-sm font-medium text-slate-700 dark:text-slate-200 ml-1">
-                                {profile?.display_name || authUser.email.split('@')[0]}
-                              </span>
-                              <button 
-                                onClick={() => {
-                                  setDisplayName(profile?.display_name || '');
-                                  setIsEditingProfile(true);
-                                }}
-                                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-teal-600 transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4 pt-2">
-
                     <div className="space-y-2">
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 transition-colors">
                         <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
@@ -1260,7 +1064,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                               value={displayName}
                               onChange={(e) => setDisplayName(e.target.value)}
                               className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
-                              placeholder="Your Name"
+                              placeholder={t.displayName}
                             />
                           </div>
                         </div>

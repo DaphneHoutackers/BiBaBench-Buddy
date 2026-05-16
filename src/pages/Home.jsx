@@ -513,34 +513,9 @@ export default function Home() {
                 style={{ WebkitAppRegion: 'no-drag' }}
                 title={user ? (profile?.display_name || user.email) : "Settings"}
               >
-                {user ? (
-                  <div 
-                    className="w-9 h-9 rounded-full border-2 border-white/20 shadow-md flex items-center justify-center text-white text-sm font-bold overflow-hidden transition-all group-hover:border-teal-400 group-hover:shadow-teal-500/20"
-                    style={{ 
-                      background: (!profile?.avatar_url && profile?.avatar_bg) 
-                        ? profile.avatar_bg 
-                        : (!profile?.avatar_url ? 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)' : 'transparent'),
-                    }}
-                  >
-                    {profile?.avatar_url ? (
-                      <div 
-                        className="w-full h-full"
-                        style={{
-                          backgroundImage: `url(${profile.avatar_url})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: `${settings.avatarOffsetX ?? 50}% ${settings.avatarOffsetY ?? 50}%`,
-                          transform: `scale(${settings.avatarZoom ?? 1})`,
-                        }}
-                      />
-                    ) : (
-                      (profile?.display_name || user.email || '?')[0].toUpperCase()
-                    )}
-                  </div>
-                ) : (
-                  <div className={`w-11 h-11 flex items-center justify-center rounded-xl touch-manipulation transition-colors ${settingsBtnColor}`}>
-                    <Settings className="w-5 h-5" />
-                  </div>
-                )}
+                <div className={`w-11 h-11 flex items-center justify-center rounded-xl touch-manipulation transition-colors ${settingsBtnColor}`}>
+                  <Settings className="w-5 h-5" />
+                </div>
               </button>
             </div>
           </div>
