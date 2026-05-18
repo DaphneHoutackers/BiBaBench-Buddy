@@ -59,8 +59,7 @@ function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalV
     const insertKb = parseFloat(ins.length) / 1000;
     const insertAmount = (parseFloat(vectorAmount) * insertKb * parseFloat(ins.ratio)) / vectorKb;
     const insertVol = insertAmount / parseFloat(ins.conc);
-    const minVolVal = parseFloat(ins.minVol) || 0.5;
-    const dilution = ins.autoDilute !== false ? getDilutionSuggestion(ins.conc, insertAmount, minVolVal) : null;
+    const dilution = getDilutionSuggestion(ins.conc, insertAmount, 0.5);
     const needsDilution = !!dilution;
 
     return {
@@ -130,7 +129,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
   const [vectorConc, setVectorConc] = useState('');
   const [vectorLength, setVectorLength] = useState('');
   const [vectorAmount, setVectorAmount] = useState('50');
-  const [inserts, setInserts] = useState([{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }]);
+  const [inserts, setInserts] = useState([{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }]);
   const [totalVolume, setTotalVolume] = useState('20');
   const [ligase, setLigase] = useState('T4 DNA Ligase');
   const [ligaseVol, setLigaseVol] = useState('1');
@@ -148,7 +147,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
       setVectorConc(d.vectorConc || '');
       setVectorLength(d.vectorLength || '');
       setVectorAmount(d.vectorAmount || '50');
-      setInserts(d.inserts || [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }]);
+      setInserts(d.inserts || [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }]);
       setTotalVolume(d.totalVolume || '20');
       setLigase(d.ligase || 'T4 DNA Ligase');
       setLigaseVol(d.ligaseVol || '1');
@@ -189,7 +188,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
 
   const addInsert = () => {
     const id = Math.max(...inserts.map(i => i.id)) + 1;
-    setInserts([...inserts, { id, name: `Insert ${id}`, conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }]);
+    setInserts([...inserts, { id, name: `Insert ${id}`, conc: '', length: '', ratio: '3' }]);
   };
 
   const pegVol = calcPegVol(totalVolume, usePEG);
@@ -313,29 +312,6 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                         </Label>
                         <NumInput placeholder="3" value={ins.ratio} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, ratio: e.target.value } : i))} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                       </div>
-                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <input 
-                            type="checkbox" 
-                            id={`single-dilute-${ins.id}`} 
-                            checked={ins.autoDilute !== false} 
-                            onChange={(e) => setInserts(inserts.map(i => i.id === ins.id ? { ...i, autoDilute: e.target.checked } : i))}
-                            className="w-3 h-3 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
-                          />
-                          <label htmlFor={`single-dilute-${ins.id}`} className="text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1 flex-wrap leading-tight">
-                            Auto-dilute if &lt;
-                            <Input 
-                              type="number" 
-                              step="0.1" 
-                              value={ins.minVol || '0.5'} 
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setInserts(inserts.map(i => i.id === ins.id ? { ...i, minVol: e.target.value } : i))} 
-                              className="h-5 w-12 text-[10px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block" 
-                            />
-                            µL
-                          </label>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -384,7 +360,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                     </div>
                     {results.insertResults.filter(i => i.dilution).map(ins => (
                       <div key={ins.id}>
-                        {generateDilutionWarning(ins.name, ins.dilution, parseFloat(ins.minVol) || 0.5)}
+                        {generateDilutionWarning(ins.name, ins.dilution, 0.5)}
                       </div>
                     ))}
                   </div>
@@ -469,7 +445,7 @@ function defaultLigation(id) {
     vectorConc: '',
     vectorLength: '',
     vectorAmount: '50',
-    inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }],
+    inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }],
   };
 }
 
@@ -533,7 +509,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
     setLigations(ligations.map(l => {
       if (l.id !== ligId) return l;
       const newId = Math.max(...l.inserts.map(i => i.id)) + 1;
-      return { ...l, inserts: [...l.inserts, { id: newId, name: `Insert ${newId}`, conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }] };
+      return { ...l, inserts: [...l.inserts, { id: newId, name: `Insert ${newId}`, conc: '', length: '', ratio: '3' }] };
     }));
   };
 
@@ -720,29 +696,6 @@ function MultiLigation({ historyData, isActive, sessionId }) {
                             <Label className="text-xs text-slate-700 dark:text-slate-200">Ratio</Label>
                             <NumInput value={ins.ratio} onChange={e => updateInsert(lig.id, ins.id, 'ratio', e.target.value)} placeholder="3" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
                           </div>
-                          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-1 mb-1">
-                              <input 
-                                type="checkbox" 
-                                id={`multi-dilute-${lig.id}-${ins.id}`} 
-                                checked={ins.autoDilute !== false} 
-                                onChange={(e) => updateInsert(lig.id, ins.id, 'autoDilute', e.target.checked)}
-                                className="w-3 h-3 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
-                              />
-                              <label htmlFor={`multi-dilute-${lig.id}-${ins.id}`} className="text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1 flex-wrap leading-tight">
-                                Auto-dilute if &lt;
-                                <Input 
-                                  type="number" 
-                                  step="0.1" 
-                                  value={ins.minVol || '0.5'} 
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => updateInsert(lig.id, ins.id, 'minVol', e.target.value)} 
-                                  className="h-5 w-12 text-[10px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block" 
-                                />
-                                µL
-                              </label>
-                            </div>
-                          </div>
                         </div>
                       </div>
                     ))}
@@ -781,7 +734,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
                   if (!r) return null;
                   return r.insertResults.filter(ins => ins.dilution).map(ins => (
                     <div key={`${i}-${ins.id}`} className="font-medium">
-                      {generateDilutionWarning(`[${ligations[i].label}] ${ins.name}`, ins.dilution, parseFloat(ins.minVol) || 0.5)}
+                      {generateDilutionWarning(`[${ligations[i].label}] ${ins.name}`, ins.dilution, 0.5)}
                     </div>
                   ));
                 })}

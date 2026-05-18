@@ -11,36 +11,24 @@ export const AuthProvider = ({ children }) => {
 
   const fetchProfile = async (userId) => {
     if (!supabase || !userId) return;
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.warn('Error fetching profile:', error);
-      } else {
-        setProfile({
-          ...data,
-          display_name: data?.["Display name"]
-        });
-      }
-    } catch (err) {
-      console.warn('Exception fetching profile:', err);
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.warn('Error fetching profile:', error);
+    } else {
+      setProfile({
+        ...data,
+        display_name: data?.["Display name"]
+      });
     }
   };
 
   useEffect(() => {
     let mounted = true;
-
-    // Safety timeout: never let the app load screen hang longer than 3.5 seconds
-    const safetyTimeout = setTimeout(() => {
-      if (mounted) {
-        console.warn('Auth loading safety timeout triggered after 3.5s');
-        setIsLoadingAuth(false);
-      }
-    }, 3500);
 
     async function loadSession() {
       if (!supabase) {
@@ -51,72 +39,45 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        if (error) {
-          setAuthError(error);
-          setUser(null);
-          setProfile(null);
-        } else {
-          const currentUser = session?.user ?? null;
-          setUser(currentUser);
-          if (currentUser) {
-            await fetchProfile(currentUser.id);
-          }
-        }
-      } catch (err) {
-        console.error('Error loading session:', err);
-        if (mounted) {
-          setAuthError(err);
-          setUser(null);
-          setProfile(null);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoadingAuth(false);
+      if (error) {
+        setAuthError(error);
+        setUser(null);
+        setProfile(null);
+      } else {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
         }
       }
+
+      setIsLoadingAuth(false);
     }
 
     loadSession();
 
-    let listener;
-    try {
-      const { data } = supabase?.auth.onAuthStateChange(async (_event, session) => {
+    const { data: listener } =
+      supabase?.auth.onAuthStateChange(async (_event, session) => {
         if (!mounted) return;
-        try {
-          const currentUser = session?.user ?? null;
-          setUser(currentUser);
-          if (currentUser) {
-            await fetchProfile(currentUser.id);
-          } else {
-            setProfile(null);
-          }
-        } catch (err) {
-          console.error('Error in onAuthStateChange callback:', err);
-        } finally {
-          if (mounted) {
-            setIsLoadingAuth(false);
-          }
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        } else {
+          setProfile(null);
         }
-      }) || { data: { subscription: { unsubscribe() {} } } };
-      listener = data;
-    } catch (err) {
-      console.error('Error subscribing to auth state change:', err);
-      if (mounted) {
         setIsLoadingAuth(false);
-      }
-    }
+      }) || { data: { subscription: { unsubscribe() {} } } };
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimeout);
       listener?.subscription?.unsubscribe?.();
     };
   }, []);

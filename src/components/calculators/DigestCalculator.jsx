@@ -19,9 +19,9 @@ const LOW_VOL = 0.5; // µL warning threshold
 
 const FASTAP_VOL = 1; // µL
 
-function calcMix(dnaConc, desiredDna, totalVol, enzymeVol, numEnzymes, enzymeType, isVector = false, autoDilute = true, minVol = LOW_VOL) {
+function calcMix(dnaConc, desiredDna, totalVol, enzymeVol, numEnzymes, enzymeType, isVector = false) {
   const rawDnaVol = parseFloat(desiredDna) / parseFloat(dnaConc);
-  const dilution = autoDilute ? getDilutionSuggestion(dnaConc, desiredDna, minVol) : null;
+  const dilution = getDilutionSuggestion(dnaConc, desiredDna, LOW_VOL);
   const dnaVolume = dilution ? parseFloat(dilution.newVol) : rawDnaVol;
   const bufferVol = parseFloat(totalVol) / 10;
   const totalEnzymeVol = numEnzymes * parseFloat(enzymeVol);
@@ -60,11 +60,9 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const [totalVolume, setTotalVolume] = useState('20');
   const [enzymeVolume, setEnzymeVolume] = useState('1');
   const [enzymeType, setEnzymeType] = useState('Standard');
-  const [autoDilute, setAutoDilute] = useState(true);
-  const [minVol, setMinVol] = useState('0.5');
   const [results, setResults] = useState(null);
 
-  const [batchSamples, setBatchSamples] = useState([{ id: 1, name: 'Sample 1', conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [], autoDilute: true, minVol: '0.5' }]);
+  const [batchSamples, setBatchSamples] = useState([{ id: 1, name: 'Sample 1', conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [] }]);
   const [batchTotalVol, setBatchTotalVol] = useState('20');
   const [batchEnzymeVol, setBatchEnzymeVol] = useState('1');
   const [batchEnzymeType, setBatchEnzymeType] = useState('Standard');
@@ -89,8 +87,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
       setTotalVolume(d.totalVolume || '20');
       setEnzymeVolume(d.enzymeVolume || '1');
       setEnzymeType(d.enzymeType || 'Standard');
-      if (d.autoDilute !== undefined) setAutoDilute(d.autoDilute);
-      if (d.minVol !== undefined) setMinVol(d.minVol);
       if (d.batchSamples) setBatchSamples(d.batchSamples);
       if (d.batchTotalVol) setBatchTotalVol(d.batchTotalVol);
       if (d.batchEnzymeVol) setBatchEnzymeVol(d.batchEnzymeVol);
@@ -127,8 +123,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
             totalVolume,
             enzymeVolume,
             enzymeType,
-            autoDilute,
-            minVol,
             batchSamples,
             batchTotalVol,
             batchEnzymeVol,
@@ -148,8 +142,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     totalVolume,
     enzymeVolume,
     enzymeType,
-    autoDilute,
-    minVol,
     batchSamples,
     batchTotalVol,
     batchEnzymeVol,
@@ -208,19 +200,17 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
   useEffect(() => {
     if (dnaConc && desiredDna && totalVolume) {
-      const minVolVal = parseFloat(minVol) || LOW_VOL;
-      const r = calcMix(dnaConc, desiredDna, totalVolume, enzymeVolume, selectedEnzymes.length || 1, enzymeType, dnaRole === 'vector', autoDilute, minVolVal);
+      const r = calcMix(dnaConc, desiredDna, totalVolume, enzymeVolume, selectedEnzymes.length || 1, enzymeType, dnaRole === 'vector');
       setResults({ ...r, optimalBuffer: getOptimalBuffer(enzymeType, selectedEnzymes, singleFilteredEnzymes), protocol: getProtocol(enzymeType, selectedEnzymes, singleFilteredEnzymes) });
     } else { setResults(null); }
-  }, [dnaConc, desiredDna, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, dnaRole, autoDilute, minVol]);
+  }, [dnaConc, desiredDna, selectedEnzymes, totalVolume, enzymeVolume, enzymeType, dnaRole]);
 
   useEffect(() => {
     const valid = batchSamples.filter(s => s.conc && s.desiredNg);
     if (valid.length === 0) { setBatchResults(null); return; }
     const rows = valid.map(s => {
       const numEnz = s.enzymes.length || 1;
-      const minVolVal = parseFloat(s.minVol) || LOW_VOL;
-      const r = calcMix(s.conc, s.desiredNg, batchTotalVol, batchEnzymeVol, numEnz, batchEnzymeType, s.dnaRole === 'vector', s.autoDilute !== false, minVolVal);
+      const r = calcMix(s.conc, s.desiredNg, batchTotalVol, batchEnzymeVol, numEnz, batchEnzymeType, s.dnaRole === 'vector');
       return { ...s, ...r };
     });
     setBatchResults(rows);
@@ -315,29 +305,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   {dnaRole === 'vector' && (
                     <p className="text-xs text-blue-600 dark:text-blue-400">Vector selected — FastAP (1 µL) will be added for dephosphorylation to reduce re-ligation.</p>
                   )}
-                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-1">
-                      <input 
-                        type="checkbox" 
-                        id="digest-auto-dilute" 
-                        checked={autoDilute} 
-                        onChange={(e) => setAutoDilute(e.target.checked)}
-                        className="w-3.5 h-3.5 text-rose-600 rounded border-slate-300 focus:ring-rose-500 cursor-pointer"
-                      />
-                      <label htmlFor="digest-auto-dilute" className="text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1.5 flex-wrap">
-                        Auto-dilute if volume is lower than
-                        <Input 
-                          type="number" 
-                          step="0.1" 
-                          value={minVol} 
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setMinVol(e.target.value)} 
-                          className="h-6 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-rose-500/20 inline-block" 
-                        />
-                        µL
-                      </label>
-                    </div>
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm text-slate-600 dark:text-slate-200">Enzyme Type</Label>
@@ -371,7 +338,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
               {results?.dilution && (
                 <Card className="shadow-sm bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
                   <CardContent className="p-4 text-sm text-amber-800 dark:text-amber-300 font-medium">
-                    {generateDilutionWarning('DNA', results.dilution, parseFloat(minVol) || LOW_VOL)}
+                    {generateDilutionWarning('DNA', results.dilution, LOW_VOL)}
                   </CardContent>
                 </Card>
               )}
@@ -529,7 +496,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">DNA Samples</CardTitle>
                   <Button variant="outline" size="sm" onClick={() => {
                     const id = Math.max(...batchSamples.map(s => s.id)) + 1;
-                    setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [], autoDilute: true, minVol: '0.5' }]);
+                    setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [] }]);
                   }} className="gap-1">
                     <Plus className="w-4 h-4" /> Add Sample
                   </Button>
@@ -583,27 +550,6 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                           ))}
                         </div>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 w-full flex items-center gap-2">
-                        <input 
-                          type="checkbox" 
-                          id={`batch-dilute-${s.id}`} 
-                          checked={s.autoDilute !== false} 
-                          onChange={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, autoDilute: e.target.checked } : x))}
-                          className="w-3.5 h-3.5 text-rose-600 rounded border-slate-300 focus:ring-rose-500 cursor-pointer"
-                        />
-                        <label htmlFor={`batch-dilute-${s.id}`} className="text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1.5 flex-wrap">
-                          Auto-dilute if volume is lower than
-                          <Input 
-                            type="number" 
-                            step="0.1" 
-                            value={s.minVol || '0.5'} 
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, minVol: e.target.value } : x))} 
-                            className="h-6 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-rose-500/20 inline-block" 
-                          />
-                          µL
-                        </label>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -646,7 +592,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                         <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
                         {batchResults.filter(r => r.dnaLow).map(r => (
                           <div key={r.id} className="font-medium">
-                            {generateDilutionWarning(r.name, r.dilution, parseFloat(r.minVol) || LOW_VOL)}
+                            {generateDilutionWarning(r.name, r.dilution, LOW_VOL)}
                           </div>
                         ))}
                       </div>
