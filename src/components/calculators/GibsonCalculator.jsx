@@ -170,6 +170,7 @@ export default function GibsonCalculator({ historyData, isActive }) {
       vectorVolume: finalVectorVol.toFixed(2),
       vectorLow,
       vectorDilution,
+      vectorMinVol,
       inserts: insertResults.map(i => ({ ...i, volume: i.volume.toFixed(2) })),
       masterMixVolume: masterMixVol.toFixed(2),
       waterVolume: Math.max(0, waterVol).toFixed(2),
@@ -378,9 +379,9 @@ export default function GibsonCalculator({ historyData, isActive }) {
                 {/* Dilution warnings */}
                 {(results.vectorLow || results.inserts.some(i => i.isLow)) && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-300 text-xs space-y-1">
-                    {results.vectorDilution && <div className="font-medium text-amber-700 dark:text-amber-400">{generateDilutionWarning(fragments.find(f => f.isVector)?.name || 'Vector', results.vectorDilution, LOW_VOL_GIBSON)}</div>}
+                    {results.vectorDilution && <div className="font-medium text-amber-700 dark:text-amber-400">{generateDilutionWarning(fragments.find(f => f.isVector)?.name || 'Vector', results.vectorDilution, results.vectorMinVol)}</div>}
                     {results.inserts.filter(i => i.isLow).map((ins, idx) => (
-                      <div key={idx} className="font-medium text-amber-700 dark:text-amber-400">{generateDilutionWarning(ins.name, ins.dilution, LOW_VOL_GIBSON)}</div>
+                      <div key={idx} className="font-medium text-amber-700 dark:text-amber-400">{generateDilutionWarning(ins.name, ins.dilution, ins.minVol)}</div>
                     ))}
                   </div>
                 )}

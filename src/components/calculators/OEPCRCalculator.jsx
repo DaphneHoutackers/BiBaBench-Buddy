@@ -26,8 +26,8 @@ function NumInput({ value, onChange, ...props }) {
 }
 
 const DEFAULT_FRAGMENTS = [
-  { id: 1, name: 'Fragment 1', length: '', concentration: '' },
-  { id: 2, name: 'Fragment 2', length: '', concentration: '' },
+  { id: 1, name: 'Fragment 1', length: '', concentration: '', autoDilute: true, minVol: '0.5' },
+  { id: 2, name: 'Fragment 2', length: '', concentration: '', autoDilute: true, minVol: '0.5' },
 ];
 
 function formatTime(sec) {
@@ -66,7 +66,7 @@ export default function OEPCRCalculator({ historyData, isActive }) {
 
   const addFragment = () => {
     const newId = Math.max(...fragments.map(f => f.id)) + 1;
-    setFragments([...fragments, { id: newId, name: `Fragment ${fragments.length + 1}`, length: '', concentration: '' }]);
+    setFragments([...fragments, { id: newId, name: `Fragment ${fragments.length + 1}`, length: '', concentration: '', autoDilute: true, minVol: '0.5' }]);
   };
 
   const removeFragment = (id) => {
@@ -128,7 +128,8 @@ export default function OEPCRCalculator({ historyData, isActive }) {
       const conc = parseFloat(f.concentration);
       const ng = fmol * len * 650 / 1e6;
       const vol = ng / conc;
-      const dilution = getDilutionSuggestion(conc, ng, 0.5);
+      const minVolVal = parseFloat(f.minVol) || 0.5;
+      const dilution = f.autoDilute !== false ? getDilutionSuggestion(conc, ng, minVolVal) : null;
       const isLow = !!dilution;
       const volumeToUse = dilution ? parseFloat(dilution.newVol) : vol;
       
@@ -140,7 +141,9 @@ export default function OEPCRCalculator({ historyData, isActive }) {
         vol: volumeToUse,
         rawVol: vol,
         isLow, 
-        dilution 
+        dilution,
+        autoDilute: f.autoDilute !== false,
+        minVol: f.minVol || '0.5'
       };
     });
 
@@ -237,6 +240,29 @@ export default function OEPCRCalculator({ historyData, isActive }) {
                       <NumInput placeholder="bijv. 50" value={frag.concentration} onChange={e => updateFragment(frag.id, 'concentration', e.target.value)} className="h-8 text-sm border-slate-200" />
                     </div>
                   </div>
+                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 mb-1">
+                      <input 
+                        type="checkbox" 
+                        id={`dilute-${frag.id}`} 
+                        checked={frag.autoDilute !== false} 
+                        onChange={(e) => updateFragment(frag.id, 'autoDilute', e.target.checked)}
+                        className="w-3.5 h-3.5 text-teal-600 rounded border-slate-300 focus:ring-teal-500 cursor-pointer"
+                      />
+                      <label htmlFor={`dilute-${frag.id}`} className="text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1.5 flex-wrap">
+                        Auto-dilute if volume is lower than
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          value={frag.minVol || '0.5'} 
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => updateFragment(frag.id, 'minVol', e.target.value)} 
+                          className="h-6 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-teal-500/20 inline-block" 
+                        />
+                        µL
+                      </label>
+                    </div>
+                  </div>
                 </div>
               ))}
               <Button variant="outline" className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50" onClick={addFragment}>
@@ -312,7 +338,7 @@ export default function OEPCRCalculator({ historyData, isActive }) {
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs space-y-1">
                       {results.fragments.filter(f => f.isLow).map((f, idx) => (
                         <div key={idx} className="font-medium text-amber-700">
-                          {generateDilutionWarning(f.name, f.dilution, 0.5)}
+                          {generateDilutionWarning(f.name, f.dilution, parseFloat(f.minVol) || 0.5)}
                         </div>
                       ))}
                     </div>

@@ -196,7 +196,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
   const [extraReactions, setExtraReactions] = useState('1');
 
   // Multiple samples with different templates
-  const [samples, setSamples] = useState([{ id: 1, name: 'Sample 1', conc: '', desiredNg: '10' }]);
+  const [samples, setSamples] = useState([{ id: 1, name: 'Sample 1', conc: '', desiredNg: '10', autoDilute: true, minVol: '0.5' }]);
   const [primersIdentical, setPrimersIdentical] = useState(true);
   const [gradientMode, setGradientMode] = useState(false);
   const [gradientN, setGradientN] = useState('8');
@@ -223,7 +223,13 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
         if (d.useBetaine !== undefined) setUseBetaine(d.useBetaine);
         if (d.betaineVol !== undefined) setBetaineVol(d.betaineVol);
         if (d.extraReactions !== undefined) setExtraReactions(d.extraReactions);
-        if (d.samples !== undefined) setSamples(d.samples);
+        if (d.samples !== undefined) {
+          setSamples(d.samples.map(s => ({
+            autoDilute: true,
+            minVol: '0.5',
+            ...s
+          })));
+        }
         if (d.primersIdentical !== undefined) setPrimersIdentical(d.primersIdentical);
         if (d.gradientMode !== undefined) setGradientMode(d.gradientMode);
         if (d.gradientN !== undefined) setGradientN(d.gradientN);
@@ -330,7 +336,8 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
   // Per-sample template calculations
   const sampleCalcs = samples.map(s => {
     const rawVol = s.conc && s.desiredNg ? parseFloat(s.desiredNg) / parseFloat(s.conc) : 1;
-    const dilution = getDilutionSuggestion(s.conc, s.desiredNg, 0.5);
+    const minVolVal = parseFloat(s.minVol) || 0.5;
+    const dilution = s.autoDilute !== false ? getDilutionSuggestion(s.conc, s.desiredNg, minVolVal) : null;
     const templateVol = dilution ? parseFloat(dilution.newVol) : rawVol;
     const fixedVol = bufferVol + dntpVol + (primersIdentical ? primerVol * 2 : 0) + polyVol + betaineActualVol;
     const mqVol = vol - fixedVol - (!primersIdentical ? primerVol * 2 : 0) - templateVol;
@@ -498,20 +505,43 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {samples.map(s => (
-                    <div key={s.id} className="flex gap-2 items-center">
-                      <Input value={s.name} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm border-slate-200 dark:border-slate-700 h-8" />
-                      <NumInput placeholder="Conc (ng/µL)" value={s.conc} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-32 border-slate-200 dark:border-slate-700 h-8 text-sm" />
-                      <NumInput placeholder="ng" value={s.desiredNg} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-20 border-slate-200 dark:border-slate-700 h-8 text-sm" />
-                      {samples.length > 1 && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setSamples(samples.filter(x => x.id !== s.id))}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
+                    <div key={s.id} className="p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/10 space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <Input value={s.name} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))} className="w-28 text-sm border-slate-200 dark:border-slate-700 h-8" />
+                        <NumInput placeholder="Conc (ng/µL)" value={s.conc} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, conc: e.target.value } : x))} className="w-32 border-slate-200 dark:border-slate-700 h-8 text-sm" />
+                        <NumInput placeholder="ng" value={s.desiredNg} onChange={e => setSamples(samples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="w-20 border-slate-200 dark:border-slate-700 h-8 text-sm" />
+                        {samples.length > 1 && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setSamples(samples.filter(x => x.id !== s.id))}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-1 pt-1 border-t border-slate-100/60 dark:border-slate-800/60 flex items-center gap-2">
+                        <input 
+                          type="checkbox" 
+                          id={`pcr-dilute-${s.id}`} 
+                          checked={s.autoDilute !== false} 
+                          onChange={(e) => setSamples(samples.map(x => x.id === s.id ? { ...x, autoDilute: e.target.checked } : x))}
+                          className="w-3.5 h-3.5 text-pink-600 rounded border-slate-300 focus:ring-pink-500 cursor-pointer"
+                        />
+                        <label htmlFor={`pcr-dilute-${s.id}`} className="text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1.5 flex-wrap">
+                          Auto-dilute if volume is lower than
+                          <Input 
+                            type="number" 
+                            step="0.1" 
+                            value={s.minVol || '0.5'} 
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setSamples(samples.map(x => x.id === s.id ? { ...x, minVol: e.target.value } : x))} 
+                            className="h-6 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-pink-500/20 inline-block" 
+                          />
+                          µL
+                        </label>
+                      </div>
                     </div>
                   ))}
                   <Button variant="outline" size="sm" className="gap-1 h-8 w-full" onClick={() => {
                     const id = Math.max(...samples.map(s => s.id)) + 1;
-                    setSamples([...samples, { id, name: `Sample ${id}`, conc: '', desiredNg: '10' }]);
+                    setSamples([...samples, { id, name: `Sample ${id}`, conc: '', desiredNg: '10', autoDilute: true, minVol: '0.5' }]);
                   }}>
                     <Plus className="w-3 h-3" /> Add Sample
                   </Button>
@@ -618,7 +648,7 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                         <div className="font-semibold mb-1 flex items-center gap-1 text-sm"><AlertTriangle className="w-4 h-4" /> Dilution suggested</div>
                         {sampleCalcs.filter(s => s.dilution).map(s => (
                           <div key={s.id} className="font-medium">
-                            {generateDilutionWarning(samples.find(sm => sm.id === s.id)?.name || `Sample ${s.id}`, s.dilution, 0.5)}
+                            {generateDilutionWarning(samples.find(sm => sm.id === s.id)?.name || `Sample ${s.id}`, s.dilution, parseFloat(s.minVol) || 0.5)}
                           </div>
                         ))}
                       </div>

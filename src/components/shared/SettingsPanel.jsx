@@ -21,6 +21,8 @@ import {
   KeyRound,
   ArrowLeft,
   Pencil,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
@@ -243,6 +245,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const loadingTimeoutRef = useRef(null);
 
   const getInitials = (name, fallbackEmail) => {
@@ -583,12 +586,106 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     } catch (err) {
       console.error('Error updating display name:', err);
     }
+  };  const handleAvatarColorSelect = async (color) => {
+    if (!authUser) return;
+    try {
+      const { error } = await supabase
+        .from('users')
+        .upsert({ 
+          id: authUser.id,
+          avatar_bg: color, 
+          avatar_url: null 
+        }, { onConflict: 'id' });
+      
+      if (error) throw error;
+      
+      if (setProfile) {
+        setProfile(prev => ({
+          ...prev,
+          avatar_bg: color,
+          avatar_url: null
+        }));
+      }
+      refreshProfile();
+    } catch (err) {
+      console.error('Error updating avatar color:', err);
+    }
   };
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !authUser) return;
 
+    setIsUploading(true);
+    try {
+      // 1. Try Supabase storage bucket first
+      try {
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${authUser.id}/${Math.random()}.${fileExt}`;
 
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file, { upsert: true });
 
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
 
+          const { error: updateError } = await supabase
+            .from('users')
+            .upsert({ 
+              id: authUser.id,
+              avatar_url: publicUrl 
+            }, { onConflict: 'id' });
+
+          if (!updateError) {
+            if (setProfile) {
+              setProfile(prev => ({
+                ...prev,
+                avatar_url: publicUrl
+              }));
+            }
+            refreshProfile();
+            return;
+          }
+        }
+      } catch (storageErr) {
+        console.warn('Supabase storage upload failed, falling back to base64:', storageErr);
+      }
+
+      // 2. Fallback: Convert to Base64 and save in the users table
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64data = reader.result;
+        try {
+          const { error: updateError } = await supabase
+            .from('users')
+            .upsert({ 
+              id: authUser.id,
+              avatar_url: base64data 
+            }, { onConflict: 'id' });
+
+          if (updateError) throw updateError;
+
+          if (setProfile) {
+            setProfile(prev => ({
+              ...prev,
+              avatar_url: base64data
+            }));
+          }
+          refreshProfile();
+        } catch (dbErr) {
+          console.error('Database update with base64 failed:', dbErr);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error processing avatar upload:', err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
   const lang = settings.language || 'en';
   const t = TRANSLATIONS[lang];
 
@@ -786,7 +883,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     settings.aiModel ||
                     (settings.aiProvider === 'openrouter' && orModels.length > 0
                       ? orModels[0].id
-                      : AI_PROVIDERS[settings.aiProvider || 'groq'].models[0].id)
+                      : (AI_PROVIDERS[settings.aiProvider] || AI_PROVIDERS.groq).models[0].id)
                   }
                   onChange={(e) => onChange({ ...settings, aiModel: e.target.value })}
                   className="w-full h-10 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900"
@@ -797,7 +894,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                         {m.label}
                       </option>
                     ))
-                    : AI_PROVIDERS[settings.aiProvider || 'groq'].models.map((m) => (
+                    : (AI_PROVIDERS[settings.aiProvider] || AI_PROVIDERS.groq).models.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.label}
                       </option>
@@ -898,14 +995,155 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               ) : authUser ? (
                 <>
                   <div className="flex flex-col items-center py-4 space-y-4">
-                    <div 
-                      className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl transition-all duration-300 overflow-hidden ring-4 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-800"
-                      style={{ 
-                        background: profile?.avatar_bg || 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)',
-                      }}
-                    >
-                      {getInitials(profile?.display_name, authUser.email)}
+                    <div className="relative group">
+                      <div 
+                        className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl transition-all duration-300 overflow-hidden ring-4 ring-white dark:ring-slate-800 bg-slate-100 dark:bg-slate-800"
+                        style={{ 
+                          background: (!profile?.avatar_url && profile?.avatar_bg) 
+                            ? profile.avatar_bg 
+                            : (!profile?.avatar_url ? 'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)' : 'transparent'),
+                        }}
+                      >
+                        {profile?.avatar_url ? (
+                          <div 
+                            className="w-full h-full transition-transform duration-200"
+                            style={{
+                              backgroundImage: `url(${profile.avatar_url})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: `${settings.avatarOffsetX ?? 50}% ${settings.avatarOffsetY ?? 50}%`,
+                              transform: `scale(${settings.avatarZoom ?? 1})`,
+                            }}
+                          />
+                        ) : (
+                          getInitials(profile?.display_name, authUser.email)
+                        )}
+                      </div>
+                      
+                      <button 
+                        onClick={() => setIsEditingAvatar(!isEditingAvatar)}
+                        className="absolute bottom-0 right-0 w-8 h-8 bg-teal-600 hover:bg-teal-700 rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-white dark:border-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900"
+                      >
+                        <Pencil className="w-4 h-4 text-white" />
+                      </button>
                     </div>
+
+                    {isEditingAvatar && (
+                      <div className="w-full space-y-4 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl mt-2 animate-in fade-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
+                            <Upload className="w-3.5 h-3.5" /> {t.uploadPicture}
+                          </p>
+                          <label className="flex items-center justify-center gap-2 w-full h-10 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors cursor-pointer text-sm text-slate-600 dark:text-slate-300">
+                            {isUploading ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <ImageIcon className="w-4 h-4" /> {t.uploadImage}
+                              </>
+                            )}
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,.svg" 
+                              onChange={(e) => {
+                                handleAvatarUpload(e);
+                                e.target.value = ''; // Reset to allow re-uploading same file
+                              }} 
+                              disabled={isUploading} 
+                            />
+                          </label>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
+                            <Palette className="w-3.5 h-3.5" /> {t.chooseColor}
+                          </p>
+                          <div className="grid grid-cols-4 gap-2">
+                            {AVATAR_GRADIENTS.map((gradient, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleAvatarColorSelect(gradient)}
+                                className={`w-full aspect-square rounded-xl border-2 transition-all p-0.5 relative ${
+                                  profile?.avatar_bg === gradient && !profile?.avatar_url
+                                    ? 'border-teal-500 scale-105 shadow-md'
+                                    : 'border-transparent hover:scale-105 shadow-sm'
+                                }`}
+                              >
+                                <div className="w-full h-full rounded-lg" style={{ background: gradient }} />
+                                {profile?.avatar_bg === gradient && !profile?.avatar_url && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Check className="w-4 h-4 text-white drop-shadow-md" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                            {/* Preset solid colors */}
+                            {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'].map((color, idx) => (
+                              <button
+                                key={`solid-${idx}`}
+                                onClick={() => handleAvatarColorSelect(color)}
+                                className={`w-full aspect-square rounded-xl border-2 transition-all p-0.5 relative ${
+                                  profile?.avatar_bg === color && !profile?.avatar_url
+                                    ? 'border-teal-500 scale-105 shadow-md'
+                                    : 'border-transparent hover:scale-105 shadow-sm'
+                                }`}
+                              >
+                                <div className="w-full h-full rounded-lg" style={{ background: color }} />
+                                {profile?.avatar_bg === color && !profile?.avatar_url && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Check className="w-4 h-4 text-white drop-shadow-md" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {profile?.avatar_url && (
+                          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase flex items-center gap-1.5">
+                              {t.adjustAvatar}
+                            </p>
+                            <div className="space-y-3">
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] text-slate-500 font-medium">{t.zoom}</span>
+                                <input 
+                                  type="range" 
+                                  min="1" 
+                                  max="3" 
+                                  step="0.05" 
+                                  value={settings.avatarZoom ?? 1} 
+                                  onChange={(e) => onChange({ ...settings, avatarZoom: parseFloat(e.target.value) })}
+                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] text-slate-500 font-medium">{t.horizontal}</span>
+                                <input 
+                                  type="range" 
+                                  min="0" 
+                                  max="100" 
+                                  value={settings.avatarOffsetX ?? 50} 
+                                  onChange={(e) => onChange({ ...settings, avatarOffsetX: parseInt(e.target.value) })}
+                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] text-slate-500 font-medium">{t.vertical}</span>
+                                <input 
+                                  type="range" 
+                                  min="0" 
+                                  max="100" 
+                                  value={settings.avatarOffsetY ?? 50} 
+                                  onChange={(e) => onChange({ ...settings, avatarOffsetY: parseInt(e.target.value) })}
+                                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="w-full space-y-3 mt-2">
