@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Image, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
-export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
+const CopyImageButton = forwardRef(({ targetRef, label = "Copy Image", ...props }, ref) => {
   const [copied, setCopied] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -81,14 +81,20 @@ export default function CopyImageButton({ targetRef, label = "Copy Image" }) {
 
   return (
     <Button
+      ref={ref}
       variant="outline"
       size="sm"
       onClick={handleCopyImage}
       disabled={isCapturing}
       className="text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 gap-2"
+      {...props}
     >
       {copied ? <Check className="w-4 h-4 text-green-500" /> : <Image className="w-4 h-4" />}
       {copied ? 'Copied!' : (isCapturing ? 'Capturing...' : label)}
     </Button>
   );
-}
+});
+
+CopyImageButton.displayName = 'CopyImageButton';
+
+export default CopyImageButton;
