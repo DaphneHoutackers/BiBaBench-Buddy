@@ -1729,12 +1729,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                         }`}>{enz.type}</span>
                                       </td>
                                       <td className="py-2.5">
-                                        <span className={`font-mono font-bold ${
+                                        <span className={`font-bold ${
                                           enz.count === 0 ? 'text-slate-300' : 
                                           enz.count === 1 ? 'text-emerald-600' : 'text-rose-600'
                                         }`}>{enz.count}×</span>
                                       </td>
-                                      <td className="py-2.5 text-slate-500 font-mono">
+                                      <td className="py-2.5 text-slate-500 font-bold">
                                         {enz.locations.slice(0, 3).join(', ')}{enz.locations.length > 3 ? '...' : ''}
                                       </td>
                                       <td className="py-2.5 text-slate-500">{enz.cut}</td>
@@ -1755,7 +1755,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">All Cut Positions</p>
                                                 <div className="flex flex-wrap gap-1.5">
                                                   {enz.locations.map(p => (
-                                                    <span key={p} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-mono text-[10px] shadow-sm">{p}</span>
+                                                    <span key={p} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-bold text-[10px] shadow-sm">{p}</span>
                                                   ))}
                                                   {enz.locations.length === 0 && <span className="text-slate-400 italic">No cut sites found</span>}
                                                 </div>
@@ -1767,7 +1767,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                                 <div className="flex flex-wrap gap-1.5">
                                                   {fragments.sort((a,b) => b-a).map((f, idx) => (
                                                     <div key={idx} className="px-2 py-1 bg-teal-50 border border-teal-100 rounded flex items-center gap-2 shadow-sm">
-                                                      <span className="text-teal-700 font-bold font-mono text-[10px]">{f} bp</span>
+                                                      <span className="text-teal-700 font-bold text-[10px]">{f} bp</span>
                                                     </div>
                                                   ))}
                                                 </div>
@@ -1859,7 +1859,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                   </td>
                                   <td className="py-2 font-bold text-slate-700">{feat.label}</td>
                                   <td className="py-2 text-slate-500 uppercase text-[10px] tracking-wider">{feat.type}</td>
-                                  <td className="py-2 text-slate-600 font-medium">{feat.end - feat.start} bp</td>
+                                  <td className="py-2 text-slate-600 font-bold">{feat.end - feat.start} bp</td>
                                   <td className="py-2">
                                     <span className="text-slate-400 text-lg leading-none">{feat.strand === 1 ? '→' : feat.strand === -1 ? '←' : '↔︎'}</span>
                                   </td>
@@ -2003,8 +2003,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                   <div className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: p.color }} />
                                 </td>
                                 <td className="py-3 font-bold text-slate-700">{p.name}</td>
-                                <td className="py-3 text-slate-600">{p.seq?.length || 0}-mer</td>
-                                <td className="py-3 text-slate-500 font-mono">
+                                <td className="py-3 text-slate-600 font-bold">{p.seq?.length || 0}-mer</td>
+                                <td className="py-3 text-slate-500 font-bold">
                                   {site ? `${site.start + 1} ... ${site.end}` : 'Geen binding gevonden'}
                                 </td>
                                 <td className="py-3 text-slate-400 text-lg leading-none">
@@ -2268,7 +2268,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                     </div>
                                   </td>
                                   <td className="py-1 px-1 text-center" onClick={() => toggleEnzyme(name)}>
-                                    <span className={`font-bold font-mono text-xs px-1.5 py-0.5 rounded ${count === 0 ? 'bg-slate-100 text-slate-400' :
+                                    <span className={`font-bold text-xs px-1.5 py-0.5 rounded ${count === 0 ? 'bg-slate-100 text-slate-400' :
                                         count === 1 ? 'bg-emerald-100 text-emerald-700' :
                                           count === 2 ? 'bg-amber-100 text-amber-700' :
                                             'bg-rose-100 text-rose-700'
