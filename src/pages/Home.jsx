@@ -65,7 +65,7 @@ const DEFAULT_SETTINGS = {
 const CALCULATORS = [
   { id: 'digest', name: 'Digestion', icon: BiGame, gradient: 'from-rose-500 to-purple-400' },
   { id: 'ligation', name: 'Ligation', icon: BsOpencollective, gradient: 'from-orange-500 to-pink-500' },
-  { id: 'gibson', name: 'Gibson Assembly', icon: PiCircleDashedBold, gradient: 'from-rose-400 to-purple-500' },
+  { id: 'gibson', name: 'Gibson', icon: PiCircleDashedBold, gradient: 'from-rose-400 to-purple-500' },
   { id: 'pcr', name: 'PCR', icon: BiTransferAlt, gradient: 'from-pink-500 to-orange-500' },
   { id: 'dilution', name: 'Dilutions', icon: SlCalculator, gradient: 'from-rose-500 to-pink-500' },
   { id: 'protein', name: 'BCA assay', icon: HiMiniChartBar, gradient: 'from-purple-500 to-pink-500' },
@@ -345,6 +345,128 @@ export default function Home() {
     if (currentTheme.bodyClass) document.body.classList.add(currentTheme.bodyClass);
   }, [settings, user]);
 
+  // Grouped undo/redo for inputs (fixes per-character undo)
+  useEffect(() => {
+    let activeElement = null;
+    let typingTimeout = null;
+    let isRestoring = false;
+    const historyMap = new WeakMap();
+
+    const getVal = (el) => el.isContentEditable ? el.innerText : el.value;
+    const setVal = (el, val) => {
+      isRestoring = true;
+      if (el.isContentEditable) {
+        el.innerText = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        const proto = el.tagName === 'INPUT' ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (setter) setter.call(el, val);
+        else el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      isRestoring = false;
+    };
+
+    const getState = (el) => {
+      if (!historyMap.has(el)) {
+        historyMap.set(el, { history: [getVal(el)], index: 0 });
+      }
+      return historyMap.get(el);
+    };
+
+    const saveState = (el, val) => {
+      const state = getState(el);
+      if (state.index < state.history.length - 1) {
+        state.history = state.history.slice(0, state.index + 1);
+      }
+      if (state.history[state.history.length - 1] !== val) {
+        state.history.push(val);
+        state.index++;
+      }
+    };
+
+    const handleFocus = (e) => {
+      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+      if (!isInput) return;
+      activeElement = e.target;
+      getState(activeElement); // Initialize if not present
+    };
+
+    const handleInput = (e) => {
+      if (isRestoring || e.target !== activeElement) return;
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        if (activeElement) saveState(activeElement, getVal(activeElement));
+      }, 400); // 400ms pause groups the typing changes
+    };
+
+    const handleBlur = (e) => {
+      if (e.target === activeElement) {
+        clearTimeout(typingTimeout);
+        if (activeElement) {
+          const currentVal = getVal(activeElement);
+          const state = getState(activeElement);
+          if (currentVal !== state.history[state.index]) saveState(activeElement, currentVal);
+        }
+        activeElement = null;
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+      if (!isInput || e.target !== activeElement) return;
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      if (cmdOrCtrl && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        clearTimeout(typingTimeout);
+        const state = getState(activeElement);
+
+        if (e.shiftKey) { // Redo
+          if (state.index < state.history.length - 1) {
+            state.index++;
+            setVal(activeElement, state.history[state.index]);
+          }
+        } else { // Undo
+          const currentVal = getVal(activeElement);
+          if (currentVal !== state.history[state.index]) {
+            saveState(activeElement, currentVal);
+            state.index--;
+          }
+          if (state.index > 0) {
+            state.index--;
+            setVal(activeElement, state.history[state.index]);
+          }
+        }
+      } else if (!isMac && cmdOrCtrl && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        clearTimeout(typingTimeout);
+        const state = getState(activeElement);
+        if (state.index < state.history.length - 1) {
+          state.index++;
+          setVal(activeElement, state.history[state.index]);
+        }
+      }
+    };
+
+    window.addEventListener('focusin', handleFocus);
+    window.addEventListener('input', handleInput);
+    window.addEventListener('focusout', handleBlur);
+    window.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener('focusin', handleFocus);
+      window.removeEventListener('input', handleInput);
+      window.removeEventListener('focusout', handleBlur);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      clearTimeout(typingTimeout);
+    };
+  }, []);
+
   const syncSettingsFromRemote = async userId => {
     try {
       const { data, error } = await supabase
@@ -393,7 +515,6 @@ export default function Home() {
   const sectionLabelColor = isDark ? 'text-white/40' : 'text-slate-400';
   const cardBg = theme.cardBg || (isDark ? 'bg-white/10 backdrop-blur-xl border-white/20' : 'bg-white border-slate-200/60');
   const cardTextPrimary = theme.textPrimary || (isDark ? 'text-white' : 'text-slate-800');
-  const cardTextSecondary = theme.textSecondary || (isDark ? 'text-white/60' : 'text-slate-400');
   const backBtnColor = theme.iconTextColor || (isDark ? 'text-white/60 hover:text-white' : 'text-slate-500 hover:text-slate-800');
   const settingsBtnColor = theme.iconTextColor || (isDark ? 'text-white/50 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700');
 
@@ -576,12 +697,12 @@ export default function Home() {
                 <div className="flex flex-col space-y-4">
                   <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>Calculators</h3>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 h-full">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                     {CALCULATORS.map(calc => (
                       <button
                         key={calc.id}
                         onClick={() => { setActive(calc.id); setHistoryData(null); }}
-                        className={`group rounded-2xl p-4 text-center shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex flex-col items-center justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
+                        className={`group rounded-2xl p-4 text-center shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col items-center justify-center h-[138px] ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}
                       >
                         <div className={`inline-flex p-3 rounded-xl shadow-md mb-3 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}>
                           <calc.icon className={`w-6 h-6 ${theme?.iconTextColor || 'text-white'}`} />
@@ -595,14 +716,14 @@ export default function Home() {
                 {/* Right Column: Lab & Protocols (Symmetrical rows) */}
                 <div className="flex flex-col space-y-5">
                   {TOOL_GROUPS.map(group => (
-                    <div key={group.id} className="flex flex-col space-y-4 flex-1">
+                    <div key={group.id} className="flex flex-col space-y-4">
                       <h3 className={`text-xs font-bold uppercase tracking-widest px-1 ${sectionLabelColor}`}>{group.label}</h3>
-                      <div className={`grid gap-3 md:gap-4 h-full ${group.id === 'lab' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                      <div className={`grid gap-3 md:gap-4 ${group.id === 'lab' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
                         {group.tools.map(tool => (
                           <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
-                            className={`group relative rounded-2xl p-4 text-left shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col justify-center ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
-                            <div className={`inline-flex rounded-xl shadow-lg mb-3 p-3 w-fit ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
-                              <tool.icon className={`${theme?.iconTextColor || 'text-white'} w-5 h-5 sm:w-6 sm:h-6`} />
+                            className={`group relative rounded-2xl p-4 text-center shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center justify-center h-[120px] ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
+                            <div className={`inline-flex p-3 rounded-xl shadow-md mb-3 group-hover:scale-110 transition-transform ${iconStyle ? '' : `bg-gradient-to-br ${tool.gradient}`}`} style={iconStyle || {}}>
+                              <tool.icon className={`w-6 h-6 ${theme?.iconTextColor || 'text-white'}`} />
                             </div>
                             <p className={`text-sm sm:text-base font-semibold leading-tight ${cardTextPrimary}`}>{tool.name}</p>
                           </button>
