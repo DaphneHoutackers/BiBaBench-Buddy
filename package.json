@@ -25,7 +25,8 @@
         "preview": "vite preview",
         "app:mac": "rm -rf dist dist-electron release && vite build && electron-builder --mac dmg",
         "clean:node": "rm -rf node_modules",
-        "clean:package": "rm -rf package-lock.json"
+        "clean:package": "rm -rf package-lock.json",
+        "analyze": "ANALYZE=true npm run app:mac"
     },
     "dependencies": {
         "@hello-pangea/dnd": "^17.0.0",
@@ -57,13 +58,8 @@
         "@radix-ui/react-toggle": "^1.1.2",
         "@radix-ui/react-toggle-group": "^1.1.2",
         "@radix-ui/react-tooltip": "^1.1.8",
-        "@stripe/react-stripe-js": "^3.0.0",
-        "@stripe/stripe-js": "^5.2.0",
         "@supabase/supabase-js": "^2.99.2",
         "@tanstack/react-query": "^5.84.1",
-        "@vercel/speed-insights": "^2.0.0",
-        "apcach": "^0.6.4",
-        "canvas-confetti": "^1.9.4",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.0.0",
@@ -119,6 +115,7 @@
         "globals": "^15.15.0",
         "lefthook": "^2.1.4",
         "postcss": "^8.5.3",
+        "rollup-plugin-visualizer": "^7.0.1",
         "size-limit": "^12.0.1",
         "tailwindcss": "^3.4.17",
         "typescript": "^5.8.2",
@@ -155,26 +152,42 @@
         "dmg": {
             "title": "BiBaBench Buddy",
             "icon": "build/icon.icns",
+            "background": "build/background.png",
+            "iconSize": 100,
+            "window": {
+                "width": 550,
+                "height": 350
+            },
             "contents": [
                 {
-                    "x": 120,
-                    "y": 220,
+                    "x": 100,
+                    "y": 170,
                     "type": "file"
                 },
                 {
-                    "x": 410,
-                    "y": 200,
+                    "x": 320,
+                    "y": 170,
                     "type": "link",
                     "path": "/Applications"
                 }
             ]
         },
         "asar": true,
+        "compression": "maximum",
+        "removePackageScripts": true,
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "BiBaBench Buddy",
+            "perMachine": false
+        },
         "win": {
             "target": [
                 "nsis"
             ],
-            "icon": "build/icon.ico",
+            "icon": "build/icon.icns",
             "artifactName": "BiBaBenchBuddy-${version}-Setup.${ext}"
         },
         "publish": [

@@ -11,18 +11,19 @@ export const AuthProvider = ({ children }) => {
 
   const fetchProfile = async (userId) => {
     if (!supabase || !userId) return;
+
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-    
+
     if (error) {
       console.warn('Error fetching profile:', error);
     } else {
       setProfile({
         ...data,
-        display_name: data?.["Display name"]
+        display_name: data?.['Display name'],
       });
     }
   };
@@ -31,34 +32,80 @@ export const AuthProvider = ({ children }) => {
     let mounted = true;
 
     async function loadSession() {
-      if (!supabase) {
-        if (mounted) {
+      try {
+        console.log('Loading auth session...');
+
+        if (!supabase) {
           setUser(null);
-          setIsLoadingAuth(false);
+          setProfile(null);
+          return;
         }
-        return;
-      }
 
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+        const getSessionWithTimeout = async () => {
+          try {
+            return await Promise.race([
+              supabase.auth.getSession(),
+              new Promise((resolve) =>
+                setTimeout(
+                  () =>
+                    resolve({
+                      data: { session: null },
+                      error: null,
+                    }),
+                  4000
+                )
+              ),
+            ]);
+          } catch (error) {
+            console.warn('Supabase getSession failed:', error);
 
-      if (!mounted) return;
+            return {
+              data: { session: null },
+              error,
+            };
+          }
+        };
 
-      if (error) {
-        setAuthError(error);
-        setUser(null);
-        setProfile(null);
-      } else {
+        const {
+          data: { session },
+          error,
+        } = await getSessionWithTimeout();
+
+        if (!mounted) return;
+
+        if (error) {
+          console.warn('Supabase session error:', error);
+
+          setAuthError(error);
+          setUser(null);
+          setProfile(null);
+
+          return;
+        }
+
         const currentUser = session?.user ?? null;
+
         setUser(currentUser);
+
         if (currentUser) {
           await fetchProfile(currentUser.id);
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.warn('Auth loading failed:', error);
+
+        if (mounted) {
+          setAuthError(error);
+          setUser(null);
+          setProfile(null);
+        }
+      } finally {
+        if (mounted) {
+          console.log('Auth loading finished');
+          setIsLoadingAuth(false);
         }
       }
-
-      setIsLoadingAuth(false);
     }
 
     loadSession();
@@ -66,15 +113,31 @@ export const AuthProvider = ({ children }) => {
     const { data: listener } =
       supabase?.auth.onAuthStateChange(async (_event, session) => {
         if (!mounted) return;
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        if (currentUser) {
-          await fetchProfile(currentUser.id);
-        } else {
-          setProfile(null);
+
+        try {
+          const currentUser = session?.user ?? null;
+
+          setUser(currentUser);
+
+          if (currentUser) {
+            await fetchProfile(currentUser.id);
+          } else {
+            setProfile(null);
+          }
+        } catch (error) {
+          console.warn('Auth state change failed:', error);
+        } finally {
+          if (mounted) {
+            setIsLoadingAuth(false);
+          }
         }
-        setIsLoadingAuth(false);
-      }) || { data: { subscription: { unsubscribe() {} } } };
+      }) || {
+        data: {
+          subscription: {
+            unsubscribe() {},
+          },
+        },
+      };
 
     return () => {
       mounted = false;
@@ -84,7 +147,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     if (!supabase) return;
+
     const { error } = await supabase.auth.signOut();
+
     if (error) {
       setAuthError(error);
     }
@@ -120,8 +185,10 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+
   return context;
 };

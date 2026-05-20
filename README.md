@@ -25,7 +25,7 @@ BiBaBenchBuddy is a desktop and web application designed for molecular biology w
 
 - DNA digestion calculator
 - Ligation calculator
-- Gibson assembly calculator
+- Gibson calculator
 - PCR setup & optimization tools
 - Dilution and concentration calculators
 - Gel electrophoresis and western blot simulator
@@ -77,7 +77,7 @@ Click the **Settings** icon in the top right:
 🧬 **Calculators (Lab Math)**
   * **Digestion**: Batch process restriction digests with a vast library of NEB and Thermo enzymes.
   * **Ligation**: Calculate optimal vector-to-insert molar ratios for standard ligations.
-  * **Gibson Assembly**: Multi-fragment assembly planning with molarity and volume calculations.
+  * **Gibson**: Multi-fragment assembly planning with molarity and volume calculations.
   * **Protein**:
     * **Protein Concentration**: Accurately determine protein concentration using A280 readings, MW, and extinction coefficients.
     * **Sample preparation**: automatically creates the sample preparation mix table for the measured protein samples in the Protein Concentration tool.
@@ -104,7 +104,7 @@ Click the **Settings** icon in the top right:
 
 ## 🧭 Planned Features
 
-* [ ] Gibson assambly tool
+* [ ] Gibson tool
 * [ ] Primer designer tool 
 * [ ] General extra's for all tools
 
