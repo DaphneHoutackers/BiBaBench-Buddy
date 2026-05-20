@@ -294,8 +294,11 @@ export default function ImageAnnotator({ historyData }) {
 
   useEffect(() => {
     const fn = e => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+      if (isInput) return; // Laat de global handler / native browser dit afhandelen
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && !editingText) {
         if (selectedId) deleteSelected();
         if (selectedFloatIds.size > 0) deleteSelectedFloats();

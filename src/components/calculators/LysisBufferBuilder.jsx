@@ -8,6 +8,13 @@ import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 
+const formatNumber = (val) => {
+  if (val === undefined || val === null) return '';
+  const num = Number(val);
+  if (isNaN(num)) return val;
+  return num.toString();
+};
+
 // conc is the DEFAULT value; unit is the unit string; concType: 'mM'|'M'|'percent'|'x'|'ugmL'
 const COMPONENTS = {
   'Base Buffer': {
@@ -335,26 +342,26 @@ export default function LysisBufferBuilder({ historyData, isActive, sessionId })
                     <td className="py-1.5 px-3 text-xs font-medium text-slate-700">
                       {r.name}{r.pH ? ` (pH ${r.pH})` : ''}
                     </td>
-                    <td className="py-1.5 px-3 text-xs text-slate-500 font-mono">{r.conc} {r.unit}</td>
-                    <td className="py-1.5 px-3 text-right text-xs font-mono font-semibold text-slate-800">
-                      {r.volCalc ? `${r.volCalc.amount} ${r.volCalc.amountUnit}` : '—'}
+                    <td className="py-1.5 px-3 text-xs text-slate-500 font-bold">{Number(r.conc)} {r.unit}</td>
+                    <td className="py-1.5 px-3 text-right text-xs font-bold text-slate-800">
+                      {r.volCalc ? `${formatNumber(r.volCalc.amount)} ${r.volCalc.amountUnit}` : '—'}
                       {r.volCalc?.note && <span className="text-slate-400 ml-1 font-normal">{r.volCalc.note}</span>}
                     </td>
                   </tr>
                 ))}
                 <tr className="border-b border-slate-100">
                   <td className="py-1.5 px-3 text-xs text-slate-500">MQ to final volume</td>
-                  <td className="py-1.5 px-3 text-xs text-slate-400 font-mono">—</td>
-                  <td className="py-1.5 px-3 text-right text-xs font-mono font-semibold">{totalVol} mL</td>
+                  <td className="py-1.5 px-3 text-xs text-slate-400 font-bold">—</td>
+                  <td className="py-1.5 px-3 text-right text-xs font-bold">{formatNumber(totalVol)} mL</td>
                 </tr>
                 {sortedRecipe.filter(r => r.isFresh).map((r, i) => (
                   <tr key={`fresh_${i}`} className="border-b border-amber-100 bg-amber-50/40">
                     <td className="py-1.5 px-3 text-xs font-medium text-amber-800">
                       {r.name}
                     </td>
-                    <td className="py-1.5 px-3 text-xs text-amber-700 font-mono">{r.conc} {r.unit}</td>
-                    <td className="py-1.5 px-3 text-right text-xs font-mono font-semibold text-amber-800">
-                      {r.volCalc ? `${r.volCalc.amount} ${r.volCalc.amountUnit}` : '—'}
+                    <td className="py-1.5 px-3 text-xs text-amber-700 font-bold">{Number(r.conc)} {r.unit}</td>
+                    <td className="py-1.5 px-3 text-right text-xs font-bold text-amber-800">
+                      {r.volCalc ? `${formatNumber(r.volCalc.amount)} ${r.volCalc.amountUnit}` : '—'}
                     </td>
                   </tr>
                 ))}

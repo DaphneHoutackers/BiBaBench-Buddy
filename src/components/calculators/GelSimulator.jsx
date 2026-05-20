@@ -693,7 +693,7 @@ function WesternBlotTab() {
     <div className="grid md:grid-cols-2 gap-4">
       <div className="space-y-3">
         {/* Ladder + Gel type selection */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Gel & Ladder Settings</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
@@ -730,7 +730,7 @@ function WesternBlotTab() {
         </Card>
 
         {/* Protein inputs */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Proteins of Interest</CardTitle>
           </CardHeader>
@@ -948,7 +948,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="bg-slate-100 dark:bg-slate-800">
+        <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="dna" className="flex items-center gap-2">
             <Microscope className="w-4 h-4" />
             DNA Gel
@@ -962,7 +962,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
         <TabsContent value="dna" className="mt-4" forceMount style={{ display: tab === 'dna' ? undefined : 'none' }}>
           <div className="grid lg:grid-cols-2 gap-4">
             <div className="space-y-3">
-              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+              <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Gel Configuration</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -1043,7 +1043,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
                           {digestCache[lane.id]?.fragments?.length > 0 && (
                             <div className="pt-1 flex flex-wrap gap-1">
                               {digestCache[lane.id].fragments.map((bp, k) => (
-                                <span key={k} className="bg-rose-50 text-rose-700 dark:text-rose-300 border border-rose-100 rounded px-1.5 py-0.5 text-[10px] font-mono">
+                                <span key={k} className="bg-rose-50 text-rose-700 dark:text-rose-300 border border-rose-100 rounded px-1.5 py-0.5 text-[10px] font-bold">
                                   {bp}bp
                                 </span>
                               ))}

@@ -159,12 +159,12 @@ const PROTOCOLS = [
   },
   {
     id: 'gibson',
-    name: 'Gibson Assembly',
+    name: 'Gibson',
     category: 'Cloning',
     tags: ['gibson', 'assembly', 'seamless cloning', 'NEBuilder'],
     steps: [
       { text: 'Design fragments with 20-30 bp overlapping homology regions. Order primers with overhangs or use restriction enzymes + exonuclease trimming.', special: null },
-      { text: 'PCR-amplify and purify all fragments. Quantify by NanoDrop. Calculate volumes using the Gibson Assembly Calculator (100 ng vector, 3× molar excess insert).', special: null },
+      { text: 'PCR-amplify and purify all fragments. Quantify by NanoDrop. Calculate volumes using the Gibson Calculator (100 ng vector, 3× molar excess insert).', special: null },
       { text: 'Thaw 2× NEBuilder HiFi Assembly Master Mix on ice. Set up reaction: MQ + fragments (≤5 µL total DNA) + 10 µL 2× Master Mix in 20 µL total.', special: 'ice' },
       { text: 'Incubate at 50°C × 15-60 min (use longer times for ≥3 fragments or >6 kb assemblies).', special: 'temp', param: { label: 'Fragments', options: { '2 fragments': '50°C × 15-30 min', '3-4 fragments': '50°C × 30-60 min', '>4 fragments': '50°C × 60 min' } } },
       { text: 'Place on ice immediately. Transform 2 µL into competent cells (e.g., DH5α or Stbl3 for repetitive sequences).', special: 'ice' },
@@ -563,7 +563,7 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user 
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-100 dark:bg-slate-800">
+        <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="library" className="flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
             Library

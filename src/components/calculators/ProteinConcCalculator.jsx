@@ -14,6 +14,13 @@ import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
 
 
+const formatNumber = (val) => {
+  if (val === undefined || val === null) return '';
+  const num = Number(val);
+  if (isNaN(num)) return val;
+  return num.toString();
+};
+
 function linearRegression(points) {
   const n = points.length;
   if (n < 2) return null;
@@ -369,7 +376,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
       </div>
 
       <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
-        <TabsList className="bg-slate-100 dark:bg-slate-800">
+        <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="standards" className="flex items-center gap-2">
             <BsGraphUpArrow className="w-4 h-4" />
             Standard Curve & Samples
@@ -407,7 +414,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                 <div className="flex items-end pb-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-800/30 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-800/50">
                     <span>Dilution factor:</span>
-                    <span className="font-mono font-bold text-black-600 dark:text-white-400">
+                    <span className="font-bold text-black-600 dark:text-white-400">
                       ×{((sVol + wrVol * 1000) / sVol).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                     </span>
                   </div>
@@ -419,7 +426,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
           {/* Standards table */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Standards table */}
-            <Card className="lg:col-span-2 border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+            <Card className="lg:col-span-2 border-0 shadow-sm bg-white dark:bg-white/10">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">a) Standards Table</CardTitle>
@@ -473,7 +480,7 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                                 className="w-24 h-7 text-sm border-slate-200 dark:border-slate-700" placeholder="µg/mL" />
                             </td>
                             <td className="py-1 px-10 text-left font-roboto text-pink-700 text-sm w-4/10">
-                              {!isNaN(c) ? (c === 0 ? '0' : (bsaVolForStd(c) * wrVol).toFixed(3)) : '—'}
+                              {!isNaN(c) ? (c === 0 ? '0' : formatNumber((bsaVolForStd(c) * wrVol).toFixed(3))) : '—'}
                             </td>
                             <td className="py-1 px-4 text-right w-4/10">
                               <NumInput value={s.abs} onChange={e => setStandards(standards.map(x => x.id === s.id ? { ...x, abs: e.target.value } : x))}
@@ -512,15 +519,15 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
                     <div className="flex flex-col gap-1.5">
                       <div className="flex justify-between items-center bg-white/60 dark:bg-slate-900/40 rounded-lg p-2 border border-pink-100/50">
                         <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Slope (m)</span>
-                        <span className="text-sm font-mono font-bold text-pink-700">{regression.slope.toFixed(6)}</span>
+                        <span className="text-sm font-bold text-pink-700">{regression.slope.toFixed(6)}</span>
                       </div>
                       <div className="flex justify-between items-center bg-white/60 dark:bg-slate-900/40 rounded-lg p-2 border border-pink-100/50">
                         <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Intercept (c)</span>
-                        <span className="text-sm font-mono font-bold text-pink-700">{regression.intercept.toFixed(5)}</span>
+                        <span className="text-sm font-bold text-pink-700">{regression.intercept.toFixed(5)}</span>
                       </div>
                       <div className="flex justify-between items-center bg-white/60 dark:bg-slate-900/40 rounded-lg p-2 border border-pink-100/50">
                         <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">R²</span>
-                        <span className={`text-sm font-mono font-bold ${regression.r2 >= 0.99 ? 'text-green-600' : 'text-amber-600'}`}>
+                        <span className={`text-sm font-bold ${regression.r2 >= 0.99 ? 'text-green-600' : 'text-amber-600'}`}>
                           {regression.r2.toFixed(5)}
                         </span>
                       </div>
@@ -665,13 +672,13 @@ or only:
                             onChange={e => setUnknowns(unknowns.map(x => x.id === u.id ? { ...x, abs: e.target.value } : x))}
                             className="w-24 h-6 text-sm text-right border-slate-200 dark:border-slate-700 ml-auto" />
                         </td>
-                        <td className="py-1.5 px-3 text-right font-mono text-pink-700 font-semibold">
-                          {res?.concInWR || '—'}
+                        <td className="py-1.5 px-3 text-right font-bold text-pink-700">
+                          {res?.concInWR ? formatNumber(res.concInWR) : '—'}
                         </td>
                         <td className="py-1.5 px-3 text-right">
                           {res?.lysateConc_ngul ? (
                             <span className="bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full font-semibold text-xs">
-                              {res.lysateConc_ngul} ng/µL
+                              {formatNumber(res.lysateConc_ngul)} ng/µL
                             </span>
                           ) : '—'}
                         </td>
@@ -757,7 +764,7 @@ or only:
                       <tr className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-2 px-3 font-semibold text-slate-700 dark:text-slate-200">Lysis buffer</td>
                         {prepCalcs.map(s => (
-                          <td key={s.id} className="py-2 px-3 text-right font-mono font-semibold">{s.lysisVol}</td>
+                          <td key={s.id} className="py-2 px-3 text-right font-bold">{formatNumber(s.lysisVol)}</td>
                         ))}
                       </tr>
                       <tr className="border-b border-slate-100 dark:border-slate-800">
@@ -765,24 +772,24 @@ or only:
                           Lysate <span className="text-rose-600 dark:text-rose-400 font-semibold">({load} µg)</span>
                         </td>
                         {prepCalcs.map(s => (
-                          <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold text-rose-600 dark:text-rose-400 ${s.isLow ? '' : s.overflow ? '' : ''}`}>
-                            {s.lysateVol}{s.isLow ? '*' : ''}
+                          <td key={s.id} className={`py-2 px-3 text-right font-bold text-rose-600 dark:text-rose-400 ${s.isLow ? '' : s.overflow ? '' : ''}`}>
+                            {formatNumber(s.lysateVol)}{s.isLow ? '*' : ''}
                           </td>
                         ))}
                       </tr>
                       <tr className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-2 px-3 text-slate-600 dark:text-slate-300">{bufX}× Sample Buffer</td>
                         {prepCalcs.map(s => (
-                          <td key={s.id} className={`py-2 px-3 text-right font-mono font-semibold ${s.overflow ? 'text-red-600 dark:text-red-400' : ''}`}>
-                            {s.bufferVol}
+                          <td key={s.id} className={`py-2 px-3 text-right font-bold ${s.overflow ? 'text-red-600 dark:text-red-400' : ''}`}>
+                            {formatNumber(s.bufferVol)}
                           </td>
                         ))}
                       </tr>
                       <tr className="bg-slate-100 dark:bg-slate-800">
                         <td className="py-2 px-3 font-bold text-slate-700 dark:text-slate-200">Total (µL)</td>
                         {prepCalcs.map(s => (
-                         <td key={s.id} className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
-                            {s.overflow ? s.adjTotalVol : prepTotalVol}
+                         <td key={s.id} className="py-2 px-3 text-right font-bold text-slate-800 dark:text-slate-100">
+                            {s.overflow ? formatNumber(s.adjTotalVol) : formatNumber(prepTotalVol)}
                           </td>
                         ))}
                       </tr>

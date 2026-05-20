@@ -1,3 +1,5 @@
+import React from 'react';
+
 /**
  * Calculates a dilution suggestion for a given concentration and target amount.
  * @param {number|string} conc - The original concentration
@@ -39,5 +41,13 @@ export function getDilutionSuggestion(conc, targetAmount, minVol = 0.5) {
  */
 export function generateDilutionWarning(name, suggestion, minVol = 0.5) {
   if (!suggestion) return null;
-  return `⚠ ${name} requires only ${suggestion.originalVol} µL (<${minVol} µL) → dilute 1:${suggestion.dilutionFactor} → ${suggestion.stockVol} µL stock + ${suggestion.mqVol} µL MQ → ${suggestion.dilutedConc} ng/µL; use *${suggestion.newVol} µL`;
+  return React.createElement('span', null,
+    name, ' requires only ', React.createElement('strong', null, `${suggestion.originalVol} µL`),
+    ` (<`, React.createElement('strong', null, `${minVol} µL`), `) → dilute `,
+    React.createElement('strong', null, `1:${suggestion.dilutionFactor}`), ` → `,
+    React.createElement('strong', null, `${suggestion.stockVol} µL`), ` stock + `,
+    React.createElement('strong', null, `${suggestion.mqVol} µL`), ` MQ → `,
+    React.createElement('strong', null, `${suggestion.dilutedConc} ng/µL`), `; use *`,
+    React.createElement('strong', null, `${suggestion.newVol} µL`)
+  );
 }

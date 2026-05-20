@@ -259,7 +259,7 @@ export default function BufferCalculator({ historyData, isActive }) {
 
   const scaleFactor = (parseFloat(desiredVolume) || 0) / (buffer.finalVolume || 1000);
   const scaledComponents = (buffer.components || []).map(c => ({
-    ...c, scaledAmount: (c.amount * scaleFactor).toFixed(2),
+    ...c, scaledAmount: Number((c.amount * scaleFactor).toFixed(2)),
   }));
 
   const hasToxic = buffer.components?.some(c => c.toxic);
@@ -296,7 +296,7 @@ export default function BufferCalculator({ historyData, isActive }) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-slate-100 dark:bg-slate-800">
+        <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="recipes" className="flex items-center gap-2">
             <FlaskConical className="w-4 h-4" />
             Buffer Recipes
@@ -317,7 +317,7 @@ export default function BufferCalculator({ historyData, isActive }) {
           />
         </TabsContent>
         <TabsContent value="lysis" className="mt-4">
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
             <CardContent className="p-5">
               <LysisBufferBuilder historyData={historyData} isActive={isActive} sessionId={sessionId.current} />
             </CardContent>
@@ -325,7 +325,7 @@ export default function BufferCalculator({ historyData, isActive }) {
         </TabsContent>
         <TabsContent value="recipes" className="mt-4 space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
           <CardHeader className="pb-4">
             <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Select Buffer</CardTitle>
           </CardHeader>
@@ -377,7 +377,7 @@ export default function BufferCalculator({ historyData, isActive }) {
               {savedRecipes[safeSelected] && (
                 <button 
                   onClick={() => deleteCustomRecipe(safeSelected)}
-                  className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400 hover:bg-red-50 transition-colors"
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 transition-colors"
                   title="Delete custom recipe"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -408,7 +408,7 @@ export default function BufferCalculator({ historyData, isActive }) {
                       <div className="text-xs text-slate-400 dark:text-slate-500">{comp.finalConc}</div>
                     </td>
                     <td className="py-2 px-3 text-xs text-slate-400 dark:text-slate-500 max-w-xs">{comp.fn}</td>
-                    <td className="py-2 px-3 text-right font-mono font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right font-bold text-slate-800 dark:text-slate-100 whitespace-nowrap">
                       {comp.scaledAmount} {comp.unit}
                     </td>
                   </tr>
@@ -416,7 +416,7 @@ export default function BufferCalculator({ historyData, isActive }) {
                 <tr className="border-b border-slate-100 dark:border-slate-800">
                   <td className="py-2 px-3 text-slate-600 dark:text-slate-300">MQ to final volume</td>
                   <td className="py-2 px-3 text-xs text-slate-400 dark:text-slate-500">Adjust total volume</td>
-                  <td className="py-2 px-3 text-right font-mono font-semibold">{desiredVolume} mL</td>
+                  <td className="py-2 px-3 text-right font-bold">{Number(desiredVolume)} mL</td>
                 </tr>
               </tbody>
             </table>
@@ -424,7 +424,7 @@ export default function BufferCalculator({ historyData, isActive }) {
             {buffer.pH && (
               <div className="flex justify-between items-center py-2 px-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-800 mt-3">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Target pH</span>
-                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{buffer.pH}</span>
+                <span className="font-bold text-amber-700 dark:text-amber-400">{buffer.pH}</span>
               </div>
             )}
             {buffer.notes && (
@@ -437,7 +437,7 @@ export default function BufferCalculator({ historyData, isActive }) {
           </div>
 
           {/* Protocol section */}
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
             <button
               className="w-full flex items-center justify-between p-5"
               onClick={() => setShowProtocol(v => !v)}

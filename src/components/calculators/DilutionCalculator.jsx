@@ -25,8 +25,8 @@ function NumInput({ value, onChange, ...props }) {
 function formatConc(val) {
   if (val === 0) return '0';
   const exp = Math.floor(Math.log10(Math.abs(val)));
-  if (Math.abs(exp) < 4) return val.toPrecision(4).replace(/\.?0+$/, '');
-  const mantissa = (val / Math.pow(10, exp)).toFixed(2);
+  if (Math.abs(exp) < 4) return String(Number(val.toPrecision(4)));
+  const mantissa = Number((val / Math.pow(10, exp)).toFixed(2));
   // return as element string — we'll render with dangerouslySetInnerHTML
   return `${mantissa} × 10<sup>${exp}</sup>`;
 }
@@ -276,14 +276,14 @@ export default function DilutionCalculator({ historyData, isActive }) {
       const v2L = solveFor === 'v2' ? baseValue : v2Base;
       const diluentL = v2L - v1L;
       
-      const v1Display = (v1L / VOL_UNITS[v1Unit]).toFixed(2);
-      const diluentDisplay = (diluentL / VOL_UNITS[v1Unit]).toFixed(2);
-      const v2Display = (v2L / VOL_UNITS[v2Unit]).toFixed(2);
+      const v1Display = Number((v1L / VOL_UNITS[v1Unit]).toFixed(2));
+      const diluentDisplay = Number((diluentL / VOL_UNITS[v1Unit]).toFixed(2));
+      const v2Display = Number((v2L / VOL_UNITS[v2Unit]).toFixed(2));
 
       if (solveFor === 'v1') {
-        instruction = `Take ${value.toFixed(2)} ${v1Unit} of stock and add to ${diluentDisplay} ${v1Unit} of diluent.`;
+        instruction = `Take ${Number(value.toFixed(2))} ${v1Unit} of stock and add to ${diluentDisplay} ${v1Unit} of diluent.`;
       } else if (solveFor === 'v2') {
-        instruction = `Dilute ${v1Display} ${v1Unit} of stock to a total of ${value.toFixed(2)} ${v2Unit} (add ${diluentDisplay} ${v1Unit} diluent).`;
+        instruction = `Dilute ${v1Display} ${v1Unit} of stock to a total of ${Number(value.toFixed(2))} ${v2Unit} (add ${diluentDisplay} ${v1Unit} diluent).`;
       } else {
         instruction = `Final concentration after dilution.`;
       }
@@ -359,7 +359,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
       conc /= factor;
     }
 
-    setSerialResult({ dilutions, transferVol: transferVol.toFixed(1), diluentVol: diluentVol.toFixed(1), vol });
+    setSerialResult({ dilutions, transferVol: Number(transferVol.toFixed(1)), diluentVol: Number(diluentVol.toFixed(1)), vol });
   }, [mode, serialStart, dilutionFactor, numDilutions, volumePerWell]);
 
   const labelMap = { c1: 'C₁ (Stock Conc.)', v1: 'V₁ (Stock Vol.)', c2: 'C₂ (Final Conc.)', v2: 'V₂ (Final Vol.)' };
@@ -377,7 +377,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
       </div>
 
       <Tabs value={mode} onValueChange={setMode}>
-        <TabsList className="bg-slate-100 dark:bg-slate-800">
+        <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="c1v1" className="flex items-center gap-2">
             <Calculator className="w-4 h-4" />
             C₁V₁ = C₂V₂
@@ -399,7 +399,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
         {/* ─── C1V1 ─── */}
         <TabsContent value="c1v1" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Leave one field empty to solve for it</CardTitle>
               </CardHeader>
@@ -478,7 +478,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
               </CardContent>
             </Card>
 
-            <Card className={`border-0 shadow-sm transition-all ${c1v1Result ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
+            <Card className={`border-0 shadow-sm transition-all ${c1v1Result ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10'}`}>
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <FlaskConical className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Result
@@ -495,7 +495,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
                   <div className="space-y-4">
                     <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-cyan-200">
                       <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{labelMap[c1v1Result.solveFor]}</p>
-                      <p className="text-4xl font-bold text-cyan-700 dark:text-cyan-300">{c1v1Result.value.toFixed(3)}</p>
+                      <p className="text-4xl font-bold text-cyan-700 dark:text-cyan-300">{Number(c1v1Result.value.toFixed(3))}</p>
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-1 uppercase tracking-wider">{c1v1Result.unit}</p>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg">
@@ -516,7 +516,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
         {/* ─── Sample Dilution ─── */}
         <TabsContent value="sample" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Dilute a sample to a target concentration</CardTitle>
               </CardHeader>
@@ -561,7 +561,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
               </CardContent>
             </Card>
 
-            <Card className={`border-0 shadow-sm transition-all ${sdResult && !sdResult.error ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
+            <Card className={`border-0 shadow-sm transition-all ${sdResult && !sdResult.error ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10'}`}>
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <FlaskConical className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Result
@@ -581,17 +581,17 @@ export default function DilutionCalculator({ historyData, isActive }) {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-cyan-200 text-center">
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sample</p>
-                        <p className="text-3xl font-bold text-cyan-700 dark:text-cyan-300">{sdResult.sampleVol.toFixed(1)} <span className="text-base font-normal">µL</span></p>
+                        <p className="text-3xl font-bold text-cyan-700 dark:text-cyan-300">{Number(sdResult.sampleVol.toFixed(1))} <span className="text-base font-normal">µL</span></p>
                       </div>
                       <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-cyan-200 text-center">
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">MQ water to add</p>
-                        <p className="text-3xl font-bold text-cyan-700 dark:text-cyan-300">{sdResult.mqVol.toFixed(1)} <span className="text-base font-normal">µL</span></p>
+                        <p className="text-3xl font-bold text-cyan-700 dark:text-cyan-300">{Number(sdResult.mqVol.toFixed(1))} <span className="text-base font-normal">µL</span></p>
                       </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                      <p>Add <strong>{sdResult.mqVol.toFixed(1)} µL MQ</strong> to <strong>{sdResult.sampleVol.toFixed(1)} µL sample</strong>.</p>
-                      <p>Total volume: <strong>{sdResult.totalVol.toFixed(1)} µL</strong></p>
-                      <p>Final concentration: <strong>{sdResult.targetConc.toFixed(2)} ng/µL</strong> ({sdResult.factor.toFixed(1)}× dilution)</p>
+                      <p>Add <strong>{Number(sdResult.mqVol.toFixed(1))} µL MQ</strong> to <strong>{Number(sdResult.sampleVol.toFixed(1))} µL sample</strong>.</p>
+                      <p>Total volume: <strong>{Number(sdResult.totalVol.toFixed(1))} µL</strong></p>
+                      <p>Final concentration: <strong>{Number(sdResult.targetConc.toFixed(2))} ng/µL</strong> ({Number(sdResult.factor.toFixed(1))}× dilution)</p>
                     </div>
                   </div>
                 ) : (
@@ -608,7 +608,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
         {/* ─── Add-to-volume ─── */}
         <TabsContent value="addto" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Add concentrated reagent to a sample</CardTitle>
               </CardHeader>
@@ -628,7 +628,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
               </CardContent>
             </Card>
 
-            <Card className={`border-0 shadow-sm transition-all ${atvResult ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
+            <Card className={`border-0 shadow-sm transition-all ${atvResult ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10'}`}>
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <FlaskConical className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Result
@@ -639,12 +639,12 @@ export default function DilutionCalculator({ historyData, isActive }) {
                   <div className="space-y-4">
                     <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-cyan-200">
                       <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Volume to add</p>
-                      <p className="text-4xl font-bold text-cyan-700 dark:text-cyan-300">{atvResult.addVol.toFixed(2)} µL</p>
+                      <p className="text-4xl font-bold text-cyan-700 dark:text-cyan-300">{Number(atvResult.addVol.toFixed(2))} µL</p>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-                      Add <strong>{atvResult.addVol.toFixed(2)} µL</strong> of the {atvFactor}× reagent to your <strong>{atvVolume} µL</strong> sample.
+                      Add <strong>{Number(atvResult.addVol.toFixed(2))} µL</strong> of the {atvFactor}× reagent to your <strong>{atvVolume} µL</strong> sample.
                       <br />
-                      Total volume: <strong>{atvResult.totalVol.toFixed(2)} µL</strong> · Final dilution: 1×
+                      Total volume: <strong>{Number(atvResult.totalVol.toFixed(2))} µL</strong> · Final dilution: 1×
                     </div>
                   </div>
                 ) : (
@@ -661,7 +661,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
         {/* ─── Serial dilution ─── */}
         <TabsContent value="serial" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+            <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Parameters</CardTitle>
               </CardHeader>
@@ -687,7 +687,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
               </CardContent>
             </Card>
 
-            <Card className={`border-0 shadow-sm transition-all ${serialResult ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
+            <Card className={`border-0 shadow-sm transition-all ${serialResult ? 'bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30' : 'bg-white dark:bg-white/10'}`}>
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
@@ -699,8 +699,8 @@ export default function DilutionCalculator({ historyData, isActive }) {
                         const rows = [['Well', 'Concentration', 'Transfer (µL)', 'Diluent (µL)']];
                         serialResult.dilutions.forEach(d => {
                           const exp = Math.floor(Math.log10(Math.abs(d.conc)));
-                          const mantissa = (d.conc / Math.pow(10, exp)).toFixed(2);
-                          const concStr = Math.abs(exp) < 4 ? d.conc.toPrecision(4) : `${mantissa}×10^${exp}`;
+                          const mantissa = Number((d.conc / Math.pow(10, exp)).toFixed(2));
+                          const concStr = Math.abs(exp) < 4 ? String(Number(d.conc.toPrecision(4))) : `${mantissa}×10^${exp}`;
                           rows.push([`Well ${d.well}`, concStr, serialResult.transferVol, serialResult.diluentVol]);
                         });
                         return rows;
@@ -720,7 +720,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
                       {serialResult.dilutions.map((d, i) => (
                        <div key={i} className="flex justify-between items-center py-1.5 px-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 text-sm">
                          <span className="font-medium text-slate-700 dark:text-slate-200">Well {d.well}</span>
-                         <span className="font-mono text-slate-600 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: formatConc(d.conc) }} />
+                         <span className="font-bold text-slate-600 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: formatConc(d.conc) }} />
                        </div>
                       ))}
                     </div>

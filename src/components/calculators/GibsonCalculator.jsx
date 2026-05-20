@@ -18,6 +18,13 @@ const LOW_VOL_GIBSON = 0.5;
 
 
 
+const formatNumber = (val) => {
+  if (val === undefined || val === null) return '';
+  const num = Number(val);
+  if (isNaN(num)) return val;
+  return num.toString();
+};
+
 export default function GibsonCalculator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
@@ -58,12 +65,12 @@ export default function GibsonCalculator({ historyData, isActive }) {
       const preview =
         vector && vector.name && vector.name !== 'Vector'
         ? `Gibson: ${vector.name} + ${fragments.length - 1} inserts`
-        : `Gibson Assembly (${fragments.length} parts)`;
+        : `Gibson (${fragments.length} parts)`;
 
       addHistoryItem({
         id: sessionId.current,
         toolId: 'gibson',
-        toolName: 'Gibson Assembly',
+        toolName: 'Gibson',
         data: {
           preview,
           fragments,
@@ -184,8 +191,8 @@ export default function GibsonCalculator({ historyData, isActive }) {
     if (!results) return;
     const ctrl = Math.max(0, parseFloat(results.usedTotalVolume) - parseFloat(results.masterMixVolume) - parseFloat(results.vectorVolume)).toFixed(2);
     const rows = [['Component', 'Assembly (µL)', 'Vector-only (µL)']];
-    rows.push([fragments.find(f => f.isVector)?.name || 'Vector', results.vectorVolume, results.vectorVolume]);
-    results.inserts.forEach(ins => rows.push([ins.name, ins.volume, '—']));
+    rows.push([fragments.find(f => f.isVector)?.name || 'Vector', (results.vectorLow ? '*' : '') + results.vectorVolume, (results.vectorLow ? '*' : '') + results.vectorVolume]);
+    results.inserts.forEach(ins => rows.push([ins.name, (ins.isLow ? '*' : '') + ins.volume, '—']));
     rows.push(['2× NEBuilder HiFi Master Mix', results.masterMixVolume, results.masterMixVolume]);
     rows.push(['MQ', results.waterVolume, ctrl]);
     rows.push(['Total', results.usedTotalVolume, results.usedTotalVolume]);
@@ -203,14 +210,14 @@ export default function GibsonCalculator({ historyData, isActive }) {
           <PiCircleDashedBold className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Gibson Assembly</h2>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Gibson</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Optimal amounts with ≤5 µL total DNA</p>
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">Reaction Settings</CardTitle>
             </CardHeader>
@@ -246,7 +253,7 @@ export default function GibsonCalculator({ historyData, isActive }) {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 dark:bg-white/5 backdrop-blur">
+          <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center justify-between">
                 DNA Fragments
@@ -274,7 +281,7 @@ export default function GibsonCalculator({ historyData, isActive }) {
                       />
                     </div>
                     {!fragment.isVector && fragments.length > 2 && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-slate-200 hover:text-red-500 dark:text-red-400" onClick={() => removeFragment(fragment.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 dark:text-slate-200 hover:text-red-500 dark:hover:text-red-400" onClick={() => removeFragment(fragment.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     )}
@@ -345,11 +352,11 @@ export default function GibsonCalculator({ historyData, isActive }) {
           </Card>
         </div>
 
-        <Card className={`border-0 shadow-sm transition-all h-fit ${results?.isValid ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
+        <Card className={`border-0 shadow-sm transition-all h-fit ${results?.isValid ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30' : 'bg-white dark:bg-white/10'}`}>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                <FlaskConical className="w-4 h-4 text-emerald-600" /> Gibson Assembly Mix
+                <FlaskConical className="w-4 h-4 text-emerald-600" /> Gibson Mix
               </CardTitle>
               {results?.isValid && (
                 <div className="flex items-center gap-2">
@@ -377,12 +384,18 @@ export default function GibsonCalculator({ historyData, isActive }) {
 
                 {/* Dilution warnings */}
                 {(results.vectorLow || results.inserts.some(i => i.isLow)) && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-300 text-xs space-y-1">
-                    {results.vectorDilution && <div className="font-medium text-amber-700 dark:text-amber-400">{generateDilutionWarning(fragments.find(f => f.isVector)?.name || 'Vector', results.vectorDilution, LOW_VOL_GIBSON)}</div>}
-                    {results.inserts.filter(i => i.isLow).map((ins, idx) => (
-                      <div key={idx} className="font-medium text-amber-700 dark:text-amber-400">{generateDilutionWarning(ins.name, ins.dilution, LOW_VOL_GIBSON)}</div>
-                    ))}
-                  </div>
+                  <Card className="border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-950/5 shadow-none mb-1 rounded-xl">
+                    <CardContent className="p-2 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-red-700 dark:text-red-400 text-xs mb-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Dilution Suggestions</span>
+                      </div>
+                      {results.vectorDilution && <div className="text-xs font-medium text-red-700 dark:text-red-400 pl-5">{generateDilutionWarning(fragments.find(f => f.isVector)?.name || 'Vector', results.vectorDilution, LOW_VOL_GIBSON)}</div>}
+                      {results.inserts.filter(i => i.isLow).map((ins, idx) => (
+                        <div key={idx} className="text-xs font-medium text-red-700 dark:text-red-400 pl-5">{generateDilutionWarning(ins.name, ins.dilution, LOW_VOL_GIBSON)}</div>
+                      ))}
+                    </CardContent>
+                  </Card>
                 )}
 
                 {/* Table — MQ first */}
@@ -397,50 +410,44 @@ export default function GibsonCalculator({ historyData, isActive }) {
                   <tbody>
                     <tr className="border-b border-slate-100 dark:border-slate-800">
                       <td className="py-2 px-3 font-semibold text-slate-700 dark:text-slate-200">MQ</td>
-                      <td className="py-2 px-3 text-right font-mono font-semibold">{results.waterVolume}</td>
-                      <td className="py-2 px-3 text-right font-mono font-semibold">{controlWater}</td>
+                      <td className="py-2 px-3 text-right font-bold">{formatNumber(results.waterVolume)}</td>
+                      <td className="py-2 px-3 text-right font-bold">{formatNumber(controlWater)}</td>
                     </tr>
                     <tr className="border-b border-slate-100 dark:border-slate-800">
                       <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
                         {fragments.find(f => f.isVector)?.name || 'Vector'}
-                        <span className="text-rose-600 dark:text-rose-400 font-semibold ml-1">({results.vectorAmount} ng)</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-semibold ml-1">({formatNumber(results.vectorAmount)} ng)</span>
                         {results.vectorLow && <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">*</span>}
                       </td>
-                      <td className={`py-2 px-3 text-right font-mono font-semibold text-red-600 dark:text-red-400`}>
-                        <span className={results.vectorLow ? "bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 rounded px-1.5 py-0.5" : ""}>
-                          {results.vectorVolume}
-                        </span>
+                      <td className="py-2 px-3 text-right font-bold text-red-600 dark:text-red-400">
+                        {results.vectorLow ? '*' : ''}{formatNumber(results.vectorVolume)}
                       </td>
-                      <td className={`py-2 px-3 text-right font-mono font-semibold text-red-600 dark:text-red-400`}>
-                        <span className={results.vectorLow ? "bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 rounded px-1.5 py-0.5" : ""}>
-                          {results.vectorVolume}
-                        </span>
+                      <td className="py-2 px-3 text-right font-bold text-red-600 dark:text-red-400">
+                        {results.vectorLow ? '*' : ''}{formatNumber(results.vectorVolume)}
                       </td>
                     </tr>
                     {results.inserts.map((ins, idx) => (
                       <tr key={idx} className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
                           {ins.name}
-                          <span className="text-rose-600 dark:text-rose-400 font-semibold ml-1">({ins.amount} ng)</span>
+                          <span className="text-rose-600 dark:text-rose-400 font-semibold ml-1">({formatNumber(ins.amount)} ng)</span>
                           {ins.isLow && <span className="text-rose-600 dark:text-rose-400 text-xs ml-1">*</span>}
                         </td>
-                        <td className={`py-2 px-3 text-right font-mono font-semibold text-red-600 dark:text-red-400`}>
-                          <span className={ins.isLow ? "bg-rose-50 dark:bg-rose-900/40 border border-rose-200 dark:border-rose-800 rounded px-1.5 py-0.5" : ""}>
-                            {ins.volume}
-                          </span>
+                        <td className="py-2 px-3 text-right font-bold text-red-600 dark:text-red-400">
+                          {ins.isLow ? '*' : ''}{formatNumber(ins.volume)}
                         </td>
                         <td className="py-2 px-3 text-right text-slate-400 dark:text-slate-500">—</td>
                       </tr>
                     ))}
                     <tr className="border-b border-slate-100 dark:border-slate-800">
                       <td className="py-2 px-3 text-slate-600 dark:text-slate-300">2× NEBuilder HiFi</td>
-                      <td className="py-2 px-3 text-right font-mono font-semibold">{results.masterMixVolume}</td>
-                      <td className="py-2 px-3 text-right font-mono font-semibold">{results.masterMixVolume}</td>
+                      <td className="py-2 px-3 text-right font-bold">{formatNumber(results.masterMixVolume)}</td>
+                      <td className="py-2 px-3 text-right font-bold">{formatNumber(results.masterMixVolume)}</td>
                     </tr>
                     <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
                       <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">Total (µL)</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{results.usedTotalVolume}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{results.usedTotalVolume}</td>
+                      <td className="py-2 px-3 text-right font-bold text-slate-800 dark:text-slate-100">{formatNumber(results.usedTotalVolume)}</td>
+                      <td className="py-2 px-3 text-right font-bold text-slate-800 dark:text-slate-100">{formatNumber(results.usedTotalVolume)}</td>
                     </tr>
                   </tbody>
                 </table>
