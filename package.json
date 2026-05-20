@@ -12,10 +12,9 @@
         "url": "https://github.com/DaphneHoutackers/BiBaBench-Buddy"
     },
     "main": "dist-electron/main.js",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "scripts": {
         "dev": "vite",
-        "app:dev": "vite",
         "clean": "rm -rf dist dist-electron release",
         "build": "vite build",
         "app:build": "vite build && electron-builder",
@@ -187,7 +186,7 @@
             "target": [
                 "nsis"
             ],
-            "icon": "build/icon.icns",
+            "icon": "build/icon.ico",
             "artifactName": "BiBaBenchBuddy-${version}-Setup.${ext}"
         },
         "publish": [
