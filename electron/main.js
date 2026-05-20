@@ -106,7 +106,7 @@ const createWindow = async () => {
   const pngIconPath = path.join(__dirname, '..', 'public', 'icon-512.png');
 
   const mainWindow = new BrowserWindow({
-    width: 1220,
+    width: 1240,
     height: 788,
     minWidth: 800,
     minHeight: 500,
