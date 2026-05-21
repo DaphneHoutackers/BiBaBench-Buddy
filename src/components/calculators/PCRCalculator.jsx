@@ -207,7 +207,34 @@ function NumInput({ value, onChange, ...props }) {
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
-  return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
+
+  const handleChange = (e) => {
+    if (props.type === "number") {
+      if (onChange) onChange(e);
+      return;
+    }
+    const el = e.target;
+    const originalValue = el.value;
+    const originalSelStart = el.selectionStart;
+    let cleaned = originalValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const diff = cleaned.length - originalValue.length;
+    if (onChange) {
+      onChange({ ...e, target: { ...e.target, value: cleaned } });
+    }
+    if (originalSelStart !== null) {
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.setSelectionRange(originalSelStart + diff, originalSelStart + diff);
+        }
+      });
+    }
+  };
+
+  return <Input ref={ref} type={props.type || "text"} inputMode={props.type === "number" ? undefined : "decimal"} value={value} onChange={handleChange} {...props} />;
 }
 
 const formatSeconds = (totalSeconds) => {
@@ -846,13 +873,12 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
 
                         {/* Auto-Dilution checkbox in label + min volume input */}
                         <div className="space-y-1 pl-2">
-                          <div className="h-5 flex items-center gap-1.5">
-                            <input 
-                              type="checkbox" 
-                              id={`pcr-auto-dilute-${s.id}`} 
-                              checked={s.autoDilute !== false} 
-                              onChange={(e) => setSamples(samples.map(x => x.id === s.id ? { ...x, autoDilute: e.target.checked } : x))}
-                              className="w-3.5 h-3.5 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
+                          <div className="flex items-center gap-1.5">
+                            <Switch
+                              id={`pcr-auto-dilute-${s.id}`}
+                              checked={s.autoDilute !== false}
+                              onCheckedChange={(checked) => setSamples(samples.map(x => x.id === s.id ? { ...x, autoDilute: checked } : x))}
+                              className="scale-75"
                             />
                             <Label htmlFor={`pcr-auto-dilute-${s.id}`} className="text-[11px] font-medium text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1">
                               Auto-Dilute
@@ -861,28 +887,23 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
                                   <TooltipTrigger type="button" className="focus:outline-none">
                                     <Info className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 cursor-default" />
                                   </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs max-w-xs leading-normal">
-                                      Automatically suggests pre-dilution steps if the template volume is below the threshold.
-                                    </p>
-                                  </TooltipContent>
+                                  <TooltipContent><p className="text-xs max-w-xs leading-normal">Automatically suggests pre-dilution steps if the template volume is below the threshold.</p></TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
                             </Label>
                           </div>
-                          <div className="flex items-center gap-1 h-8">
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">if Vol &lt;</span>
-                            <Input 
-                              type="number" 
-                              step="0.1" 
-                              value={s.minVol !== undefined ? s.minVol : '0.5'} 
-                              disabled={s.autoDilute === false}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setSamples(samples.map(x => x.id === s.id ? { ...x, minVol: e.target.value } : x))} 
-                              className="h-8 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-1 text-left bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block disabled:opacity-50 font-normal" 
-                            />
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">µL</span>
-                          </div>
+                          {s.autoDilute !== false && (
+                            <div className="flex items-center gap-1 pl-1">
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">If vol &lt;</span>
+                              <Input
+                                type="number" step="0.1" value={s.minVol !== undefined ? s.minVol : '0.5'}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setSamples(samples.map(x => x.id === s.id ? { ...x, minVol: e.target.value } : x))}
+                                className="h-7 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20"
+                              />
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">µL</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

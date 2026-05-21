@@ -201,7 +201,34 @@ function NumInput({ value, onChange, ...props }) {
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
-  return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
+
+  const handleChange = (e) => {
+    if (props.type === "number") {
+      if (onChange) onChange(e);
+      return;
+    }
+    const el = e.target;
+    const originalValue = el.value;
+    const originalSelStart = el.selectionStart;
+    let cleaned = originalValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const diff = cleaned.length - originalValue.length;
+    if (onChange) {
+      onChange({ ...e, target: { ...e.target, value: cleaned } });
+    }
+    if (originalSelStart !== null) {
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.setSelectionRange(originalSelStart + diff, originalSelStart + diff);
+        }
+      });
+    }
+  };
+
+  return <Input ref={ref} type={props.type || "text"} inputMode={props.type === "number" ? undefined : "decimal"} value={value} onChange={handleChange} {...props} />;
 }
 
 export default function BufferCalculator({ historyData, isActive }) {

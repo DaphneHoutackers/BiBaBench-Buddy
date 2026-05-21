@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Scissors, Plus, Trash2, FlaskConical, Layers, Table, AlertTriangle } from 'lucide-react';
@@ -38,7 +39,34 @@ function NumInput({ value, onChange, ...props }) {
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
-  return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
+
+  const handleChange = (e) => {
+    if (props.type === "number") {
+      if (onChange) onChange(e);
+      return;
+    }
+    const el = e.target;
+    const originalValue = el.value;
+    const originalSelStart = el.selectionStart;
+    let cleaned = originalValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const diff = cleaned.length - originalValue.length;
+    if (onChange) {
+      onChange({ ...e, target: { ...e.target, value: cleaned } });
+    }
+    if (originalSelStart !== null) {
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.setSelectionRange(originalSelStart + diff, originalSelStart + diff);
+        }
+      });
+    }
+  };
+
+  return <Input ref={ref} type={props.type || "text"} inputMode={props.type === "number" ? undefined : "decimal"} value={value} onChange={handleChange} {...props} />;
 }
 
 // DNA mass display in red
@@ -319,30 +347,23 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center gap-1.5 h-6">
-                      <input 
-                        type="checkbox" 
-                        id="digest-auto-dilute" 
-                        checked={autoDilute} 
-                        onChange={(e) => setAutoDilute(e.target.checked)}
-                        className="w-3.5 h-3.5 text-rose-600 rounded border-slate-350 focus:ring-rose-500 cursor-pointer"
-                      />
-                      <Label htmlFor="digest-auto-dilute" className="text-xs sm:text-sm text-slate-600 dark:text-slate-200 cursor-pointer select-none font-medium">Auto-dilute</Label>
+                    <div className="flex items-center gap-2">
+                      <Switch id="digest-auto-dilute" checked={autoDilute} onCheckedChange={setAutoDilute} />
+                      <Label htmlFor="digest-auto-dilute" className="text-sm font-medium text-slate-600 dark:text-slate-200">Auto-dilute</Label>
                     </div>
-                    <div className="flex items-center justify-start p-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-150 dark:border-slate-800 rounded-lg h-9">
-                      <div className={`flex items-center gap-1.5 text-xs ${autoDilute ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-650 dark:opacity-40'}`}>
+                    {autoDilute && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 pl-2">
                         <span>If volume &lt;</span>
-                        <Input 
-                          type="number" 
-                          step="0.1" 
-                          value={minVol} 
-                          disabled={!autoDilute}
-                          onChange={(e) => setMinVol(e.target.value)} 
-                          className="h-6 w-14 text-xs border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-950 focus:ring-1 focus:ring-rose-500/20 inline-block animate-none disabled:opacity-50" 
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={minVol}
+                          onChange={(e) => setMinVol(e.target.value)}
+                          className="h-6 w-14 text-xs border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-950 focus:ring-1 focus:ring-rose-500/20"
                         />
                         <span>µL</span>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -404,7 +425,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                 </Card>
               )}
 
-              <Card className={`border-0 shadow-sm transition-all ${results?.isValid ? 'bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/30' : 'bg-white dark:bg-white/10 dark:bg-white/5'}`}>
+              <Card className={`border-0 shadow-sm transition-all ${results?.isValid ? 'bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/30' : 'bg-white dark:bg-white/5'}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
@@ -493,31 +514,28 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Row 1: 3 columns */}
-                    <div className="grid grid-cols-3 gap-3 items-start">
+                    <div className="flex grid-cols-3 gap-3 items-start">
                       {/* Total Volume */}
                       <div className="space-y-1">
-                        <Label className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">Total Volume</Label>
-                        <div className="flex items-center gap-1.5">
+                        <Label className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">Total Vol (µL)</Label>
+                        <div className="flex w-[100px] items-center gap-1.5">
                           <NumInput value={batchTotalVol} onChange={e => setBatchTotalVol(e.target.value)} className="h-8 text-xs w-full animate-none" />
-                          <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">µL</span>
                         </div>
                       </div>
 
                       {/* Vol per Enzyme */}
                       <div className="space-y-1">
-                        <Label className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">Vol per Enzyme</Label>
-                        <div className="flex items-center gap-1.5">
+                        <Label className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">Enzyme Vol (µL)</Label>
+                        <div className="flex w-[100px] items-center gap-1.5">
                           <NumInput value={batchEnzymeVol} onChange={e => setBatchEnzymeVol(e.target.value)} className="h-8 text-xs w-full animate-none" />
-                          <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">µL</span>
                         </div>
                       </div>
 
                       {/* Default DNA Mass */}
                       <div className="space-y-1">
-                        <Label className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">Default DNA Mass</Label>
-                        <div className="flex items-center gap-1">
+                        <Label className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">DNA Mass (ng)</Label>
+                        <div className="flex w-[150px] items-center gap-1">
                           <NumInput value={batchDefaultNg} onChange={e => setBatchDefaultNg(e.target.value)} className="h-8 text-xs w-full animate-none" />
-                          <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0 mr-0.5">ng</span>
                           <Button variant="outline" size="xs" onClick={applyDefaultNgToAll} className="h-8 text-[10px] dark:text-slate-200 px-2 shrink-0">Apply</Button>
                         </div>
                       </div>
@@ -622,31 +640,29 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                               <NumInput value={s.desiredNg} onChange={e => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, desiredNg: e.target.value } : x))} className="h-8 text-xs animate-none" placeholder="Desired" />
                             </div>
                             <div className="space-y-1">
-                              <div className="flex items-center gap-1.5 h-4">
-                                <input 
-                                  type="checkbox" 
-                                  id={`batch-digest-auto-dilute-${s.id}`} 
-                                  checked={s.autoDilute !== false} 
-                                  onChange={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, autoDilute: e.target.checked } : x))}
-                                  className="w-3 h-3 text-rose-600 rounded border-slate-300 focus:ring-rose-500 cursor-pointer"
+                              <div className="flex items-center gap-1.5">
+                                <Switch
+                                  id={`batch-digest-auto-dilute-${s.id}`}
+                                  checked={s.autoDilute !== false}
+                                  onCheckedChange={(checked) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, autoDilute: checked } : x))}
+                                  className="scale-75"
                                 />
-                                <label htmlFor={`batch-digest-auto-dilute-${s.id}`} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer select-none">
+                                <Label htmlFor={`batch-digest-auto-dilute-${s.id}`} className="text-[10px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer select-none">
                                   Auto-dilute
-                                </label>
+                                </Label>
                               </div>
-                              <div className={`flex items-center gap-1 text-[10px] h-8 ${s.autoDilute !== false ? 'text-slate-500 dark:text-slate-400' : 'text-slate-300 dark:text-slate-700 opacity-40'}`}>
-                                <span className="shrink-0">If vol &lt;</span>
-                                <Input 
-                                  type="number" 
-                                  step="0.1" 
-                                  value={s.minVol !== undefined ? s.minVol : '0.5'} 
-                                  disabled={s.autoDilute === false}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, minVol: e.target.value } : x))} 
-                                  className="h-8 w-12 text-[10px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-950 focus:ring-1 focus:ring-rose-500/20 inline-block disabled:opacity-50 animate-none shrink-0" 
-                                />
-                                <span className="shrink-0">µL</span>
-                              </div>
+                              {s.autoDilute !== false && (
+                                <div className="flex items-center gap-1 text-[10px] pl-1">
+                                  <span className="shrink-0 text-slate-500 dark:text-slate-400">If vol &lt;</span>
+                                  <Input
+                                    type="number" step="0.1" value={s.minVol !== undefined ? s.minVol : '0.5'}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, minVol: e.target.value } : x))}
+                                    className="h-6 w-12 text-[10px] border-slate-200 dark:border-slate-700 px-1 text-center bg-white dark:bg-slate-950 focus:ring-1 focus:ring-rose-500/20"
+                                  />
+                                  <span className="shrink-0 text-slate-500 dark:text-slate-400">µL</span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -673,7 +689,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
               <div className="lg:col-span-7">
                 {!batchResults ? (
                   <Card className="border-0 shadow-sm bg-white dark:bg-slate-900 h-full flex flex-col items-center justify-center p-8 text-center min-h-[350px]">
-                    <Scissors className="w-12 h-12 mb-3 text-slate-300 dark:text-slate-700 animate-pulse text-rose-500" />
+                    <Scissors className="w-12 h-12 mb-3 dark:text-slate-700 animate-pulse text-rose-500" />
                     <h3 className="font-semibold text-slate-600 dark:text-slate-300 text-sm">Waiting for DNA samples</h3>
                     <p className="text-xs text-slate-400 max-w-[280px] mt-1">
                       Enter DNA concentration and desired mass on the left to display the reaction mix calculation table.

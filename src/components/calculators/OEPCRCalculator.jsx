@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Copy, Dna, Check, FlaskConical, AlertTriangle, Plus, Trash2, Info, Clock } from 'lucide-react';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +31,34 @@ function NumInput({ value, onChange, ...props }) {
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
-  return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
+
+  const handleChange = (e) => {
+    if (props.type === "number") {
+      if (onChange) onChange(e);
+      return;
+    }
+    const el = e.target;
+    const originalValue = el.value;
+    const originalSelStart = el.selectionStart;
+    let cleaned = originalValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const diff = cleaned.length - originalValue.length;
+    if (onChange) {
+      onChange({ ...e, target: { ...e.target, value: cleaned } });
+    }
+    if (originalSelStart !== null) {
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.setSelectionRange(originalSelStart + diff, originalSelStart + diff);
+        }
+      });
+    }
+  };
+
+  return <Input ref={ref} type={props.type || "text"} inputMode={props.type === "number" ? undefined : "decimal"} value={value} onChange={handleChange} {...props} />;
 }
 
 const DEFAULT_FRAGMENTS = [
@@ -700,31 +728,29 @@ Est. Duration: ${totalDurationStr}`;
                       <NumInput placeholder="bijv. 50" value={frag.concentration} onChange={e => updateFragment(frag.id, 'concentration', e.target.value)} className="h-8 text-xs border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
                     </div>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 h-5">
-                        <input 
-                          type="checkbox" 
-                          id={`oepcr-auto-dilute-${frag.id}`} 
-                          checked={frag.autoDilute !== false} 
-                          onChange={(e) => updateFragment(frag.id, 'autoDilute', e.target.checked)}
-                          className="w-3.5 h-3.5 text-violet-600 rounded border-slate-300 dark:border-slate-700 focus:ring-violet-500 cursor-pointer"
+                      <div className="flex items-center gap-1.5">
+                        <Switch
+                          id={`oepcr-auto-dilute-${frag.id}`}
+                          checked={frag.autoDilute !== false}
+                          onCheckedChange={(checked) => updateFragment(frag.id, 'autoDilute', checked)}
+                          className="scale-75"
                         />
                         <Label htmlFor={`oepcr-auto-dilute-${frag.id}`} className="text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
                           Auto-dilute
                         </Label>
                       </div>
-                      <div className="flex items-center gap-1 h-8">
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">if Volume &lt;</span>
-                        <Input 
-                          type="number" 
-                          step="0.1" 
-                          value={frag.minVol !== undefined ? frag.minVol : '0.5'} 
-                          disabled={frag.autoDilute === false}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => updateFragment(frag.id, 'minVol', e.target.value)} 
-                          className="h-8 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-2 text-left bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block disabled:opacity-50 font-normal" 
-                        />
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">µL</span>
-                      </div>
+                      {frag.autoDilute !== false && (
+                        <div className="flex items-center gap-1 pl-1">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">If vol &lt;</span>
+                          <Input
+                            type="number" step="0.1" value={frag.minVol !== undefined ? frag.minVol : '0.5'}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => updateFragment(frag.id, 'minVol', e.target.value)}
+                            className="h-7 w-14 text-[11px] border-slate-200 dark:border-slate-700 px-2 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20"
+                          />
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">µL</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

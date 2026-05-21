@@ -24,7 +24,34 @@ function NumInput({ value, onChange, ...props }) {
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
-  return <Input ref={ref} type="number" value={value} onChange={onChange} {...props} />;
+
+  const handleChange = (e) => {
+    if (props.type === "number") {
+      if (onChange) onChange(e);
+      return;
+    }
+    const el = e.target;
+    const originalValue = el.value;
+    const originalSelStart = el.selectionStart;
+    let cleaned = originalValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const diff = cleaned.length - originalValue.length;
+    if (onChange) {
+      onChange({ ...e, target: { ...e.target, value: cleaned } });
+    }
+    if (originalSelStart !== null) {
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.setSelectionRange(originalSelStart + diff, originalSelStart + diff);
+        }
+      });
+    }
+  };
+
+  return <Input ref={ref} type={props.type || "text"} inputMode={props.type === "number" ? undefined : "decimal"} value={value} onChange={handleChange} {...props} />;
 }
 
 const formatNumber = (val) => {
@@ -43,24 +70,73 @@ const LIGASES = {
 
 
 const LIGATION_COLORS = [
-  { header: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' },
-  { header: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
-  { header: '#dcfce7', text: '#166534', border: '#86efac' },
-  { header: '#fef3c7', text: '#92400e', border: '#fcd34d' },
-  { header: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
-  { header: '#e0f2fe', text: '#075985', border: '#7dd3fc' },
+  { header: '#ede9fe', header88: '#ede9fe88', header44: '#ede9fe44', text: '#5b21b6', border: '#c4b5fd' },
+  { header: '#dbeafe', header88: '#dbeafe88', header44: '#dbeafe44', text: '#1e40af', border: '#93c5fd' },
+  { header: '#dcfce7', header88: '#dcfce788', header44: '#dcfce744', text: '#166534', border: '#86efac' },
+  { header: '#fef3c7', header88: '#fef3c788', header44: '#fef3c744', text: '#92400e', border: '#fcd34d' },
+  { header: '#fce7f3', header88: '#fce7f388', header44: '#fce7f344', text: '#9d174d', border: '#f9a8d4' },
+  { header: '#e0f2fe', header88: '#e0f2fe88', header44: '#e0f2fe44', text: '#075985', border: '#7dd3fc' },
 ];
 
-function calcPegVol(totalVol, usePEG) {
-  if (!usePEG) return 0;
-  return (parseFloat(totalVol) / 20) * 1;
+function hexToHsl(hex) {
+  const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+  const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+  if (!result) return { h: 0, s: 0, l: 0 };
+  let r = parseInt(result[1], 16) / 255;
+  let g = parseInt(result[2], 16) / 255;
+  let b = parseInt(result[3], 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h;
+  let s;
+  const l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  };
 }
 
-function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, pegVol, vectorAutoDilute = true, vectorMinVol = 0.5) {
+function generateColorTheme(hex) {
+  const { h, s } = hexToHsl(hex);
+  return {
+    border: hex,
+    header: `hsl(${h}, ${s}%, 95%)`,
+    header88: `hsla(${h}, ${s}%, 95%, 0.53)`,
+    header44: `hsla(${h}, ${s}%, 95%, 0.27)`,
+    text: `hsl(${h}, ${s}%, 25%)`
+  };
+}
+
+const getLigationColor = (lig, i) => lig?.color || LIGATION_COLORS[i % LIGATION_COLORS.length];
+
+function calcPegVol(pegVolInput) {
+  const pegVol = parseFloat(pegVolInput);
+  return Number.isFinite(pegVol) ? pegVol : 0;
+}
+
+function hasPegVol(pegVolInput) {
+  return pegVolInput !== undefined && String(pegVolInput).trim() !== '' && Number.isFinite(parseFloat(pegVolInput));
+}
+
+function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, pegVol, autoDilute = true, minVol = 0.5) {
   const vectorKb = parseFloat(vectorLength) / 1000;
   const vectorVolumeRaw = parseFloat(vectorAmount) / parseFloat(vectorConc);
-  const vectorThresh = parseFloat(vectorMinVol) || 0.5;
-  const vectorDilution = vectorAutoDilute && vectorVolumeRaw > 0 && vectorVolumeRaw < vectorThresh ? getDilutionSuggestion(vectorConc, vectorAmount, vectorThresh) : null;
+  const threshold = parseFloat(minVol) || 0.5;
+  const vectorDilution = autoDilute && vectorVolumeRaw > 0 && vectorVolumeRaw < threshold ? getDilutionSuggestion(vectorConc, vectorAmount, threshold) : null;
   const vectorVolume = vectorDilution ? parseFloat(vectorDilution.newVol) : vectorVolumeRaw;
 
   const ligaseInfo = LIGASES[ligase];
@@ -70,9 +146,7 @@ function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalV
     const insertKb = parseFloat(ins.length) / 1000;
     const insertAmount = (parseFloat(vectorAmount) * insertKb * parseFloat(ins.ratio)) / vectorKb;
     const insertVolRaw = insertAmount / parseFloat(ins.conc);
-    const insAutoDilute = ins.autoDilute !== false;
-    const insThresh = parseFloat(ins.minVol) || 0.5;
-    const dilution = insAutoDilute && insertVolRaw > 0 && insertVolRaw < insThresh ? getDilutionSuggestion(ins.conc, insertAmount, insThresh) : null;
+    const dilution = autoDilute && insertVolRaw > 0 && insertVolRaw < threshold ? getDilutionSuggestion(ins.conc, insertAmount, threshold) : null;
     const needsDilution = !!dilution;
     const insertVol = dilution ? parseFloat(dilution.newVol) : insertVolRaw;
 
@@ -83,20 +157,22 @@ function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalV
       rawVol: insertVolRaw,
       needsDilution,
       dilution,
-      threshold: insThresh
+      threshold: threshold
     };
   });
 
   const totalInsertVol = insertResults.reduce((sum, ins) => sum + parseFloat(ins.insertVol), 0);
-  const usedVol = vectorVolume + totalInsertVol + bufferVol + parseFloat(ligaseVol) + parseFloat(pegVol);
+  const ligaseVolume = parseFloat(ligaseVol) || 0;
+  const pegVolume = calcPegVol(pegVol);
+  const usedVol = vectorVolume + totalInsertVol + bufferVol + ligaseVolume + pegVolume;
   const waterVol = parseFloat(totalVolume) - usedVol;
-  const controlWaterVol = parseFloat(totalVolume) - vectorVolume - bufferVol - parseFloat(ligaseVol) - parseFloat(pegVol);
+  const controlWaterVol = parseFloat(totalVolume) - vectorVolume - bufferVol - ligaseVolume - pegVolume;
 
   return {
     vectorVolume: vectorVolume.toFixed(2),
     rawVectorVolume: vectorVolumeRaw,
     vectorDilution,
-    vectorThresh,
+    vectorThresh: threshold,
     insertResults,
     bufferVol: bufferVol.toFixed(2),
     bufferName: ligaseInfo.buffer,
@@ -109,17 +185,40 @@ function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalV
 
 // ─── Single Ligation Tab ───────────────────────────────────────────
 function SingleLigation({ historyData, isActive, sessionId }) {
+  const SAVED_STATE_KEY = 'bibabench_ligation_single_state';
+  const defaultState = {
+    vectorConc: '', vectorLength: '', vectorAmount: '50',
+    inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }],
+    totalVolume: '20', ligase: 'T4 DNA Ligase', ligaseVol: '1', pegVolInput: '1',
+    autoDilute: true, minVol: '0.5'
+  };
+
+  const normalizeState = (state = {}) => ({
+    ...defaultState,
+    ...state,
+    inserts: Array.isArray(state.inserts) && state.inserts.length > 0 ? state.inserts : defaultState.inserts,
+  });
+
+  const getInitialState = () => {
+    const saved = localStorage.getItem(SAVED_STATE_KEY);
+    if (saved) {
+      try { return normalizeState(JSON.parse(saved)); } catch {}
+    }
+    return defaultState;
+  };
+
+  const initialState = getInitialState();
   const tableRef = useRef(null);
-  const [vectorConc, setVectorConc] = useState('');
-  const [vectorLength, setVectorLength] = useState('');
-  const [vectorAmount, setVectorAmount] = useState('50');
-  const [inserts, setInserts] = useState([{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }]);
-  const [totalVolume, setTotalVolume] = useState('20');
-  const [ligase, setLigase] = useState('T4 DNA Ligase');
-  const [ligaseVol, setLigaseVol] = useState('1');
-  const [usePEG, setUsePEG] = useState(false);
-  const [vectorAutoDilute, setVectorAutoDilute] = useState(true);
-  const [vectorMinVol, setVectorMinVol] = useState('0.5');
+  const [vectorConc, setVectorConc] = useState(initialState.vectorConc);
+  const [vectorLength, setVectorLength] = useState(initialState.vectorLength);
+  const [vectorAmount, setVectorAmount] = useState(initialState.vectorAmount);
+  const [inserts, setInserts] = useState(initialState.inserts);
+  const [totalVolume, setTotalVolume] = useState(initialState.totalVolume);
+  const [ligase, setLigase] = useState(initialState.ligase);
+  const [ligaseVol, setLigaseVol] = useState(initialState.ligaseVol);
+  const [pegVolInput, setPegVolInput] = useState(initialState.pegVolInput !== undefined ? initialState.pegVolInput : '1');
+  const [autoDilute, setAutoDilute] = useState(initialState.autoDilute !== false);
+  const [minVol, setMinVol] = useState(initialState.minVol);
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -129,23 +228,30 @@ function SingleLigation({ historyData, isActive, sessionId }) {
   useEffect(() => {
     if (historyData?.data) {
       isRestoring.current = true;
-      const d = historyData.data;
+      const d = normalizeState(historyData.data);
       setVectorConc(d.vectorConc || '');
       setVectorLength(d.vectorLength || '');
       setVectorAmount(d.vectorAmount || '50');
-      setInserts(d.inserts || [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }]);
+      setInserts(d.inserts);
       setTotalVolume(d.totalVolume || '20');
       setLigase(d.ligase || 'T4 DNA Ligase');
       setLigaseVol(d.ligaseVol || '1');
-      setUsePEG(d.usePEG || false);
-      if (d.vectorAutoDilute !== undefined) setVectorAutoDilute(d.vectorAutoDilute);
-      if (d.vectorMinVol !== undefined) setVectorMinVol(d.vectorMinVol);
+      setPegVolInput(d.pegVolInput !== undefined ? d.pegVolInput : '1');
+      if (d.autoDilute !== undefined) setAutoDilute(d.autoDilute);
+      if (d.minVol !== undefined) setMinVol(d.minVol);
+      localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(d));
       setTimeout(() => { isRestoring.current = false; }, 500);
     }
   }, [historyData]);
 
   useEffect(() => {
     if (isRestoring.current) return;
+
+    const stateToSave = {
+      vectorConc, vectorLength, vectorAmount, inserts, totalVolume,
+      ligase, ligaseVol, pegVolInput, autoDilute, minVol
+    };
+    localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(stateToSave));
 
     const timeout = setTimeout(() => {
       if (!isActive) return;
@@ -155,42 +261,29 @@ function SingleLigation({ historyData, isActive, sessionId }) {
           id: sessionId,
           toolId: 'ligation',
           toolName: 'Ligation',
-          data: {
-            preview: `Single ligation, ${inserts.length} insert${inserts.length > 1 ? 's' : ''}`,
-            tab: 'single',
-            vectorConc,
-            vectorLength,
-            vectorAmount,
-            inserts,
-            totalVolume,
-            ligase,
-            ligaseVol,
-            usePEG,
-            vectorAutoDilute,
-            vectorMinVol,
-          }
+          data: { preview: `Single ligation, ${inserts.length} insert${inserts.length > 1 ? 's' : ''}`, tab: 'single', ...stateToSave }
         });
       }
     }, 2000);
 
     return () => clearTimeout(timeout);
-  }, [vectorConc, vectorLength, vectorAmount, inserts, totalVolume, ligase, ligaseVol, usePEG, vectorAutoDilute, vectorMinVol, addHistoryItem]);
+  }, [vectorConc, vectorLength, vectorAmount, inserts, totalVolume, ligase, ligaseVol, pegVolInput, autoDilute, minVol, addHistoryItem]);
 
   const addInsert = () => {
     const id = Math.max(...inserts.map(i => i.id)) + 1;
-    setInserts([...inserts, { id, name: `Insert ${id}`, conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }]);
+    setInserts([...inserts, { id, name: `Insert ${id}`, conc: '', length: '', ratio: '3' }]);
   };
 
-  const pegVol = calcPegVol(totalVolume, usePEG);
+  const pegVol = calcPegVol(pegVolInput);
 
   useEffect(() => {
     const allFilled = vectorConc && vectorLength && inserts.every(i => i.conc && i.length && i.ratio);
     if (allFilled) {
-      setResults(calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, usePEG ? String(pegVol) : '0', vectorAutoDilute, vectorMinVol));
+      setResults(calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, pegVolInput, autoDilute, minVol));
     } else {
       setResults(null);
     }
-  }, [vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, usePEG, pegVol, vectorAutoDilute, vectorMinVol]);
+  }, [vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, pegVolInput, autoDilute, minVol]);
 
   const copyTable = () => {
     if (!results) return;
@@ -203,7 +296,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
     });
     rows.push([results.bufferName, results.bufferVol, results.bufferVol]);
     rows.push([ligase, ligaseVol, ligaseVol]);
-    if (usePEG) rows.push(['PEG4000', pegVol.toFixed(1), pegVol.toFixed(1)]);
+    if (hasPegVol(pegVolInput)) rows.push(['PEG4000', pegVolInput, pegVolInput]);
     rows.push(['Total', totalVolume, totalVolume]);
     copyAsHtmlTable(rows);
     setCopied(true);
@@ -216,11 +309,11 @@ function SingleLigation({ historyData, isActive, sessionId }) {
         {/* Row 1: Reaction settings + DNA cards side by side */}
         <div className="flex gap-3 flex-wrap sm:flex-nowrap">
           {/* Reaction Settings */}
-          <Card className="border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-white/10 backdrop-blur flex-shrink-0 w-full sm:w-auto">
-            <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reaction Settings</CardTitle></CardHeader>
+          <Card className="border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-white/10 backdrop-blur flex-shrink-0 self-stretch w-full sm:w-[260px]">
+            <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">General Settings</CardTitle></CardHeader>
             <CardContent className="pb-3">
-              <div className="grid grid-cols-1 gap-2 min-w-[130px]">
-                <div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
                   <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase</Label>
                   <Select value={ligase} onValueChange={setLigase}>
                     <SelectTrigger className="border-slate-200 dark:border-slate-700 h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -232,12 +325,26 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                   <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
                 </div>
                 <div>
+                  <Label className="text-xs text-slate-600 dark:text-slate-200">PEG4000 (µL)</Label>
+                  <NumInput value={pegVolInput} onChange={e => setPegVolInput(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
+                </div>
+                <div>
                   <Label className="text-xs text-slate-700 dark:text-slate-200">Total vol (µL)</Label>
                   <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
                 </div>
-                <div className="flex items-center gap-2 pt-0.5">
-                  <Switch checked={usePEG} onCheckedChange={setUsePEG} className="scale-90" />
-                  <Label className="text-xs text-slate-600 dark:text-slate-200">PEG4000{usePEG && <span className="text-slate-400 dark:text-slate-500 ml-1">({pegVol.toFixed(1)} µL)</span>}</Label>
+                <div className="space-y-1">
+                <Label className="text-xs text-slate-700 dark:text-slate-200">Auto-dilute</Label>
+                <div className="flex items-center gap-2">
+                  <Switch id="single-ligation-auto-dilute" checked={autoDilute} onCheckedChange={setAutoDilute} className="scale-90" />
+                </div>
+                {autoDilute && (
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 pl-1">
+                    <span>If &lt;</span>
+                    <NumInput step="0.1" value={minVol} onChange={(e) => setMinVol(e.target.value)}
+                      className="h-5 w-10 text-[10px] border-slate-200 dark:border-slate-700 px-0.5 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block animate-none" />
+                    <span>µL</span>
+                  </div>
+                  )}
                 </div>
 
               </div>
@@ -263,29 +370,6 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                 <div>
                   <Label className="text-xs text-slate-700 dark:text-slate-200">Amount (ng)</Label>
                   <NumInput placeholder="50" value={vectorAmount} onChange={e => setVectorAmount(e.target.value)} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
-                </div>
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-1">
-                    <input 
-                      type="checkbox" 
-                      id="single-ligation-vector-auto-dilute" 
-                      checked={vectorAutoDilute} 
-                      onChange={(e) => setVectorAutoDilute(e.target.checked)}
-                      className="w-3 h-3 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
-                    />
-                    <label htmlFor="single-ligation-vector-auto-dilute" className="text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1 flex-wrap">
-                      Dilute if &lt;
-                      <Input 
-                        type="number" 
-                        step="0.1" 
-                        value={vectorMinVol} 
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => setVectorMinVol(e.target.value)} 
-                        className="h-5 w-10 text-[10px] border-slate-200 dark:border-slate-700 px-0.5 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block animate-none" 
-                      />
-                      µL
-                    </label>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -326,29 +410,6 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                         </Label>
                         <NumInput placeholder="3" value={ins.ratio} onChange={e => setInserts(inserts.map(i => i.id === ins.id ? { ...i, ratio: e.target.value } : i))} className="h-7 text-xs border-slate-200 dark:border-slate-700" />
                       </div>
-                      <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1">
-                        <div className="flex items-center gap-1 pl-0.5">
-                          <input 
-                            type="checkbox" 
-                            id={`single-ligation-ins-auto-dilute-${ins.id}`} 
-                            checked={ins.autoDilute !== false} 
-                            onChange={(e) => setInserts(inserts.map(i => i.id === ins.id ? { ...i, autoDilute: e.target.checked } : i))}
-                            className="w-3 h-3 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
-                          />
-                          <label htmlFor={`single-ligation-ins-auto-dilute-${ins.id}`} className="text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1 flex-wrap">
-                            Dilute if &lt;
-                            <Input 
-                              type="number" 
-                              step="0.1" 
-                              value={ins.minVol !== undefined ? ins.minVol : '0.5'} 
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setInserts(inserts.map(i => i.id === ins.id ? { ...i, minVol: e.target.value } : i))} 
-                              className="h-5 w-10 text-[10px] border-slate-200 dark:border-slate-700 px-0.5 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block animate-none" 
-                            />
-                            µL
-                          </label>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -361,7 +422,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
 
 
       <div className="space-y-3">
-        <Card className={`border-0 shadow-sm ${results?.isValid ? 'bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20' : 'bg-white dark:bg-white/10'}`}>
+        <Card className="border-0 shadow-sm transition-all h-fit bg-white dark:bg-slate-900">
           <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
@@ -450,7 +511,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
                       <td className="py-1.5 px-3 text-right font-bold text-slate-700 dark:text-slate-200">{formatNumber(ligaseVol)}</td>
                       <td className="py-1.5 px-3 text-right font-bold text-slate-700 dark:text-slate-200">{formatNumber(ligaseVol)}</td>
                     </tr>
-                    {usePEG && (
+                    {hasPegVol(pegVolInput) && (
                       <tr className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">PEG4000</td>
                         <td className="py-1.5 px-3 text-right font-bold text-slate-700 dark:text-slate-200">{formatNumber(pegVol)}</td>
@@ -487,22 +548,44 @@ function defaultLigation(id) {
   return {
     id,
     label: `Ligation ${id}`,
+    vectorName: 'Vector',
     vectorConc: '',
     vectorLength: '',
     vectorAmount: '50',
-    vectorAutoDilute: true,
-    vectorMinVol: '0.5',
-    inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }],
+    autoDilute: true,
+    minVol: '0.5',
+    inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }],
   };
 }
 
-function MultiLigation({ historyData, isActive, sessionId }) {
+function BatchLigation({ historyData, isActive, sessionId }) {
   const tableRef = useRef(null);
-  const [ligations, setLigations] = useState([defaultLigation(1), defaultLigation(2)]);
-  const [totalVolume, setTotalVolume] = useState('20');
-  const [ligase, setLigase] = useState('T4 DNA Ligase');
-  const [ligaseVol, setLigaseVol] = useState('1');
-  const [usePEG, setUsePEG] = useState(false);
+  const SAVED_STATE_KEY = 'bibabench_ligation_multi_state';
+
+  const getInitialState = () => {
+    const saved = localStorage.getItem(SAVED_STATE_KEY);
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return {
+      ligations: [defaultLigation(1), defaultLigation(2)],
+      totalVolume: '20',
+      ligase: 'T4 DNA Ligase',
+      ligaseVol: '1',
+      pegVolInput: '1',
+      autoDilute: true,
+      minVol: '0.5'
+    };
+  };
+
+  const initialState = getInitialState();
+  const [ligations, setLigations] = useState(initialState.ligations);
+  const [totalVolume, setTotalVolume] = useState(initialState.totalVolume);
+  const [ligase, setLigase] = useState(initialState.ligase);
+  const [ligaseVol, setLigaseVol] = useState(initialState.ligaseVol);
+  const [pegVolInput, setPegVolInput] = useState(initialState.pegVolInput !== undefined ? initialState.pegVolInput : '1');
+  const [autoDilute, setAutoDilute] = useState(initialState.autoDilute !== undefined ? initialState.autoDilute : initialState.ligations?.[0]?.autoDilute !== false);
+  const [minVol, setMinVol] = useState(initialState.minVol !== undefined ? initialState.minVol : initialState.ligations?.[0]?.minVol || '0.5');
   const [copied, setCopied] = useState(false);
 
   const { addHistoryItem } = useHistory();
@@ -516,13 +599,20 @@ function MultiLigation({ historyData, isActive, sessionId }) {
       setTotalVolume(d.totalVolume || '20');
       setLigase(d.ligase || 'T4 DNA Ligase');
       setLigaseVol(d.ligaseVol || '1');
-      setUsePEG(d.usePEG || false);
+      setPegVolInput(d.pegVolInput !== undefined ? d.pegVolInput : '1');
+      setAutoDilute(d.autoDilute !== undefined ? d.autoDilute : d.ligations?.[0]?.autoDilute !== false);
+      setMinVol(d.minVol !== undefined ? d.minVol : d.ligations?.[0]?.minVol || '0.5');
+      localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(d));
       setTimeout(() => { isRestoring.current = false; }, 500);
     }
   }, [historyData]);
 
   useEffect(() => {
     if (isRestoring.current) return;
+
+    const stateToSave = { ligations, totalVolume, ligase, ligaseVol, pegVolInput, autoDilute, minVol };
+    localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(stateToSave));
+
     const timeout = setTimeout(() => {
       if (!isActive) return;
       const anyFilled = ligations.some(lig => lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio));
@@ -531,14 +621,14 @@ function MultiLigation({ historyData, isActive, sessionId }) {
           id: sessionId,
           toolId: 'ligation',
           toolName: 'Ligation',
-          data: { tab: 'multi', ligations, totalVolume, ligase, ligaseVol, usePEG }
+          data: { tab: 'batch', ...stateToSave }
         });
       }
     }, 2000);
     return () => clearTimeout(timeout);
-  }, [ligations, totalVolume, ligase, ligaseVol, usePEG, addHistoryItem]);
+  }, [ligations, totalVolume, ligase, ligaseVol, pegVolInput, autoDilute, minVol, addHistoryItem]);
 
-  const pegVol = calcPegVol(totalVolume, usePEG);
+  const pegVol = calcPegVol(pegVolInput);
 
   const addLigation = () => {
     const id = Math.max(...ligations.map(l => l.id)) + 1;
@@ -556,7 +646,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
     setLigations(ligations.map(l => {
       if (l.id !== ligId) return l;
       const newId = Math.max(...l.inserts.map(i => i.id)) + 1;
-      return { ...l, inserts: [...l.inserts, { id: newId, name: `Insert ${newId}`, conc: '', length: '', ratio: '3', autoDilute: true, minVol: '0.5' }] };
+      return { ...l, inserts: [...l.inserts, { id: newId, name: `Insert ${newId}`, conc: '', length: '', ratio: '3' }] };
     }));
   };
 
@@ -575,7 +665,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
   const allResults = ligations.map(lig => {
     const allFilled = lig.vectorConc && lig.vectorLength && lig.inserts.every(i => i.conc && i.length && i.ratio);
     if (!allFilled) return null;
-    return calcLigationMix(lig.vectorConc, lig.vectorLength, lig.inserts, lig.vectorAmount, totalVolume, ligase, ligaseVol, usePEG ? String(pegVol) : '0', lig.vectorAutoDilute !== false, lig.vectorMinVol || '0.5');
+    return calcLigationMix(lig.vectorConc, lig.vectorLength, lig.inserts, lig.vectorAmount, totalVolume, ligase, ligaseVol, pegVolInput, autoDilute, minVol || '0.5');
   });
 
   const ligaseInfo = LIGASES[ligase];
@@ -617,7 +707,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
       label: ligase,
       cells: allResults.map(r => r ? [formatNumber(ligaseVol), formatNumber(ligaseVol)] : ['—', '—'])
     });
-    if (usePEG) {
+    if (hasPegVol(pegVolInput)) {
       rows.push({
         label: 'PEG4000',
         cells: allResults.map(r => r ? [formatNumber(pegVol), formatNumber(pegVol)] : ['—', '—'])
@@ -649,145 +739,142 @@ function MultiLigation({ historyData, isActive, sessionId }) {
 
   return (
     <div className="space-y-4">
-      {/* Shared reaction settings */}
-      <Card className="border-0 shadow-sm bg-white dark:bg-white/10">
-        <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Shared Reaction Settings</CardTitle></CardHeader>
-        <CardContent className="pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase</Label>
-              <Select value={ligase} onValueChange={setLigase}>
-                <SelectTrigger className="border-slate-200 dark:border-slate-700 h-7 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{Object.keys(LIGASES).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-              </Select>
+      <div className="flex gap-3 items-stretch flex-wrap lg:flex-nowrap">
+        <Card className="border-0 shadow-sm bg-white dark:bg-white/10 w-full lg:w-[240px] flex-shrink-0 self-stretch">
+          <CardHeader className="pb-2 pt-3"><CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">General Settings</CardTitle></CardHeader>
+          <CardContent className="pb-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase</Label>
+                <Select value={ligase} onValueChange={setLigase}>
+                  <SelectTrigger className="border-slate-200 dark:border-slate-700 h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.keys(LIGASES).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase vol (µL)</Label>
+                <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-700 dark:text-slate-200">PEG4000 (µL)</Label>
+                <NumInput value={pegVolInput} onChange={e => setPegVolInput(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-700 dark:text-slate-200">Total vol (µL)</Label>
+                <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 dark:text-slate-200">Auto-dilute</Label>
+                <div className="flex items-center gap-2">
+                  <Switch id="batch-ligation-auto-dilute" checked={autoDilute} onCheckedChange={setAutoDilute} className="scale-90" />
+                </div>
+                {autoDilute && (
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 pl-1">
+                    <span>If &lt;</span>
+                    <NumInput step="0.1" value={minVol} onChange={(e) => setMinVol(e.target.value)}
+                      className="h-5 w-10 text-[10px] border-slate-200 dark:border-slate-700 px-0.5 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block animate-none" />
+                    <span>µL</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-slate-200">Ligase vol (µL)</Label>
-              <NumInput value={ligaseVol} onChange={e => setLigaseVol(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
-            </div>
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-slate-200">Total vol (µL)</Label>
-              <NumInput value={totalVolume} onChange={e => setTotalVolume(e.target.value)} className="border-slate-200 dark:border-slate-700 h-7 text-xs" />
-            </div>
-            <div className="flex items-end gap-2 pb-0.5">
-              <Switch checked={usePEG} onCheckedChange={setUsePEG} className="scale-90" />
-              <Label className="text-xs text-slate-600 dark:text-slate-200">PEG4000{usePEG && <span className="text-slate-400 dark:text-slate-500 ml-1">({pegVol.toFixed(1)} µL)</span>}</Label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Ligation inputs */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Ligations</h3>
-        <div className="grid md:grid-cols-2 gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex gap-3 overflow-x-auto pb-2 items-stretch">
           {ligations.map((lig, ligIdx) => {
-            const color = LIGATION_COLORS[ligIdx % LIGATION_COLORS.length];
+            const color = getLigationColor(lig, ligIdx);
             return (
-              <Card key={lig.id} className="border-0 shadow-sm bg-white/50 dark:bg-white/5" style={{ borderLeft: `3px solid ${color.border}` }}>
+              <Card key={lig.id} className="w-fit flex-shrink-0 self-stretch border-0 shadow-sm bg-white dark:bg-slate-900" style={{ borderLeft: `4px solid ${color.border}` }}>
                 <CardHeader className="pb-1.5 pt-2.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{ background: color.border }} />
-                      <Input value={lig.label} onChange={e => updateLigation(lig.id, 'label', e.target.value)}
-                        className="h-6 text-xs font-semibold border-0 bg-transparent p-0 w-28" style={{ color: color.text }} />
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative w-3.5 h-3.5 flex items-center justify-center cursor-pointer group">
+                          <div className="w-2.5 h-2.5 rounded-full group-hover:scale-125 transition-transform" style={{ background: color.border }} />
+                          <input
+                            type="color"
+                            value={color.border && color.border.startsWith('#') ? color.border : '#8b5cf6'}
+                            onChange={(e) => updateLigation(lig.id, 'color', generateColorTheme(e.target.value))}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            title="Choose custom color"
+                          />
+                        </div>
+                        <Input value={lig.label} onChange={e => updateLigation(lig.id, 'label', e.target.value)}
+                          className="h-6 text-xs font-bold border-0 bg-transparent p-0 w-28 focus:ring-0 focus:border-b focus:border-slate-300 dark:focus:border-slate-700" style={{ color: color.text }} />
+                      </div>
                     </div>
-                    {ligations.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 dark:text-slate-200 hover:text-red-500 dark:hover:text-red-400" onClick={() => removeLigation(lig.id)}>
-                        <Trash2 className="w-3 h-3" />
+                    <div className="flex items-center gap-1.5">
+                      {ligations.length > 1 && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 dark:hover:text-red-400 animate-none" onClick={() => removeLigation(lig.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => addInsert(lig.id)}
+                        className="h-7 px-2 text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded flex items-center gap-1 shadow-sm animate-none"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Insert
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pb-2.5 pt-0">
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex gap-2 overflow-x-auto pb-1.5">
                     {/* Vector */}
-                    <div className="min-w-[110px] flex-shrink-0 border-r border-slate-150 dark:border-slate-800 pr-2">
-                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide mb-1">Vector</p>
+                    <div className="w-[130px] flex-shrink-0 border-r border-slate-150 dark:border-slate-800 pr-2">
+                      <Input 
+                        value={lig.vectorName || 'Vector'} 
+                        onChange={e => updateLigation(lig.id, 'vectorName', e.target.value)}
+                        className="h-5 text-xs border-0 bg-transparent p-0 font-bold text-slate-700 dark:text-slate-200 tracking-wide w-full focus:ring-0 focus:border-b focus:border-slate-200 mb-1" 
+                      />
                       <div className="space-y-1">
                         <div>
-                          <Label className="text-xs text-slate-700 dark:text-slate-200">Conc. (ng/µL)</Label>
-                          <NumInput value={lig.vectorConc} onChange={e => updateLigation(lig.id, 'vectorConc', e.target.value)} placeholder="50" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
+                          <Label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Conc. (ng/µL)</Label>
+                          <NumInput value={lig.vectorConc} onChange={e => updateLigation(lig.id, 'vectorConc', e.target.value)} placeholder="50" className="h-6.5 text-xs border-slate-200 dark:border-slate-700 px-1.5 animate-none" />
                         </div>
                         <div>
-                          <Label className="text-xs text-slate-700 dark:text-slate-200">Length (bp)</Label>
-                          <NumInput value={lig.vectorLength} onChange={e => updateLigation(lig.id, 'vectorLength', e.target.value)} placeholder="5000" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
+                          <Label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Length (bp)</Label>
+                          <NumInput value={lig.vectorLength} onChange={e => updateLigation(lig.id, 'vectorLength', e.target.value)} placeholder="5000" className="h-6.5 text-xs border-slate-200 dark:border-slate-700 px-1.5 animate-none" />
                         </div>
                         <div>
-                          <Label className="text-xs text-slate-700 dark:text-slate-200">Amount (ng)</Label>
-                          <NumInput value={lig.vectorAmount} onChange={e => updateLigation(lig.id, 'vectorAmount', e.target.value)} placeholder="50" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
-                        </div>
-                        <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1">
-                          <div className="flex items-center gap-1 pl-0.5">
-                            <input 
-                              type="checkbox" 
-                              id={`multi-ligation-vector-auto-dilute-${lig.id}`} 
-                              checked={lig.vectorAutoDilute !== false} 
-                              onChange={(e) => updateLigation(lig.id, 'vectorAutoDilute', e.target.checked)}
-                              className="w-3 h-3 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
-                            />
-                            <label htmlFor={`multi-ligation-vector-auto-dilute-${lig.id}`} className="text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1 flex-wrap">
-                              Dilute if &lt;
-                              <Input 
-                                type="number" 
-                                step="0.1" 
-                                value={lig.vectorMinVol !== undefined ? lig.vectorMinVol : '0.5'} 
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => updateLigation(lig.id, 'vectorMinVol', e.target.value)} 
-                                className="h-5 w-10 text-[10px] border-slate-200 dark:border-slate-700 px-0.5 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block animate-none" 
-                              />
-                              µL
-                            </label>
-                          </div>
+                          <Label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Amount (ng)</Label>
+                          <NumInput value={lig.vectorAmount} onChange={e => updateLigation(lig.id, 'vectorAmount', e.target.value)} placeholder="50" className="h-6.5 text-xs border-slate-200 dark:border-slate-700 px-1.5 animate-none" />
                         </div>
                       </div>
                     </div>
                     {/* Inserts */}
                     {lig.inserts.map(ins => (
-                      <div key={ins.id} className="min-w-[110px] flex-shrink-0 border-r border-slate-100 dark:border-slate-800 last:border-r-0 pr-2 last:pr-0">
+                      <div key={ins.id} className="w-[130px] flex-shrink-0 border-r border-slate-100 dark:border-slate-800 last:border-r-0 pr-2 last:pr-0">
                         <div className="flex items-center justify-between mb-1">
                           <Input value={ins.name} onChange={e => updateInsert(lig.id, ins.id, 'name', e.target.value)}
-                            className="h-4 text-xs border-0 bg-transparent p-0 font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide w-full" />
-                          <div className="flex gap-0.5 ml-1 flex-shrink-0">
-                            <button onClick={() => addInsert(lig.id)} className="text-slate-300 hover:text-violet-600 dark:text-violet-400"><Plus className="w-3 h-3" /></button>
-                            {lig.inserts.length > 1 && <button onClick={() => removeInsert(lig.id, ins.id)} className="text-slate-300 hover:text-red-500 dark:text-red-400"><Trash2 className="w-3 h-3" /></button>}
-                          </div>
+                            className="h-5 text-xs border-0 bg-transparent p-0 font-bold text-slate-700 dark:text-slate-200 tracking-wide w-full focus:ring-0 focus:border-b focus:border-slate-200" />
+                          {lig.inserts.length > 1 && (
+                            <button 
+                              onClick={() => removeInsert(lig.id, ins.id)} 
+                              className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 ml-1 flex-shrink-0 animate-none" 
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                         <div className="space-y-1">
                           <div>
-                            <Label className="text-xs text-slate-700 dark:text-slate-200">Conc. (ng/µL)</Label>
-                            <NumInput value={ins.conc} onChange={e => updateInsert(lig.id, ins.id, 'conc', e.target.value)} placeholder="30" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
+                            <Label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Conc. (ng/µL)</Label>
+                            <NumInput value={ins.conc} onChange={e => updateInsert(lig.id, ins.id, 'conc', e.target.value)} placeholder="30" className="h-6.5 text-xs border-slate-200 dark:border-slate-700 px-1.5 animate-none" />
                           </div>
                           <div>
-                            <Label className="text-xs text-slate-700 dark:text-slate-200">Length (bp)</Label>
-                            <NumInput value={ins.length} onChange={e => updateInsert(lig.id, ins.id, 'length', e.target.value)} placeholder="1200" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
+                            <Label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Length (bp)</Label>
+                            <NumInput value={ins.length} onChange={e => updateInsert(lig.id, ins.id, 'length', e.target.value)} placeholder="1200" className="h-6.5 text-xs border-slate-200 dark:border-slate-700 px-1.5 animate-none" />
                           </div>
                           <div>
-                            <Label className="text-xs text-slate-700 dark:text-slate-200">Ratio</Label>
-                            <NumInput value={ins.ratio} onChange={e => updateInsert(lig.id, ins.id, 'ratio', e.target.value)} placeholder="3" className="h-6 text-xs border-slate-200 dark:border-slate-700" />
-                          </div>
-                          <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1">
-                            <div className="flex items-center gap-1 pl-0.5">
-                              <input 
-                                type="checkbox" 
-                                id={`multi-ligation-ins-auto-dilute-${lig.id}-${ins.id}`} 
-                                checked={ins.autoDilute !== false} 
-                                onChange={(e) => updateInsert(lig.id, ins.id, 'autoDilute', e.target.checked)}
-                                className="w-3 h-3 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
-                              />
-                              <label htmlFor={`multi-ligation-ins-auto-dilute-${lig.id}-${ins.id}`} className="text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer flex items-center gap-1 flex-wrap">
-                                Dilute if &lt;
-                                <Input 
-                                  type="number" 
-                                  step="0.1" 
-                                  value={ins.minVol !== undefined ? ins.minVol : '0.5'} 
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => updateInsert(lig.id, ins.id, 'minVol', e.target.value)} 
-                                  className="h-5 w-10 text-[10px] border-slate-200 dark:border-slate-700 px-0.5 text-center bg-white dark:bg-slate-900 focus:ring-1 focus:ring-violet-500/20 inline-block animate-none" 
-                                />
-                                µL
-                              </label>
-                            </div>
+                            <Label className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Ratio</Label>
+                            <NumInput value={ins.ratio} onChange={e => updateInsert(lig.id, ins.id, 'ratio', e.target.value)} placeholder="3" className="h-6.5 text-xs border-slate-200 dark:border-slate-700 px-1.5 animate-none" />
                           </div>
                         </div>
                       </div>
@@ -797,16 +884,23 @@ function MultiLigation({ historyData, isActive, sessionId }) {
               </Card>
             );
           })}
+          <button
+            onClick={addLigation}
+            className="flex-shrink-0 self-center h-10 w-10 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-violet-400 hover:text-violet-500 dark:hover:border-violet-600 dark:hover:text-violet-400 transition-colors"
+            title="Add Ligation Mix"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
-        <Button variant="outline" size="sm" onClick={addLigation} className="gap-1 h-7 text-xs w-full"><Plus className="w-3 h-3" /> Add Ligation</Button>
+      </div>
       </div>
 
       {/* Combined results table */}
-      <Card className="border-0 shadow-sm bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20">
+      <Card className="border-0 shadow-sm transition-all h-fit bg-white dark:bg-slate-900">
         <CardHeader className="pb-2 pt-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
-              <Table className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Combined Ligation Table
+              <Table className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Batch Ligation Table
             </CardTitle>
             <div className="flex gap-2">
               <button onClick={copyMultiTable} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded-lg transition-colors">
@@ -819,7 +913,7 @@ function MultiLigation({ historyData, isActive, sessionId }) {
         </CardHeader>
         <CardContent className="pb-3">
           <div className="overflow-x-auto bg-white dark:bg-slate-900 p-4 rounded-lg" ref={tableRef}>
-            {/* MultiLigation Dilution Warnings moved inside tableRef */}
+            {/* BatchLigation Dilution Warnings moved inside tableRef */}
             {allResults.some(r => r && (r.vectorDilution || r.insertResults.some(i => i.dilution))) && (
               <Card className="border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-950/5 shadow-none mb-3 rounded-xl">
                 <CardContent className="p-2 space-y-1">
@@ -848,49 +942,93 @@ function MultiLigation({ historyData, isActive, sessionId }) {
                 </CardContent>
               </Card>
             )}
-            <table className="w-full text-xs border-collapse">
+            <div className="rounded-xl">
+            <table className="w-full text-xs border-separate border-spacing-0 rounded-xl">
               <thead>
                 <tr>
-                  <th className="text-left py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700 min-w-[140px]">Component</th>
+                  <th className="text-left py-1.5 px-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold min-w-[140px] rounded-tl-xl"
+                    style={{ borderTop: '2px solid #94a3b8', borderLeft: '2px solid #94a3b8', borderBottom: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }}>Component</th>
                   {ligations.map((lig, i) => {
-                    const color = LIGATION_COLORS[i % LIGATION_COLORS.length];
+                    const color = getLigationColor(lig, i);
                     return (
-                      <th key={lig.id} colSpan={2} className="py-1.5 px-3 text-center font-bold border border-slate-200 dark:border-slate-700" style={{ background: color.header, color: color.text }}>
+                      <th key={lig.id} colSpan={2} className={`py-1.5 px-3 text-center font-bold ${i === ligations.length - 1 ? 'rounded-tr-xl' : ''}`}
+                        style={{ background: color.header, color: color.text, borderTop: `2px solid ${color.border}`, borderLeft: `2px solid ${color.border}`, borderRight: `2px solid ${color.border}`, borderBottom: `1px solid ${color.border}` }}>
                         {lig.label}
                       </th>
                     );
                   })}
                 </tr>
                 <tr>
-                  <th className="py-1 px-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"></th>
+                  <th className="py-1 px-3 bg-slate-50 dark:bg-slate-800/50"
+                    style={{ borderLeft: '2px solid #94a3b8', borderRight: '1px solid #e2e8f0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}></th>
                   {ligations.map((lig, i) => {
-                    const color = LIGATION_COLORS[i % LIGATION_COLORS.length];
+                    const color = getLigationColor(lig, i);
                     return (
                       <React.Fragment key={lig.id}>
-                        <th className="py-1 px-3 text-center font-semibold border border-slate-200 dark:border-slate-700" style={{ background: `${color.header}88`, color: color.text }}>Lig. (µL)</th>
-                        <th className="py-1 px-3 text-center font-semibold border border-slate-200 dark:border-slate-700" style={{ background: `${color.header}44`, color: color.text }}>Vec-only (µL)</th>
+                        <th className="py-1 px-3 text-center font-semibold"
+                          style={{ background: color.header88, color: color.text, borderTop: `1px solid ${color.border}`, borderLeft: `2px solid ${color.border}`, borderRight: `1px solid #e2e8f0`, borderBottom: `1px solid #e2e8f0` }}>Lig. (µL)</th>
+                        <th className="py-1 px-3 text-center font-semibold"
+                          style={{ background: color.header44, color: color.text, borderTop: `1px solid ${color.border}`, borderLeft: `1px solid #e2e8f0`, borderRight: `2px solid ${color.border}`, borderBottom: `1px solid #e2e8f0` }}>Vec-only (µL)</th>
                       </React.Fragment>
                     );
                   })}
                 </tr>
               </thead>
               <tbody>
-                {tableRows.map((row, rowIdx) => (
-                  <tr key={rowIdx} className={row.isTotal ? 'border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50' : 'border-b border-slate-100 dark:border-slate-800'}>
-                    <td className={`py-1.5 px-3 border border-slate-100 dark:border-slate-800 ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100' : row.isMQ ? 'font-semibold text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}>
-                      {row.label}
-                      {row.sub && row.sub.some(Boolean) && <span className="text-rose-500 ml-1">({row.sub.find(Boolean)})</span>}
+                {tableRows.map((row, rowIdx) => {
+                  const isLastRow = row.isTotal;
+                  return (
+                  <tr key={rowIdx} className={`${row.isTotal ? 'border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50' : 'border-b border-slate-100 dark:border-slate-800'}`}>
+                    <td className={`py-2 px-3 ${row.isTotal ? 'font-bold text-slate-800 dark:text-slate-100 rounded-bl-xl' : row.isMQ ? 'font-semibold text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-300'}`}
+                      style={{
+                        borderLeft: '2px solid #94a3b8',
+                        borderRight: '1px solid #e2e8f0',
+                        borderTop: 'none',
+                        borderBottom: isLastRow ? '2px solid #94a3b8' : 'none',
+                      }}>
+                      <div className="flex items-center gap-1">
+                        {row.label}
+                        {row.sub && row.sub.some(Boolean) && <span className="text-rose-500 ml-1">({row.sub.find(Boolean)})</span>}
+                      </div>
                     </td>
-                    {row.cells.map(([a, b], i) => (
-                      <React.Fragment key={i}>
-                        <td className={`py-1.5 px-3 text-center font-bold border border-slate-100 dark:border-slate-800 ${row.isTotal ? 'text-slate-800 dark:text-slate-100' : row.isDna && a !== '—' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>{a}</td>
-                        <td className={`py-1.5 px-3 text-center font-bold border border-slate-100 dark:border-slate-800 ${row.isTotal ? 'text-slate-800 dark:text-slate-100' : row.isDna && b !== '—' ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>{b}</td>
-                      </React.Fragment>
-                    ))}
+                    {row.cells.map((cell, i) => {
+                      const [a, b] = cell;
+                      const color = getLigationColor(ligations[i], i);
+                      
+                      const ligationCellClass = row.isTotal
+                        ? 'font-bold text-slate-800 dark:text-slate-100'
+                        : row.isDna && a !== '—' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200';
+                      const bbCellClass = row.isTotal
+                        ? 'font-bold text-slate-800 dark:text-slate-100'
+                        : row.isDna && b !== '—' ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400';
+                      
+                      const ligationCellBorder = {
+                        borderTop: 'none',
+                        borderBottom: isLastRow ? `2px solid ${color.border}` : 'none',
+                        borderLeft: `2px solid ${color.border}`,
+                        borderRight: `1px solid #e2e8f0`,
+                      };
+                      const bbCellBorder = {
+                        borderTop: 'none',
+                        borderBottom: isLastRow ? `2px solid ${color.border}` : 'none',
+                        borderLeft: `1px solid #e2e8f0`,
+                        borderRight: `2px solid ${color.border}`,
+                      };
+                      return (
+                        <React.Fragment key={i}>
+                          <td className={`relative py-2 px-3 text-center font-bold ${ligationCellClass}`} style={ligationCellBorder}>
+                            {a}
+                          </td>
+                          <td className={`py-2 px-3 text-center font-bold ${bbCellClass} ${isLastRow && i === row.cells.length - 1 ? 'rounded-br-xl' : ''}`} style={bbCellBorder}>{b}</td>
+                        </React.Fragment>
+                      );
+                    })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
+            </div>
           </div>
           <div className="p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg mt-2">
             <p className="text-xs text-blue-700 dark:text-blue-300"><strong>Protocol:</strong> {ligaseInfo.temp}</p>
@@ -906,7 +1044,7 @@ export default function LigationCalculator({ historyData, isActive }) {
   const [tab, setTab] = useState('single');
 
   useEffect(() => {
-    if (historyData?.data?.tab) setTab(historyData.data.tab);
+    if (historyData?.data?.tab) setTab(historyData.data.tab === 'multi' ? 'batch' : historyData.data.tab);
   }, [historyData]);
 
   return (
@@ -918,7 +1056,7 @@ export default function LigationCalculator({ historyData, isActive }) {
           </div>
           <div>
             <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Ligation</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Single or multiple ligation mixes with molar ratio calculations</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Single or batch ligation mixes with molar ratio calculations</p>
           </div>
         </div>
 
@@ -928,13 +1066,10 @@ export default function LigationCalculator({ historyData, isActive }) {
               <BsOpencollective className="w-4 h-4" />
               Single Ligation
             </TabsTrigger>
-            <TabsTrigger value="multi" className="flex items-center gap-2">
-              <Layers className="w-4 h-4" />
-              Multiple Ligations
-            </TabsTrigger>
+            <TabsTrigger value="batch" className="flex items-center gap-2"><Layers className="w-4 h-4" /> Batch Ligations</TabsTrigger>
           </TabsList>
           <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
-          <TabsContent value="multi" className="mt-4"><MultiLigation historyData={tab === 'multi' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
+          <TabsContent value="batch" className="mt-4"><BatchLigation historyData={tab === 'batch' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
         </Tabs>
       </div>
     </TooltipProvider>

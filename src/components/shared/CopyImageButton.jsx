@@ -21,6 +21,14 @@ const CopyImageButton = forwardRef(({ targetRef, label = "Copy Image", ...props 
     element.setAttribute('data-html2canvas-target', 'true');
     const scrollWidth = element.scrollWidth;
     const scrollHeight = element.scrollHeight;
+    const originalStyle = {
+      width: element.style.width,
+      maxWidth: element.style.maxWidth,
+      overflow: element.style.overflow,
+    };
+    element.style.width = `${scrollWidth}px`;
+    element.style.maxWidth = 'none';
+    element.style.overflow = 'visible';
     
     try {
       const promise = new Promise((resolve, reject) => {
@@ -36,19 +44,24 @@ const CopyImageButton = forwardRef(({ targetRef, label = "Copy Image", ...props 
           onclone: (clonedDoc) => {
             const clonedTarget = clonedDoc.querySelector('[data-html2canvas-target="true"]');
             if (clonedTarget) {
-              clonedTarget.style.width = 'max-content';
+              clonedTarget.style.width = `${scrollWidth}px`;
+              clonedTarget.style.maxWidth = 'none';
               clonedTarget.style.overflow = 'visible';
-              // Force all scrollable children to be fully expanded
-              const scrollables = clonedTarget.querySelectorAll('.overflow-x-auto, .overflow-hidden, .overflow-auto');
+              // Only expand true scroll containers. Expanding overflow-hidden children
+              // breaks compact internal grids during image capture.
+              const scrollables = [clonedTarget, ...clonedTarget.querySelectorAll('.overflow-x-auto, .overflow-auto')];
               scrollables.forEach(el => {
                 el.style.overflow = 'visible';
-                el.style.width = 'max-content';
+                el.style.width = `${scrollWidth}px`;
                 el.style.maxWidth = 'none';
               });
             }
           }
         }).then(canvas => {
           element.removeAttribute('data-html2canvas-target');
+          element.style.width = originalStyle.width;
+          element.style.maxWidth = originalStyle.maxWidth;
+          element.style.overflow = originalStyle.overflow;
           canvas.toBlob((blob) => {
             if (blob) {
               resolve(blob);
@@ -58,6 +71,9 @@ const CopyImageButton = forwardRef(({ targetRef, label = "Copy Image", ...props 
           }, 'image/png');
         }).catch(err => {
           element.removeAttribute('data-html2canvas-target');
+          element.style.width = originalStyle.width;
+          element.style.maxWidth = originalStyle.maxWidth;
+          element.style.overflow = originalStyle.overflow;
           console.error("html2canvas error:", err);
           reject(err);
         });
@@ -75,6 +91,10 @@ const CopyImageButton = forwardRef(({ targetRef, label = "Copy Image", ...props 
       });
     } catch (err) {
       console.error("Error creating clipboard item:", err);
+      element.removeAttribute('data-html2canvas-target');
+      element.style.width = originalStyle.width;
+      element.style.maxWidth = originalStyle.maxWidth;
+      element.style.overflow = originalStyle.overflow;
       setIsCapturing(false);
     }
   };
