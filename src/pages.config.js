@@ -47,8 +47,10 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import { lazy } from 'react';
 import Home from './pages/Home';
-import ImageAnnotator from './pages/ImageAnnotator';
+
+const ImageAnnotator = lazy(() => import('./pages/ImageAnnotator'));
 
 export const PAGES = {
     "Home": Home,

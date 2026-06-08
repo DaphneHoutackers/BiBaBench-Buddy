@@ -20,15 +20,17 @@ import { useAuth } from '@/lib/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import logo from '@/assets/icon-512.png';
 
-// Lazy loaded calculators
-const DigestCalculator = lazy(() => import('@/components/calculators/DigestCalculator'));
-const LigationCalculator = lazy(() => import('@/components/calculators/LigationCalculator'));
-const GibsonCalculator = lazy(() => import('@/components/calculators/GibsonCalculator'));
-const PCRCalculator = lazy(() => import('@/components/calculators/PCRCalculator'));
-const DilutionCalculator = lazy(() => import('@/components/calculators/DilutionCalculator'));
+// Eagerly loaded calculators
+import DigestCalculator from '@/components/calculators/DigestCalculator';
+import LigationCalculator from '@/components/calculators/LigationCalculator';
+import GibsonCalculator from '@/components/calculators/GibsonCalculator';
+import PCRCalculator from '@/components/calculators/PCRCalculator';
+import DilutionCalculator from '@/components/calculators/DilutionCalculator';
+import ProteinConcCalculator from '@/components/calculators/ProteinConcCalculator';
+
+// Lazy loaded non-calculators and other tools
 const BufferCalculator = lazy(() => import('@/components/calculators/BufferCalculator'));
 const AIAssistant = lazy(() => import('@/components/calculators/AIAssistant'));
-const ProteinConcCalculator = lazy(() => import('@/components/calculators/ProteinConcCalculator'));
 const ProtocolLibrary = lazy(() => import('@/components/calculators/ProtocolLibrary'));
 const GelSimulator = lazy(() => import('@/components/calculators/GelSimulator'));
 const ImageAnnotator = lazy(() => import('./ImageAnnotator'));
@@ -578,19 +580,19 @@ export default function Home() {
 
     switch (id) {
       case 'digest':
-        return renderLazy(<DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />);
+        return <DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />;
       case 'ligation':
-        return renderLazy(<LigationCalculator {...calculatorProps} />);
+        return <LigationCalculator {...calculatorProps} />;
       case 'gibson':
-        return renderLazy(<GibsonCalculator {...calculatorProps} />);
+        return <GibsonCalculator {...calculatorProps} />;
       case 'pcr':
-        return renderLazy(<PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />);
+        return <PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />;
       case 'dilution':
-        return renderLazy(<DilutionCalculator {...calculatorProps} />);
+        return <DilutionCalculator {...calculatorProps} />;
       case 'buffer':
         return renderLazy(<BufferCalculator {...calculatorProps} />);
       case 'protein':
-        return renderLazy(<ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />);
+        return <ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />;
       case 'protocols':
         return renderLazy(<ProtocolLibrary {...calculatorProps} />);
       case 'ai':

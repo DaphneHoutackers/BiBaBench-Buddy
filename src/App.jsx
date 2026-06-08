@@ -6,6 +6,7 @@ import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { HistoryProvider } from '@/context/HistoryContext';
+import { Suspense } from 'react';
 
 const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -31,28 +32,34 @@ const AuthenticatedApp = () => {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <LayoutWrapper currentPageName={mainPageKey}>
-            <MainPage />
-          </LayoutWrapper>
-        }
-      />
-      {Object.entries(Pages).map(([path, Page]) => (
+    <Suspense fallback={
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      </div>
+    }>
+      <Routes>
         <Route
-          key={path}
-          path={`/${path}`}
+          path="/"
           element={
-            <LayoutWrapper currentPageName={path}>
-              <Page />
+            <LayoutWrapper currentPageName={mainPageKey}>
+              <MainPage />
             </LayoutWrapper>
           }
         />
-      ))}
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        {Object.entries(Pages).map(([path, Page]) => (
+          <Route
+            key={path}
+            path={`/${path}`}
+            element={
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            }
+          />
+        ))}
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </Suspense>
   );
 };
 
