@@ -150,8 +150,12 @@ function getOptimalVectorAmount(vectorConc, vectorLength, inserts, totalVolume, 
   for (const ins of inserts) {
     const c_ins = parseFloat(ins.concentration || ins.conc);
     const l_ins = parseFloat(ins.length);
-    const r_ins = isEquimolar ? 1 : (parseFloat(ins.ratio) || parseFloat(foldExcess) || 3);
-    if (isNaN(c_ins) || isNaN(l_ins) || c_ins <= 0 || l_ins <= 0 || isNaN(r_ins) || r_ins <= 0) {
+    const r_ins = isEquimolar ? 1 : (
+      ins.ratio !== undefined && ins.ratio !== null && ins.ratio !== '' && !isNaN(parseFloat(ins.ratio))
+        ? parseFloat(ins.ratio)
+        : (parseFloat(foldExcess) || 3)
+    );
+    if (isNaN(c_ins) || isNaN(l_ins) || c_ins <= 0 || l_ins <= 0 || isNaN(r_ins) || r_ins < 0) {
       return null;
     }
     sumTerms += (r_ins * l_ins) / (l_vec * c_ins);
@@ -175,7 +179,7 @@ function calcGibsonMix({
   totalVolume,
   isEquimolar,
   foldExcess,
-  autoDilute = true,
+  autoDilute = false,
   minVol = '0.4'
 }) {
   const targetVectorNgRaw = parseFloat(vectorAmount) > 0 ? parseFloat(vectorAmount) : 100;
@@ -195,7 +199,11 @@ function calcGibsonMix({
     const l_ins = parseFloat(ins.length);
     if (isNaN(c_ins) || isNaN(l_ins) || c_ins <= 0 || l_ins <= 0) return null;
 
-    const currentRatio = isEquimolar ? 1 : (parseFloat(ins.ratio) || parseFloat(foldExcess) || 3);
+    const currentRatio = isEquimolar ? 1 : (
+      ins.ratio !== undefined && ins.ratio !== null && ins.ratio !== '' && !isNaN(parseFloat(ins.ratio))
+        ? parseFloat(ins.ratio)
+        : (parseFloat(foldExcess) || 3)
+    );
     const insertPmol = vectorPmol * currentRatio;
     const insertNg = insertPmol * l_ins * 650 / 1000;
     const insertVol = insertNg / c_ins;
@@ -331,7 +339,7 @@ function SingleGibson({ historyData, isActive, sessionId }) {
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const [autoDilute, setAutoDilute] = useState(true);
+  const [autoDilute, setAutoDilute] = useState(false);
   const [minVol, setMinVol] = useState('0.4');
 
   const [isRestoring, setIsRestoring] = useState(false);
@@ -409,7 +417,7 @@ function SingleGibson({ historyData, isActive, sessionId }) {
     if (nextVal) {
       setFragments(fragments.map(f => f.isVector ? f : { ...f, savedRatio: f.ratio, ratio: '1' }));
     } else {
-      setFragments(fragments.map(f => f.isVector ? f : { ...f, ratio: f.savedRatio || '3' }));
+      setFragments(fragments.map(f => f.isVector ? f : { ...f, ratio: (f.savedRatio !== undefined && f.savedRatio !== null && f.savedRatio !== '') ? f.savedRatio : '3' }));
     }
   };
 
@@ -633,7 +641,7 @@ function SingleGibson({ historyData, isActive, sessionId }) {
                         </div>
                         <NumInputStepper
                           step="1"
-                          min="1"
+                          min="0"
                           value={fragment.ratio}
                           disabled={isEquimolar}
                           onChange={(e) => updateFragment(fragment.id, 'ratio', e.target.value)}
@@ -883,7 +891,7 @@ function BatchGibson({ historyData, isActive, sessionId }) {
         return {
           ...g,
           isEquimolar: nextVal,
-          inserts: g.inserts.map(i => nextVal ? { ...i, savedRatio: i.ratio, ratio: '1' } : { ...i, ratio: i.savedRatio || '3' })
+          inserts: g.inserts.map(i => nextVal ? { ...i, savedRatio: i.ratio, ratio: '1' } : { ...i, ratio: (i.savedRatio !== undefined && i.savedRatio !== null && i.savedRatio !== '') ? i.savedRatio : '3' })
         };
       }
       return { ...g, [field]: val };
@@ -1213,7 +1221,7 @@ function BatchGibson({ historyData, isActive, sessionId }) {
                             <div className="relative flex items-center">
                                 <NumInputStepper 
                                   step="1"
-                                  min="1"
+                                  min="0"
                                   value={lig.isEquimolar ? '1' : ins.ratio} 
                                   disabled={lig.isEquimolar}
                                   onChange={e => updateInsert(lig.id, ins.id, 'ratio', e.target.value)} 

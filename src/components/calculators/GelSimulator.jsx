@@ -840,7 +840,7 @@ function WesternBlotTab() {
 export default function GelAndWBSimulator({ historyData, isActive }) {
   const { addHistoryItem } = useHistory();
   const [tab, setTab] = useState('dna');
-  const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb Plus');
+  const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb');
   const [agarose, setAgarose] = useState('1');
   const [voltage, setVoltage] = useState(120);
   const [runtime, setRuntime] = useState(35);

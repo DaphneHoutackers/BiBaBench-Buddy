@@ -6,7 +6,15 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(() => {
+    if (!supabase) return false;
+    try {
+      const saved = localStorage.getItem('bibabenchbuddy-auth');
+      return !!saved;
+    } catch (e) {
+      return false;
+    }
+  });
   const [authError, setAuthError] = useState(null);
 
   const fetchProfile = async (userId) => {
@@ -52,7 +60,7 @@ export const AuthProvider = ({ children }) => {
                       data: { session: null },
                       error: null,
                     }),
-                  4000
+                  2000
                 )
               ),
             ]);

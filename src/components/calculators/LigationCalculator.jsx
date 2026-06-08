@@ -132,7 +132,7 @@ function hasPegVol(pegVolInput) {
   return pegVolInput !== undefined && String(pegVolInput).trim() !== '' && Number.isFinite(parseFloat(pegVolInput));
 }
 
-function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, pegVol, autoDilute = true, minVol = 0.5) {
+function calcLigationMix(vectorConc, vectorLength, inserts, vectorAmount, totalVolume, ligase, ligaseVol, pegVol, autoDilute = false, minVol = 0.5) {
   const vectorKb = parseFloat(vectorLength) / 1000;
   const vectorVolumeRaw = parseFloat(vectorAmount) / parseFloat(vectorConc);
   const threshold = parseFloat(minVol) || 0.5;
@@ -190,7 +190,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
     vectorConc: '', vectorLength: '', vectorAmount: '50',
     inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }],
     totalVolume: '20', ligase: 'T4 DNA Ligase', ligaseVol: '1', pegVolInput: '1',
-    autoDilute: true, minVol: '0.5'
+    autoDilute: false, minVol: '0.5'
   };
 
   const normalizeState = (state = {}) => ({
@@ -217,7 +217,7 @@ function SingleLigation({ historyData, isActive, sessionId }) {
   const [ligase, setLigase] = useState(initialState.ligase);
   const [ligaseVol, setLigaseVol] = useState(initialState.ligaseVol);
   const [pegVolInput, setPegVolInput] = useState(initialState.pegVolInput !== undefined ? initialState.pegVolInput : '1');
-  const [autoDilute, setAutoDilute] = useState(initialState.autoDilute !== false);
+  const [autoDilute, setAutoDilute] = useState(initialState.autoDilute === true);
   const [minVol, setMinVol] = useState(initialState.minVol);
   const [results, setResults] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -552,7 +552,7 @@ function defaultLigation(id) {
     vectorConc: '',
     vectorLength: '',
     vectorAmount: '50',
-    autoDilute: true,
+    autoDilute: false,
     minVol: '0.5',
     inserts: [{ id: 1, name: 'Insert 1', conc: '', length: '', ratio: '3' }],
   };
@@ -573,7 +573,7 @@ function BatchLigation({ historyData, isActive, sessionId }) {
       ligase: 'T4 DNA Ligase',
       ligaseVol: '1',
       pegVolInput: '1',
-      autoDilute: true,
+      autoDilute: false,
       minVol: '0.5'
     };
   };
@@ -584,7 +584,7 @@ function BatchLigation({ historyData, isActive, sessionId }) {
   const [ligase, setLigase] = useState(initialState.ligase);
   const [ligaseVol, setLigaseVol] = useState(initialState.ligaseVol);
   const [pegVolInput, setPegVolInput] = useState(initialState.pegVolInput !== undefined ? initialState.pegVolInput : '1');
-  const [autoDilute, setAutoDilute] = useState(initialState.autoDilute !== undefined ? initialState.autoDilute : initialState.ligations?.[0]?.autoDilute !== false);
+  const [autoDilute, setAutoDilute] = useState(initialState.autoDilute !== undefined ? initialState.autoDilute : false);
   const [minVol, setMinVol] = useState(initialState.minVol !== undefined ? initialState.minVol : initialState.ligations?.[0]?.minVol || '0.5');
   const [copied, setCopied] = useState(false);
 
@@ -600,7 +600,7 @@ function BatchLigation({ historyData, isActive, sessionId }) {
       setLigase(d.ligase || 'T4 DNA Ligase');
       setLigaseVol(d.ligaseVol || '1');
       setPegVolInput(d.pegVolInput !== undefined ? d.pegVolInput : '1');
-      setAutoDilute(d.autoDilute !== undefined ? d.autoDilute : d.ligations?.[0]?.autoDilute !== false);
+      setAutoDilute(d.autoDilute !== undefined ? d.autoDilute : false);
       setMinVol(d.minVol !== undefined ? d.minVol : d.ligations?.[0]?.minVol || '0.5');
       localStorage.setItem(SAVED_STATE_KEY, JSON.stringify(d));
       setTimeout(() => { isRestoring.current = false; }, 500);

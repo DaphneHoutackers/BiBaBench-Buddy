@@ -62,8 +62,8 @@ function NumInput({ value, onChange, ...props }) {
 }
 
 const DEFAULT_FRAGMENTS = [
-  { id: 1, name: 'Fragment 1', length: '', concentration: '', autoDilute: true, minVol: '0.5' },
-  { id: 2, name: 'Fragment 2', length: '', concentration: '', autoDilute: true, minVol: '0.5' },
+  { id: 1, name: 'Fragment 1', length: '', concentration: '', autoDilute: false, minVol: '0.5' },
+  { id: 2, name: 'Fragment 2', length: '', concentration: '', autoDilute: false, minVol: '0.5' },
 ];
 
 const POLYMERASES = {
@@ -285,7 +285,7 @@ export default function OEPCRCalculator({ historyData, isActive }) {
 
   const addFragment = () => {
     const newId = Math.max(...fragments.map(f => f.id)) + 1;
-    setFragments([...fragments, { id: newId, name: `Fragment ${fragments.length + 1}`, length: '', concentration: '', autoDilute: true, minVol: '0.5' }]);
+    setFragments([...fragments, { id: newId, name: `Fragment ${fragments.length + 1}`, length: '', concentration: '', autoDilute: false, minVol: '0.5' }]);
   };
 
   const removeFragment = (id) => {
@@ -348,7 +348,7 @@ export default function OEPCRCalculator({ historyData, isActive }) {
       const conc = parseFloat(f.concentration);
       const ng = fmol * len * 650 / 1e6;
       const vol = ng / conc;
-      const isAutoDilute = f.autoDilute !== false;
+      const isAutoDilute = f.autoDilute === true;
       const threshold = parseFloat(f.minVol) || 0.5;
       const dilution = isAutoDilute ? getDilutionSuggestion(conc, ng, threshold) : null;
       const isLow = !!dilution;
@@ -731,7 +731,7 @@ Est. Duration: ${totalDurationStr}`;
                       <div className="flex items-center gap-1.5">
                         <Switch
                           id={`oepcr-auto-dilute-${frag.id}`}
-                          checked={frag.autoDilute !== false}
+                          checked={frag.autoDilute === true}
                           onCheckedChange={(checked) => updateFragment(frag.id, 'autoDilute', checked)}
                           className="scale-75"
                         />
@@ -739,7 +739,7 @@ Est. Duration: ${totalDurationStr}`;
                           Auto-dilute
                         </Label>
                       </div>
-                      {frag.autoDilute !== false && (
+                      {frag.autoDilute === true && (
                         <div className="flex items-center gap-1 pl-1">
                           <span className="text-[11px] text-slate-500 dark:text-slate-400 select-none">If vol &lt;</span>
                           <Input

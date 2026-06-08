@@ -83,6 +83,11 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  input::placeholder,
+  textarea::placeholder {
+    opacity: 0.4 !important;
+  }
 }
 
 /* ── macOS 26 Tahoe "Liquid Glass" theme ── */

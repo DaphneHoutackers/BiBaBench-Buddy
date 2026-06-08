@@ -18,7 +18,7 @@ import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilution
 
 const FASTAP_VOL = 1; // µL
 
-function calcMix(dnaConc, desiredDna, totalVol, enzymeVol, numEnzymes, enzymeType, isVector = false, autoDilute = true, minVol = 0.5) {
+function calcMix(dnaConc, desiredDna, totalVol, enzymeVol, numEnzymes, enzymeType, isVector = false, autoDilute = false, minVol = 0.5) {
   const rawDnaVol = parseFloat(desiredDna) / parseFloat(dnaConc);
   const dilution = autoDilute ? getDilutionSuggestion(dnaConc, desiredDna, parseFloat(minVol) || 0.5) : null;
   const dnaVolume = dilution ? parseFloat(dilution.newVol) : rawDnaVol;
@@ -86,11 +86,11 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
   const [totalVolume, setTotalVolume] = useState('20');
   const [enzymeVolume, setEnzymeVolume] = useState('1');
   const [enzymeType, setEnzymeType] = useState('All');
-  const [autoDilute, setAutoDilute] = useState(true);
+  const [autoDilute, setAutoDilute] = useState(false);
   const [minVol, setMinVol] = useState('0.5');
   const [results, setResults] = useState(null);
 
-  const [batchSamples, setBatchSamples] = useState([{ id: 1, name: 'Sample 1', conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [], autoDilute: true, minVol: '0.5' }]);
+  const [batchSamples, setBatchSamples] = useState([{ id: 1, name: 'Sample 1', conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [], autoDilute: false, minVol: '0.5' }]);
   const [batchTotalVol, setBatchTotalVol] = useState('20');
   const [batchEnzymeVol, setBatchEnzymeVol] = useState('1');
   const [batchEnzymeType, setBatchEnzymeType] = useState('All');
@@ -245,7 +245,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     if (valid.length === 0) { setBatchResults(null); return; }
     const rows = valid.map(s => {
       const numEnz = s.enzymes.length || 1;
-      const r = calcMix(s.conc, s.desiredNg, batchTotalVol, batchEnzymeVol, numEnz, batchEnzymeType, s.dnaRole === 'vector', s.autoDilute !== false, s.minVol !== undefined ? s.minVol : '0.5');
+      const r = calcMix(s.conc, s.desiredNg, batchTotalVol, batchEnzymeVol, numEnz, batchEnzymeType, s.dnaRole === 'vector', s.autoDilute === true, s.minVol !== undefined ? s.minVol : '0.5');
       return { ...s, ...r };
     });
     setBatchResults(rows);
@@ -264,13 +264,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
     ? 'FastDigest Buffer (10×)' 
     : (getOptimalBuffer(batchEnzymeType, batchAllEnzymes, batchFilteredEnzymes) || 'Buffer (10×)');
 
-  const batchDnaLabel = (() => {
-    if (!batchResults || batchResults.length === 0) return 'DNA (ng varies)';
-    const amounts = batchResults.map(r => Number(r.desiredNg));
-    const firstAmount = amounts[0];
-    const allSame = amounts.every(a => a === firstAmount);
-    return allSame ? `DNA (${firstAmount}ng)` : 'DNA (ng varies)';
-  })();
+  const batchDnaLabel = 'DNA';
 
   const firstSampleEnzymes = batchResults && batchResults[0] ? batchResults[0].enzymes : [];
   const allSamplesHaveSameEnzymes = batchResults && batchResults.every(r => {
@@ -590,7 +584,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                       <CardTitle className="text-base font-medium text-slate-700 dark:text-slate-200">DNA Samples</CardTitle>
                       <Button variant="outline" size="sm" onClick={() => {
                         const id = Math.max(...batchSamples.map(s => s.id)) + 1;
-                        setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [], autoDilute: true, minVol: '0.5' }]);
+                        setBatchSamples([...batchSamples, { id, name: `Sample ${id}`, conc: '', desiredNg: '1000', dnaRole: 'insert', enzymes: [], autoDilute: false, minVol: '0.5' }]);
                       }} className="gap-1 px-2.5 h-8 text-xs dark:text-slate-200">
                         <Plus className="w-3.5 h-3.5" /> Add
                       </Button>
@@ -614,7 +608,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                                 <button 
                                   key={role} 
                                   onClick={() => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, dnaRole: role } : x))}
-                                  className={`flex-1 py-1 h-8 px-2 rounded text-[10px] font-bold border transition-colors flex items-center justify-center gap-1 ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}>
+                                  className={`w-20 py-1 h-8 px-2 rounded text-[10px] font-bold border transition-colors flex items-center justify-center gap-1 ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}>
                                   {role === 'insert' ? '🧬 Insert' : '🔵 Vector'}
                                 </button>
                               ))}
@@ -643,7 +637,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                               <div className="flex items-center gap-1.5">
                                 <Switch
                                   id={`batch-digest-auto-dilute-${s.id}`}
-                                  checked={s.autoDilute !== false}
+                                  checked={s.autoDilute === true}
                                   onCheckedChange={(checked) => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, autoDilute: checked } : x))}
                                   className="scale-75"
                                 />
@@ -651,7 +645,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                                   Auto-dilute
                                 </Label>
                               </div>
-                              {s.autoDilute !== false && (
+                              {s.autoDilute === true && (
                                 <div className="flex items-center gap-1 text-[10px] pl-1">
                                   <span className="shrink-0 text-slate-500 dark:text-slate-400">If vol &lt;</span>
                                   <Input
@@ -720,6 +714,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                               }),
                               ['FastAP', ...batchResults.map(r => r.fastApVol > 0 ? Number(r.fastApVol.toFixed(1)) : '–')],
                               ['Total', ...batchResults.map(() => Number(batchTotalVol) + 'µL')],
+                              ['DNA Mass (ng)', ...batchResults.map(r => r.desiredNg)],
                             ];
                             return rows;
                           }} />
@@ -760,11 +755,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                             </tr>
                             <tr className="border-b border-slate-100 dark:border-slate-800">
                               <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
-                                {batchDnaLabel.startsWith('DNA (') ? (
-                                  <span>DNA <span className="text-rose-600 dark:text-rose-400 text-xs font-semibold">({batchDnaLabel.slice(5, -1)})</span></span>
-                                ) : (
-                                  <span>DNA <span className="text-rose-600 dark:text-rose-400 text-xs">(ng varies)</span></span>
-                                )}
+                                <span>DNA</span>
                               </td>
                               {batchResults.map((r, i) => (
                                 <td key={i} className={`text-right py-2 px-3 font-bold text-rose-600 dark:text-rose-400`}>
@@ -814,6 +805,10 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                             <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50">
                               <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">Total</td>
                               {batchResults.map((_, i) => <td key={i} className="text-right py-2 px-3 font-bold text-slate-800 dark:text-slate-100">{Number(batchTotalVol)}µL</td>)}
+                            </tr>
+                            <tr className="border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30">
+                              <td className="py-2 px-3 font-semibold text-slate-700 dark:text-slate-200">DNA Mass (ng)</td>
+                              {batchResults.map((r, i) => <td key={i} className="text-right py-2 px-3 font-bold text-rose-600 dark:text-rose-400">{r.desiredNg}</td>)}
                             </tr>
                           </tbody>
                         </table>
