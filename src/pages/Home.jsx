@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   ArrowLeft, BookOpen,
   Settings, ImageIcon, PanelLeft, ChevronDown, Clock, Trash2, Home as HomeIcon
@@ -12,19 +12,6 @@ import { PiCircleDashedBold } from "react-icons/pi";
 import { BsOpencollective } from "react-icons/bs";
 import { HiMiniChartBar } from "react-icons/hi2";
 import { useHistory } from '@/context/HistoryContext';
-import DigestCalculator from '@/components/calculators/DigestCalculator';
-import LigationCalculator from '@/components/calculators/LigationCalculator';
-import GibsonCalculator from '@/components/calculators/GibsonCalculator';
-import PCRCalculator from '@/components/calculators/PCRCalculator';
-import DilutionCalculator from '@/components/calculators/DilutionCalculator';
-import BufferCalculator from '@/components/calculators/BufferCalculator';
-import AIAssistant from '@/components/calculators/AIAssistant';
-import ProteinConcCalculator from '@/components/calculators/ProteinConcCalculator';
-import ProtocolLibrary from '@/components/calculators/ProtocolLibrary';
-import GelSimulator from '@/components/calculators/GelSimulator';
-import ImageAnnotator from './ImageAnnotator';
-
-import PlasmidAnalyzer from '@/components/calculators/PlasmidAnalyzer';
 import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
 import { APP_THEMES } from '@/styles/themes';
@@ -32,6 +19,20 @@ import { supabase, isSyncEnabled } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import logo from '@/assets/icon-512.png';
+
+// Lazy loaded calculators
+const DigestCalculator = lazy(() => import('@/components/calculators/DigestCalculator'));
+const LigationCalculator = lazy(() => import('@/components/calculators/LigationCalculator'));
+const GibsonCalculator = lazy(() => import('@/components/calculators/GibsonCalculator'));
+const PCRCalculator = lazy(() => import('@/components/calculators/PCRCalculator'));
+const DilutionCalculator = lazy(() => import('@/components/calculators/DilutionCalculator'));
+const BufferCalculator = lazy(() => import('@/components/calculators/BufferCalculator'));
+const AIAssistant = lazy(() => import('@/components/calculators/AIAssistant'));
+const ProteinConcCalculator = lazy(() => import('@/components/calculators/ProteinConcCalculator'));
+const ProtocolLibrary = lazy(() => import('@/components/calculators/ProtocolLibrary'));
+const GelSimulator = lazy(() => import('@/components/calculators/GelSimulator'));
+const ImageAnnotator = lazy(() => import('./ImageAnnotator'));
+const PlasmidAnalyzer = lazy(() => import('@/components/calculators/PlasmidAnalyzer'));
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
 
@@ -325,6 +326,30 @@ export default function Home() {
   const isMobile = useIsMobile();
   const [active, setActive] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [visitedIds, setVisitedIds] = useState(() => new Set());
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (active) {
+      setVisitedIds(prev => {
+        if (prev.has(active)) return prev;
+        const next = new Set(prev);
+        next.add(active);
+        return next;
+      });
+    }
+  }, [active]);
 
   useEffect(() => {
     const initialSettings = loadSettings(user?.id) || DEFAULT_SETTINGS;
@@ -541,31 +566,41 @@ export default function Home() {
     const hData = isAct ? historyData : null;
     const calculatorProps = { historyData: hData, isActive: isAct, isDark, theme, settings, user };
 
+    const renderLazy = (ComponentInstance) => (
+      <Suspense fallback={
+        <div className="flex items-center justify-center p-12">
+          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+        </div>
+      }>
+        {ComponentInstance}
+      </Suspense>
+    );
+
     switch (id) {
       case 'digest':
-        return <DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />;
+        return renderLazy(<DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />);
       case 'ligation':
-        return <LigationCalculator {...calculatorProps} />;
+        return renderLazy(<LigationCalculator {...calculatorProps} />);
       case 'gibson':
-        return <GibsonCalculator {...calculatorProps} />;
+        return renderLazy(<GibsonCalculator {...calculatorProps} />);
       case 'pcr':
-        return <PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />;
+        return renderLazy(<PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />);
       case 'dilution':
-        return <DilutionCalculator {...calculatorProps} />;
+        return renderLazy(<DilutionCalculator {...calculatorProps} />);
       case 'buffer':
-        return <BufferCalculator {...calculatorProps} />;
+        return renderLazy(<BufferCalculator {...calculatorProps} />);
       case 'protein':
-        return <ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />;
+        return renderLazy(<ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />);
       case 'protocols':
-        return <ProtocolLibrary {...calculatorProps} />;
+        return renderLazy(<ProtocolLibrary {...calculatorProps} />);
       case 'ai':
-        return <AIAssistant {...calculatorProps} />;
+        return renderLazy(<AIAssistant {...calculatorProps} />);
       case 'gel':
-        return <GelSimulator {...calculatorProps} />;
+        return renderLazy(<GelSimulator {...calculatorProps} />);
       case 'image-annotator':
-        return <ImageAnnotator {...calculatorProps} />;
+        return renderLazy(<ImageAnnotator {...calculatorProps} />);
       case 'plasmid':
-        return <PlasmidAnalyzer {...calculatorProps} />;
+        return renderLazy(<PlasmidAnalyzer {...calculatorProps} />);
       default:
         return null;
     }
@@ -615,6 +650,23 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Offline indicator */}
+              {!isOnline && (
+                <div 
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                    isDark ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-amber-50 text-amber-600 border-amber-200'
+                  }`}
+                  title={
+                    lang === 'nl' ? 'Je bent offline - berekeningen werken, maar cloud-synchronisatie is gepauzeerd' : 'You are offline - calculations work, but cloud sync is paused'
+                  }
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="hidden md:inline text-[10px] uppercase font-bold tracking-wider">
+                    {lang === 'nl' ? 'Offline' : 'Offline'}
+                  </span>
+                </div>
+              )}
+
               <button
                 onClick={() => setActive('ai')}
                 className={`min-h-[35px] px-3 sm:px-2 flex items-center gap-2 rounded-xl touch-manipulation transition-all duration-300 ${isDark
@@ -768,15 +820,20 @@ export default function Home() {
             </div>
           )}
 
-          {ALL_IDS.map(id => (
-            <div
-              key={id}
-              style={{ display: active === id ? 'block' : 'none' }}
-              className="transition-all duration-300 w-full pt-2"
-            >
-              {getComponent(id)}
-            </div>
-          ))}
+          {ALL_IDS.map(id => {
+            const isVisited = visitedIds.has(id);
+            if (!isVisited) return null;
+
+            return (
+              <div
+                key={id}
+                style={{ display: active === id ? 'block' : 'none' }}
+                className="transition-all duration-300 w-full pt-2"
+              >
+                {getComponent(id)}
+              </div>
+            );
+          })}
         </main>
       </div>
 

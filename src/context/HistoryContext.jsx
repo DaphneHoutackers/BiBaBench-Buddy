@@ -210,7 +210,7 @@ export function HistoryProvider({ children }) {
 
   const clearHistory = useCallback(async () => {
     setHistory([]);
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    localStorage.removeItem(getStorageKey());
 
     if (!isSyncEnabled()) return;
 
@@ -224,7 +224,7 @@ export function HistoryProvider({ children }) {
       .from('tool_history')
       .delete()
       .eq('user_id', session.user.id);
-  }, []);
+  }, [getStorageKey]);
 
   return (
     <HistoryContext.Provider
