@@ -501,7 +501,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
           <div className="flex items-center gap-2">
             {onBandClick && <span className="text-xs text-slate-400 dark:text-slate-500">Click a band to mark/unmark for excision</span>}
             <button onClick={copyImage}
-              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-200 hover:text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg transition-colors">
+              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg transition-colors">
               {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy Image'}
             </button>
@@ -810,7 +810,7 @@ function WesternBlotTab() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Western Blot Preview</CardTitle>
             <button onClick={copyImage}
-              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg transition-colors">
+              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg transition-colors">
               {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy Image'}
             </button>
@@ -1038,7 +1038,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
                             className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'sequence' ? 'bg-white dark:bg-slate-900 shadow-sm text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             Digest
                           </button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:text-red-400" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
                             <X className="w-3 h-3" />
                           </Button>
                         </div>
@@ -1104,7 +1104,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
               
               {/* Automated Digest Legend */}
               <Card className="border-0 shadow-sm bg-indigo-50 dark:bg-indigo-900/30/50">
-                <CardHeader className="pb-1 pt-3"><CardTitle className="text-[11px] font-bold uppercase text-indigo-600 dark:text-indigo-400 dark:text-slate-200">Digest Summary</CardTitle></CardHeader>
+                <CardHeader className="pb-1 pt-3"><CardTitle className="text-[11px] font-bold uppercase text-indigo-600 dark:text-indigo-400">Digest Summary</CardTitle></CardHeader>
                 <CardContent className="pb-3 space-y-2">
                   {dnaLanes.filter(l => l.type === 'sequence').map(lane => {
                     const cache = digestCache[lane.id];
