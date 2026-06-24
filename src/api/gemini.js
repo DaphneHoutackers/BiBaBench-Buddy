@@ -26,8 +26,13 @@ const PROVIDER_CONFIGS = {
   },
   openrouter: {
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    defaultModel: 'google/gemini-2.0-flash-001',
+    defaultModel: 'nvidia/nemotron-3-ultra-550b-a55b:free',
   },
+};
+
+const OPENROUTER_AUTO_MODEL = {
+  id: 'openrouter/auto',
+  label: 'Auto Router',
 };
 
 /**
@@ -181,6 +186,20 @@ async function invokeGemini({ prompt, response_json_schema, apiKey, model }) {
 export async function ValidateApiKey({ provider, apiKey }) {
   const model = PROVIDER_CONFIGS[provider]?.defaultModel;
 
+  if (provider === 'openrouter') {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/key', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+      return { success: res.ok, status: res.status };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
   if (provider === 'gemini') {
     const url = `${PROVIDER_CONFIGS.gemini.url}${model}:generateContent?key=${apiKey}`;
     try {
@@ -226,12 +245,13 @@ export async function FetchOpenRouterModels() {
     const res = await fetch('https://openrouter.ai/api/v1/models');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    return data.data
+    const models = data.data
       .map((m) => ({
         id: m.id,
         label: m.name || m.id,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
+    return [OPENROUTER_AUTO_MODEL, ...models.filter((m) => m.id !== OPENROUTER_AUTO_MODEL.id)];
   } catch (err) {
     console.error('[OpenRouter] Failed to fetch models:', err);
     return null;

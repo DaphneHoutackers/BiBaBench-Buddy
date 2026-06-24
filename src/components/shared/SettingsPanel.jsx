@@ -219,7 +219,8 @@ const AI_PROVIDERS = {
   openrouter: {
     label: 'OpenRouter',
     models: [
-      { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+      { id: 'openrouter/auto', label: 'Auto Router' },
+      { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
       { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
       { id: 'openai/gpt-4o', label: 'OpenAI GPT-4o' },
       { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },

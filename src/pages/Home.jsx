@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy, Component } from 'react';
 import {
   ArrowLeft, BookOpen,
   Settings, ImageIcon, PanelLeft, ChevronDown, Clock, Trash2, Home as HomeIcon,
@@ -38,6 +38,43 @@ const ImageAnnotator = lazy(() => import('./ImageAnnotator'));
 const PlasmidAnalyzer = lazy(() => import('@/components/calculators/PlasmidAnalyzer'));
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
+
+class LazyToolErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="m-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+        <p className="font-semibold">This tool could not be loaded.</p>
+        <p className="mt-1 text-xs leading-relaxed opacity-80">
+          Refresh the app and try again. In development this can happen when Vite refreshes optimized dependencies.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
+        >
+          Refresh
+        </button>
+      </div>
+    );
+  }
+}
 
 function getSettingsKey(userId) {
   return userId ? `${SETTINGS_KEY}_${userId}` : SETTINGS_KEY;
@@ -714,16 +751,18 @@ export default function Home() {
     const subtoolKey = getSubtoolKey(id);
     const isAct = active === id && activeInstance[subtoolKey] === instanceId;
     const hData = isAct ? historyData : null;
-    const calculatorProps = { key: instanceId, historyData: hData, isActive: isAct, isDark, theme, settings, user };
+    const calculatorProps = { historyData: hData, isActive: isAct, isDark, theme, settings, user };
 
     const renderLazy = (ComponentInstance) => (
-      <Suspense fallback={
-        <div className="flex items-center justify-center p-12">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-        </div>
-      }>
-        {ComponentInstance}
-      </Suspense>
+      <LazyToolErrorBoundary resetKey={`${id}-${instanceId}`}>
+        <Suspense fallback={
+          <div className="flex items-center justify-center p-12">
+            <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+          </div>
+        }>
+          {ComponentInstance}
+        </Suspense>
+      </LazyToolErrorBoundary>
     );
 
     switch (id) {
