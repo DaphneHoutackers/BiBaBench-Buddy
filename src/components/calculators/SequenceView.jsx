@@ -1,3 +1,9 @@
+import { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { Copy, Palette, Plus, Trash2 } from 'lucide-react';
+
+// Change sequence text font here if needed.
+const SEQUENCE_FONT_FAMILY = 'Menlo, "Liberation Mono", Consolas, "Courier New", monospace';
+const DNA_COLOR_PRESETS = ['#111827', '#4a90d9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const CODON_TABLE = {
   TTT:'F',TTC:'F',TTA:'L',TTG:'L',CTT:'L',CTC:'L',CTA:'L',CTG:'L',
@@ -12,15 +18,18 @@ const CODON_TABLE = {
 
 const revComp = s => s.split('').reverse().map(b => ({A:'T',T:'A',G:'C',C:'G',N:'N'}[b]||b)).join('');
 
-import { useState, useEffect } from 'react';
-import { Copy, Plus, Trash2 } from 'lucide-react';
-
-export default function SequenceView({ seq, features, onDelete, onAddFeature, cutSites = [] }) {
+export default function SequenceView({ seq, features, sequenceColors = [], selectedMapItem = null, onDelete, onAddFeature, onColorSequence, onAnnotationClick, onPositionClick, cutSites = [], focusRange = null }) {
   const [selection, setSelection] = useState(null);
+  const [selectionColor, setSelectionColor] = useState('#4a90d9');
+  const [showColorTools, setShowColorTools] = useState(false);
+  const containerRef = useRef(null);
+  const dragAnchorRef = useRef(null);
+  const dragActiveRef = useRef(false);
+  const dragMovedRef = useRef(false);
 
   useEffect(() => {
     const handleCopy = (e) => {
-      if (selection && selection.text) {
+      if (selection?.text) {
         e.preventDefault();
         e.clipboardData.setData('text/plain', selection.text);
       }
@@ -29,115 +38,174 @@ export default function SequenceView({ seq, features, onDelete, onAddFeature, cu
     return () => document.removeEventListener('copy', handleCopy);
   }, [selection]);
 
-  const handleMouseUp = () => {
-    setTimeout(() => {
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) {
-        setSelection(null);
-        return;
-      }
-      
-      let node1 = sel.anchorNode;
-      let node2 = sel.focusNode;
-      if (node1?.nodeType === 3) node1 = node1.parentElement;
-      if (node2?.nodeType === 3) node2 = node2.parentElement;
-      
-      const span1 = node1?.closest?.('.fwd-seq');
-      const span2 = node2?.closest?.('.fwd-seq');
-      
-      if (span1 && span2) {
-         const start1 = parseInt(span1.getAttribute('data-start'), 10);
-         const off1 = sel.anchorNode?.nodeType === 3 ? sel.anchorOffset : 0;
-         const trueOff1 = span1.innerText.slice(0, off1).replace(/\s/g, '').length;
-         
-         const start2 = parseInt(span2.getAttribute('data-start'), 10);
-         const off2 = sel.focusNode?.nodeType === 3 ? sel.focusOffset : span2.innerText.length;
-         const trueOff2 = span2.innerText.slice(0, off2).replace(/\s/g, '').length;
-         
-         const p1 = start1 + trueOff1;
-         const p2 = start2 + trueOff2;
-         
-         if (p1 === p2) {
-           setSelection(null);
-           return;
-         }
-
-         const range = sel.getRangeAt(0);
-         const rect = range.getBoundingClientRect();
-         
-         setSelection({
-           start: Math.min(p1, p2),
-           end: Math.max(p1, p2),
-           text: seq.slice(Math.min(p1, p2), Math.max(p1, p2)),
-           rect: { top: rect.top, left: rect.left, width: rect.width }
-         });
-      } else {
-         setSelection(null);
-      }
-    }, 10);
-  };
-
   const BPR = 60;
   const totalLen = seq.length;
+
+  useLayoutEffect(() => {
+    if (!focusRange || !containerRef.current || !totalLen) return;
+    const rowStart = Math.floor(Math.max(0, Math.min(focusRange.start || 0, totalLen - 1)) / BPR) * BPR;
+    const row = containerRef.current.querySelector(`[data-row-start="${rowStart}"]`);
+    if (!row) return;
+    containerRef.current.scrollTop = Math.max(0, row.offsetTop - (containerRef.current.clientHeight / 2) + (row.offsetHeight / 2));
+  }, [focusRange, totalLen]);
+
   if (!totalLen) return null;
 
   const rc = revComp(seq);
   const rows = [];
   for (let i = 0; i < totalLen; i += BPR) rows.push(i);
-
-  const fmt = s => {
-    const p = [];
-    for (let i = 0; i < s.length; i += 10) p.push(s.slice(i, Math.min(i + 10, s.length)));
-    return p.join(' ');
-  };
-
-  // char position in formatted string (accounts for spaces every 10)
   const cp = p => p + Math.floor(p / 10);
 
   const getAAs = feat => {
     if (feat.type !== 'CDS' && feat.type !== 'gene') return null;
-    const sub = feat.strand === 1
-      ? seq.slice(feat.start, feat.end)
-      : revComp(seq.slice(feat.start, feat.end));
+    const sub = feat.strand === 1 ? seq.slice(feat.start, feat.end) : revComp(seq.slice(feat.start, feat.end));
     const aas = [];
     for (let i = 0; i < sub.length - 2; i += 3) aas.push(CODON_TABLE[sub.slice(i, i + 3)] || '?');
     return aas;
   };
 
+  const getBaseColor = (abs, strand) => {
+    for (let i = sequenceColors.length - 1; i >= 0; i--) {
+      const region = sequenceColors[i];
+      if (abs >= region.start && abs < region.end && (region.strand === 0 || region.strand === strand)) return region.color;
+    }
+    return null;
+  };
+
+  const getBaseStyle = (abs, strand) => {
+    const color = getBaseColor(abs, strand);
+    const isFocused = focusRange && abs >= focusRange.start && abs < focusRange.end;
+    const isLocallySelected = selection && abs >= selection.start && abs < selection.end;
+    const isPosition = selectedMapItem?.kind === 'position' && abs === selectedMapItem.pos;
+    if (!color && !isFocused && !isLocallySelected && !isPosition) return undefined;
+    return {
+      color: isLocallySelected ? '#0f172a' : color || '#111827',
+      fontWeight: color ? 700 : undefined,
+      backgroundColor: isLocallySelected ? '#bfdbfe' : isFocused ? '#fde68a' : undefined,
+      borderRadius: isFocused || isLocallySelected ? 2 : undefined,
+      borderLeft: isPosition ? '2px solid #0f766e' : undefined,
+      paddingLeft: isPosition ? 1 : undefined,
+      boxShadow: isPosition ? '-2px 0 0 rgba(20,184,166,0.2)' : undefined,
+    };
+  };
+
+  const isFeatureSelected = (feat) => {
+    if (!selectedMapItem || selectedMapItem.kind === 'enzyme') return false;
+    return selectedMapItem.kind === (feat.kind || (feat.type === 'primer' ? 'primer' : 'feature')) && selectedMapItem.index === feat.sourceIndex;
+  };
+
+  const isCutSelected = (site) => (
+    selectedMapItem?.kind === 'enzyme' &&
+    selectedMapItem.name === site.name &&
+    selectedMapItem.pos === site.pos
+  );
+
+  const applySequenceColor = (strand) => {
+    onColorSequence?.(selection.start, selection.end, strand, selectionColor);
+    setShowColorTools(false);
+  };
+
+  const updateDragSelection = (anchor, pos, event) => {
+    const start = Math.min(anchor, pos);
+    const end = Math.max(anchor, pos) + 1;
+    setSelection({
+      start,
+      end,
+      text: seq.slice(start, end),
+      rect: { top: event.clientY - 8, left: event.clientX, width: 1 },
+    });
+  };
+
+  const handleBaseMouseDown = (event, abs) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+    if (event.shiftKey) {
+      onPositionClick?.(event, abs);
+      return;
+    }
+    dragAnchorRef.current = abs;
+    dragActiveRef.current = true;
+    dragMovedRef.current = false;
+    setSelection(null);
+    setShowColorTools(false);
+  };
+
+  const handleBaseMouseEnter = (event, abs) => {
+    if (!dragActiveRef.current || dragAnchorRef.current == null) return;
+    if (abs !== dragAnchorRef.current) dragMovedRef.current = true;
+    updateDragSelection(dragAnchorRef.current, abs, event);
+  };
+
+  const handleBaseMouseUp = (event, abs) => {
+    if (!dragActiveRef.current || dragAnchorRef.current == null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (dragMovedRef.current) updateDragSelection(dragAnchorRef.current, abs, event);
+    else onPositionClick?.(event, abs);
+    dragActiveRef.current = false;
+    dragAnchorRef.current = null;
+    dragMovedRef.current = false;
+  };
+
+  useEffect(() => {
+    const stopDragging = () => {
+      dragActiveRef.current = false;
+      dragAnchorRef.current = null;
+      dragMovedRef.current = false;
+    };
+    window.addEventListener('mouseup', stopDragging);
+    return () => window.removeEventListener('mouseup', stopDragging);
+  }, []);
+
   return (
-    <div 
-      onMouseUp={handleMouseUp} 
-      style={{ fontFamily: '"Courier New", Courier, monospace', fontSize: 13, lineHeight: 1.5, overflowX: 'auto', position: 'relative' }}
+    <div
+      ref={containerRef}
+      style={{ fontFamily: SEQUENCE_FONT_FAMILY, fontSize: 13, lineHeight: 1.5, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative', maxHeight: 'calc(100vh - 250px)', paddingRight: 8, userSelect: 'none' }}
     >
-      {/* Floating Toolbar */}
-      {selection && selection.rect && (
-        <div 
-          style={{ 
-            position: 'fixed', 
-            top: selection.rect.top - 45, 
-            left: selection.rect.left + selection.rect.width / 2,
-            transform: 'translateX(-50%)',
-            zIndex: 1000,
-            display: 'flex', gap: 4, padding: 4,
-            backgroundColor: '#1e293b', borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-          }}
+      {selection?.rect && (
+        <div
+          style={{ position: 'fixed', top: selection.rect.top - 48, left: selection.rect.left + selection.rect.width / 2, transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', alignItems: 'center', gap: 6, padding: 6, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 10px 30px rgba(15,23,42,0.15)', color: '#111827' }}
           onMouseDown={e => e.preventDefault()}
         >
-          <button onClick={() => { navigator.clipboard.writeText(selection.text); setSelection(null); window.getSelection().removeAllRanges(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700 rounded-md transition-colors">
-            <Copy className="w-3.5 h-3.5" /> Kopieer
+          <button onClick={() => { navigator.clipboard.writeText(selection.text); setSelection(null); setShowColorTools(false); window.getSelection().removeAllRanges(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors">
+            <Copy className="w-3.5 h-3.5" /> Copy
           </button>
           {onAddFeature && (
-            <button onClick={() => { onAddFeature(selection.start, selection.end); setSelection(null); window.getSelection().removeAllRanges(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-teal-300 hover:bg-slate-700 rounded-md transition-colors">
-              <Plus className="w-3.5 h-3.5" /> Maak Feature
+            <button onClick={() => { onAddFeature(selection.start, selection.end); setSelection(null); setShowColorTools(false); window.getSelection().removeAllRanges(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-100 rounded-md transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Make feature
             </button>
+          )}
+          {onColorSequence && (
+            <div className="relative">
+              <button onClick={() => setShowColorTools(v => !v)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-100 rounded-md transition-colors">
+                <Palette className="w-3.5 h-3.5" /> Change DNA color
+              </button>
+              {showColorTools && (
+                <div className="absolute left-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl">
+                  <div className="mb-2 grid grid-cols-6 gap-1.5">
+                    {DNA_COLOR_PRESETS.map(color => (
+                      <button key={color} onClick={() => setSelectionColor(color)} className={`h-6 w-6 rounded-full border ${selectionColor === color ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`} style={{ backgroundColor: color }} />
+                    ))}
+                  </div>
+                  <label className="mb-2 flex items-center justify-between gap-2 text-[11px] font-medium text-slate-600">
+                    Custom
+                    <input type="color" value={selectionColor} onChange={e => setSelectionColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0" />
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button onClick={() => applySequenceColor(1)} className="rounded-md bg-slate-100 px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200">Top</button>
+                    <button onClick={() => applySequenceColor(-1)} className="rounded-md bg-slate-100 px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200">Bottom</button>
+                    <button onClick={() => applySequenceColor(0)} className="rounded-md bg-teal-50 px-2 py-1.5 text-[11px] font-medium text-teal-700 hover:bg-teal-100">Both</button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           {onDelete && (
-            <button onClick={() => { onDelete(selection.start, selection.end); setSelection(null); window.getSelection().removeAllRanges(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-rose-300 hover:bg-slate-700 rounded-md transition-colors">
-              <Trash2 className="w-3.5 h-3.5" /> Verwijder
+            <button onClick={() => { onDelete(selection.start, selection.end); setSelection(null); setShowColorTools(false); window.getSelection().removeAllRanges(); }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-md transition-colors">
+              <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
           )}
-          <div style={{ position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '6px solid #1e293b' }}></div>
         </div>
       )}
 
@@ -149,8 +217,7 @@ export default function SequenceView({ seq, features, onDelete, onAddFeature, cu
         const rowCuts = cutSites.filter(cs => cs.pos >= rowStart && cs.pos < rowEnd);
 
         return (
-          <div key={rowStart} style={{ marginBottom: 16 }}>
-            {/* Position numbers */}
+          <div key={rowStart} data-row-start={rowStart} style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', color: '#94a3b8', fontSize: 10, userSelect: 'none' }}>
               <span style={{ width: '5ch', flexShrink: 0 }}></span>
               {Array.from({ length: Math.ceil(fwd.length / 10) }, (_, i) => (
@@ -159,48 +226,89 @@ export default function SequenceView({ seq, features, onDelete, onAddFeature, cu
               <span style={{ marginLeft: 'auto', color: '#64748b', fontWeight: 600, paddingLeft: 8 }}>{rowEnd}</span>
             </div>
 
-            {/* Cut site markers */}
             {rowCuts.length > 0 && (
               <div style={{ position: 'relative', height: 18, marginLeft: '5ch', userSelect: 'none' }}>
                 {rowCuts.map((cs, ci) => {
                   const relPos = cs.pos - rowStart;
                   const leftCh = cp(relPos);
+                  const selected = isCutSelected(cs);
+                  const csColor = selected ? '#0f766e' : (cs.color || '#111827');
                   return (
-                    <div key={`${cs.name}-${cs.pos}-${ci}`} style={{
-                      position: 'absolute', left: `${leftCh}ch`,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center',
-                      transform: 'translateX(-50%)'
-                    }}>
-                      <span style={{
-                        fontSize: 8, fontWeight: 700, color: cs.color,
-                        backgroundColor: cs.color + '18',
-                        border: `1px solid ${cs.color}55`,
-                        borderRadius: 3, padding: '0 3px', lineHeight: '13px',
-                        whiteSpace: 'nowrap'
-                      }}>{cs.name}</span>
-                      <div style={{ width: 1.5, height: 5, background: cs.color, marginTop: 1 }} />
+                    <div key={`${cs.name}-${cs.pos}-${ci}`} style={{ position: 'absolute', left: `${leftCh}ch`, display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'translateX(-50%)' }}>
+                      <span
+                        onClick={(e) => onAnnotationClick?.(e, { kind: 'enzyme', item: cs, start: cs.pos, end: cs.pos + 1 })}
+                        style={{
+                          fontSize: 8,
+                          fontWeight: selected ? 900 : 700,
+                          color: csColor,
+                          backgroundColor: selected ? '#ccfbf1' : cs.color ? `${cs.color}18` : 'transparent',
+                          border: selected ? '1px solid #0f766e' : cs.color ? `1px solid ${cs.color}55` : '1px solid transparent',
+                          borderRadius: 3,
+                          padding: '0 3px',
+                          lineHeight: '13px',
+                          whiteSpace: 'nowrap',
+                          cursor: 'pointer',
+                        }}
+                      >{cs.name}</span>
+                      <div style={{ width: selected ? 2.5 : 1.5, height: selected ? 7 : 5, background: csColor, marginTop: 1 }} />
                     </div>
                   );
                 })}
               </div>
             )}
 
-            {/* Forward strand */}
             <div style={{ whiteSpace: 'pre' }}>
               <span style={{ color: '#94a3b8', width: '5ch', display: 'inline-block', userSelect: 'none' }}>{"5'  "}</span>
-              <span className="fwd-seq" data-start={rowStart} style={{ color: '#1e293b', cursor: 'text' }}>{fmt(fwd)}</span>
+              <span className="fwd-seq" data-start={rowStart} style={{ color: '#1e293b', cursor: 'text' }}>
+                {Array.from(fwd).map((base, idx) => {
+                  const abs = rowStart + idx;
+                  const addSpace = idx > 0 && idx % 10 === 0;
+                  return (
+                    <span key={abs}>
+                      {addSpace ? ' ' : ''}
+                      <span
+                        className="seq-base"
+                        data-pos={abs}
+                        style={getBaseStyle(abs, 1)}
+                        onMouseDown={(e) => handleBaseMouseDown(e, abs)}
+                        onMouseEnter={(e) => handleBaseMouseEnter(e, abs)}
+                        onMouseUp={(e) => handleBaseMouseUp(e, abs)}
+                      >
+                        {base}
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
             </div>
 
-            {/* Separator */}
             <div style={{ borderBottom: '1px solid #e2e8f0', margin: '1px 0', marginLeft: '5ch' }} />
 
-            {/* Reverse complement */}
             <div style={{ whiteSpace: 'pre', userSelect: 'none' }}>
               <span style={{ color: '#94a3b8', width: '5ch', display: 'inline-block' }}>{"3'  "}</span>
-              <span style={{ color: '#94a3b8' }}>{fmt(rev)}</span>
+              <span style={{ color: '#94a3b8' }}>
+                {Array.from(rev).map((base, idx) => {
+                  const abs = rowStart + idx;
+                  const addSpace = idx > 0 && idx % 10 === 0;
+                  return (
+                    <span key={`rev-${abs}`}>
+                      {addSpace ? ' ' : ''}
+                      <span
+                        className="seq-base"
+                        data-pos={abs}
+                        style={getBaseStyle(abs, -1)}
+                        onMouseDown={(e) => handleBaseMouseDown(e, abs)}
+                        onMouseEnter={(e) => handleBaseMouseEnter(e, abs)}
+                        onMouseUp={(e) => handleBaseMouseUp(e, abs)}
+                      >
+                        {base}
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
             </div>
 
-            {/* Feature bars */}
             {rowFeats.length > 0 && (
               <div style={{ marginTop: 3, marginLeft: '5ch' }}>
                 {rowFeats.map((feat, fi) => {
@@ -209,8 +317,6 @@ export default function SequenceView({ seq, features, onDelete, onAddFeature, cu
                   if (fE <= fS) return null;
                   const left = cp(fS);
                   const width = cp(fE - 1) - cp(fS) + 1;
-
-                  // Amino acid line for CDS/gene
                   const allAAs = getAAs(feat);
                   let aaLine = null;
                   if (allAAs) {
@@ -221,18 +327,25 @@ export default function SequenceView({ seq, features, onDelete, onAddFeature, cu
 
                   return (
                     <div key={fi} style={{ marginBottom: 2 }}>
-                      {aaLine && (
-                        <div style={{
-                          marginLeft: `${left}ch`, fontSize: 10, color: feat.color || '#6366f1',
-                          whiteSpace: 'pre', overflow: 'hidden', width: `${width}ch`,
-                        }}>{aaLine}</div>
-                      )}
+                      {aaLine && <div style={{ marginLeft: `${left}ch`, fontSize: 10, color: feat.color || '#6366f1', whiteSpace: 'pre', overflow: 'hidden', width: `${width}ch` }}>{aaLine}</div>}
                       <div
+                        onClick={(e) => onAnnotationClick?.(e, { kind: feat.kind || (feat.type === 'primer' ? 'primer' : 'feature'), item: feat, start: feat.start, end: feat.end })}
                         style={{
                           userSelect: 'none',
-                          marginLeft: `${left}ch`, width: `${Math.max(width, 1)}ch`,
-                          height: 14, backgroundColor: feat.color || '#6366f1', borderRadius: 3,
-                          opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                          marginLeft: `${left}ch`,
+                          width: `${Math.max(width, 1)}ch`,
+                          height: 14,
+                          backgroundColor: feat.color || '#6366f1',
+                          borderRadius: 3,
+                          opacity: isFeatureSelected(feat) ? 1 : 0.85,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          outline: isFeatureSelected(feat) ? '2px solid #0f766e' : undefined,
+                          outlineOffset: isFeatureSelected(feat) ? 1 : undefined,
+                          boxShadow: isFeatureSelected(feat) ? '0 0 0 3px rgba(20,184,166,0.18)' : undefined,
                         }}
                         title={`${feat.label} (${feat.start + 1}..${feat.end}) ${feat.strand === 1 ? '→' : '←'}`}
                       >

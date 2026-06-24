@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import {
   Upload, Download, Plus, Trash2, Edit3, X, Check,
   Eye, EyeOff, Save, Library, Dna,
-  ChevronDown, ChevronUp, Folder, FolderPlus, ChevronRight, ArrowUpDown, Search
+  ChevronDown, ChevronUp, Folder, FolderPlus, ChevronLeft, ChevronRight, ArrowUpDown, Search, Palette,
+  Undo2, Redo2
 } from 'lucide-react';
 import { TbArrowsExchange } from "react-icons/tb";
 import { PiTagBold } from "react-icons/pi";
@@ -22,6 +23,32 @@ import { makeId } from '@/utils/makeId';
 const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#9fd4c3', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#d97063' };
 const RE_HIGHLIGHT_COLORS = ['#e4a72d', '#4a90d9', '#68a357', '#d16565', '#8a6fd1', '#5aa6a6', '#c9823b', '#7a8794'];
 const PRIMER_COLORS = ['#4a90d9', '#a36ee8', '#d16565', '#5aa6a6', '#e4a72d', '#68a357', '#c9823b', '#7a8794'];
+// Change map label fonts here.
+const MAP_LABEL_FONT_FAMILY = 'Verdana, Geneva, sans-serif';
+// Change library file/folder font here.
+const LIBRARY_FONT_FAMILY = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+const DNA_COLOR_PRESETS = ['#111827', '#4a90d9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const ENZYME_SUPPLIERS = [
+  { id: 'all', label: 'All Suppliers' },
+  { id: 'neb', label: 'New England Biolabs' },
+  { id: 'thermo-fermentas', label: 'ThermoFisher Fermentas' },
+  { id: 'thermo-invitrogen', label: 'ThermoFisher Invitrogen' },
+  { id: 'roche', label: 'Roche' },
+  { id: 'takara', label: 'TaKaRa Bio' },
+  { id: 'clontech', label: 'Clontech' },
+  { id: 'promega', label: 'Promega' },
+];
+const ENZYME_CUT_FILTERS = [
+  { id: 'all', label: 'All cutters' },
+  { id: 'unique', label: 'Unique cutters' },
+  { id: 'double', label: 'Double cutters' },
+  { id: 'triple', label: '3 cutters' },
+  { id: 'triple_plus', label: '3+ cutters' },
+  { id: 'iis', label: 'Type IIS' },
+  { id: 'goldengate', label: 'Golden Gate' },
+  { id: 'sticky', label: 'Sticky' },
+  { id: 'blunt', label: 'Blunt' },
+];
 const RE_DB = Object.entries(ENZYME_DB)
   .reduce((acc, [name, info]) => {
     const displayName = getEnzymeDisplayName(name);
@@ -85,10 +112,142 @@ function radialRectEdgePoint(cx, cy, lx, ly, width, height) {
   const scaleX = dx ? (width / 2) / Math.abs(dx) : Infinity;
   const scaleY = dy ? (height / 2) / Math.abs(dy) : Infinity;
   const scale = Math.min(scaleX, scaleY);
-  return {
-    x: lx - dx * scale,
-    y: ly - dy * scale,
+  return { x: lx - dx * scale, y: ly - dy * scale };
+}
+
+function pointInRect(point, rect) {
+  return point.x >= rect.x1 && point.x <= rect.x2 && point.y >= rect.y1 && point.y <= rect.y2;
+}
+
+function segmentIntersection(a, b, c, d) {
+  const det = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+  if (Math.abs(det) < 0.0001) return false;
+  const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / det;
+  const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / det;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+function segmentIntersectsRect(start, end, rect) {
+  if (pointInRect(start, rect) || pointInRect(end, rect)) return true;
+  const topLeft = { x: rect.x1, y: rect.y1 };
+  const topRight = { x: rect.x2, y: rect.y1 };
+  const bottomRight = { x: rect.x2, y: rect.y2 };
+  const bottomLeft = { x: rect.x1, y: rect.y2 };
+  return (
+    segmentIntersection(start, end, topLeft, topRight) ||
+    segmentIntersection(start, end, topRight, bottomRight) ||
+    segmentIntersection(start, end, bottomRight, bottomLeft) ||
+    segmentIntersection(start, end, bottomLeft, topLeft)
+  );
+}
+
+function layoutExternalLabels(labels, { cx, cy, radius, laneStep = 20, sideOffset = 48, minGap = 4, lanes = 6 }) {
+  const rectFor = (label, angle, lane) => {
+    const r = radius + sideOffset + lane * laneStep;
+    const lx = cx + r * Math.cos(angle);
+    const ly = cy + r * Math.sin(angle);
+    return {
+      lx,
+      ly,
+      x1: lx - label.width / 2 - minGap,
+      y1: ly - label.height / 2 - minGap,
+      x2: lx + label.width / 2 + minGap,
+      y2: ly + label.height / 2 + minGap,
+    };
   };
+  const overlaps = (a, b) => !(a.x2 < b.x1 || a.x1 > b.x2 || a.y2 < b.y1 || a.y1 > b.y2);
+  const angleOffsets = [0, -0.025, 0.025, -0.05, 0.05, -0.085, 0.085, -0.12, 0.12, -0.16, 0.16];
+  const placed = [];
+  [...labels].sort((a, b) => (a.anchorAngle ?? a.labelAngle ?? a.ma ?? 0) - (b.anchorAngle ?? b.labelAngle ?? b.ma ?? 0)).forEach(label => {
+    const anchor = label.anchorAngle ?? label.labelAngle ?? label.ma ?? 0;
+    let best = null;
+    for (const offset of angleOffsets) {
+      for (let lane = 0; lane < lanes; lane++) {
+        const angle = anchor + offset;
+        const rect = rectFor(label, angle, lane);
+        const collision = placed.some(item => overlaps(rect, item.rect));
+        const score = Math.abs(offset) * 10000 + lane * 80;
+        if (!collision) {
+          best = { angle, lane, rect, score };
+          break;
+        }
+        if (!best || score < best.score) best = { angle, lane, rect, score };
+      }
+      if (best && !placed.some(item => overlaps(best.rect, item.rect))) break;
+    }
+    label.labelAngle = best.angle;
+    label.lane = best.lane;
+    label.lx = best.rect.lx;
+    label.ly = best.rect.ly;
+    label.labelRadius = radius + sideOffset + best.lane * laneStep;
+    placed.push({ label, rect: best.rect });
+  });
+  return labels;
+}
+
+function getEnzymeSupplierId(rawName) {
+  const name = String(rawName || '').toLowerCase();
+  if (name.includes('fastdigest') || name.includes('fermentas')) return 'thermo-fermentas';
+  if (name.includes('invitrogen')) return 'thermo-invitrogen';
+  if (name.includes('roche')) return 'roche';
+  if (name.includes('takara')) return 'takara';
+  if (name.includes('clontech')) return 'clontech';
+  if (name.includes('promega')) return 'promega';
+  return 'neb';
+}
+
+function getEnzymeMeta(rawName, details = {}) {
+  const displayName = getEnzymeDisplayName(rawName);
+  const motif = details.seq || '';
+  const typeIIS = ['BsaI', 'BbsI', 'BsmBI', 'Esp3I', 'SapI', 'BtgZI', 'BsfAI', 'BsgI', 'FokI', 'Eco31I'].includes(displayName);
+  const goldenGate = ['BsaI', 'BsmBI', 'BbsI', 'Eco31I'].includes(displayName);
+  const isBlunt = ['GGCC', 'CCCGGG', 'GATATC', 'AATATT', 'TTTAAA', 'AGCGCT', 'AGGCCT', 'TCGCGA', 'AGTACT', 'GACGTC', 'CAGCTG'].includes(motif);
+  let type = details.hasFD || details.fd ? 'FastDigest' : 'NEB';
+  if (typeIIS) type = 'Type IIS';
+  if (goldenGate) type = 'Golden Gate';
+  return {
+    displayName,
+    type,
+    typeIIS,
+    goldenGate,
+    cut: isBlunt ? 'Blunt' : 'Sticky',
+    supplier: getEnzymeSupplierId(rawName),
+  };
+}
+
+function enzymeMatchesFilters(enzyme, cutFilter, supplierFilter) {
+  if (supplierFilter !== 'all' && enzyme.supplier !== supplierFilter) return false;
+  if (cutFilter === 'unique') return enzyme.count === 1;
+  if (cutFilter === 'double') return enzyme.count === 2;
+  if (cutFilter === 'triple') return enzyme.count === 3;
+  if (cutFilter === 'triple_plus') return enzyme.count >= 3;
+  if (cutFilter === 'iis') return enzyme.typeIIS;
+  if (cutFilter === 'goldengate') return enzyme.goldenGate;
+  if (cutFilter === 'sticky') return enzyme.cut === 'Sticky';
+  if (cutFilter === 'blunt') return enzyme.cut === 'Blunt';
+  return true;
+}
+
+function normalizeEnzymeFilter(value) {
+  if (value === 'all_db') return 'all';
+  if (value === 'single') return 'unique';
+  if (value === 'multiple') return 'triple_plus';
+  return value || 'all';
+}
+
+function featureLabelFits(feature, totalLen, radius, fontSize = 10) {
+  const label = feature.label || '';
+  if (!label || feature.kind === 'primer') return false;
+  const length = Math.max(0, (feature.end || 0) - (feature.start || 0));
+  const arcLength = (length / Math.max(totalLen, 1)) * 2 * Math.PI * radius;
+  return arcLength > label.length * fontSize * 0.62 + 18;
+}
+
+function uprightTextRotation(angle) {
+  let degrees = (angle * 180 / Math.PI) + 90;
+  const normalized = ((degrees % 360) + 360) % 360;
+  if (normalized > 90 && normalized < 270) degrees += 180;
+  return degrees;
 }
 
 function findCutSites(seq, recog) {
@@ -197,11 +356,7 @@ function splitFeaturesAndPrimers(parsed, existingPrimers = []) {
 
   (parsed.features || []).forEach((feature) => {
     const type = normalizedFeatureType(feature.type);
-
-    if (type === 'source') {
-      return;
-    }
-
+    if (type === 'source') return;
     if (type !== 'primer_bind') {
       importedFeatures.push(feature);
       return;
@@ -211,7 +366,6 @@ function splitFeaturesAndPrimers(parsed, existingPrimers = []) {
     const end = Math.min(sequence.length, feature.end || 0);
     const annealing = sequence.slice(start, end);
     if (!annealing) return;
-
     const primerSeq = feature.strand === -1 ? revComp(annealing) : annealing;
     importedPrimers.push({
       name: feature.label || feature.tags?.label || feature.tags?.name || feature.tags?.note || 'Primer',
@@ -248,300 +402,356 @@ function parseFileContent(filename, content) {
 }
 
 // ── Circular Map ──────────────────────────────────────────────────────────────
-function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureClick, name, isCircular }) {
+function CircularMap({
+  seq,
+  features,
+  cutSites,
+  sequenceColors = [],
+  selectedMapItem,
+  selectedRange,
+  rangeColor,
+  onLabelClick,
+  onLabelHover,
+  onLabelLeave,
+  onEnzymeClick,
+  onEnzymeHover,
+  onEnzymeLeave,
+  onMapPositionClick,
+  name,
+  isCircular,
+}) {
   const totalLen = seq.length;
   if (!totalLen) return null;
-  const cx = 350, cy = 310, R = 180, FW = 16;
-  const FONT_SIZE = 9;
-  const PADDING_X = 6;
-  const PADDING_Y = 3;
+  const cx = 350, cy = 300, R = 190, FW = 18;
   const ang = pos => (pos / totalLen) * 2 * Math.PI - Math.PI / 2;
-  const arcShapePath = (sa, ea, ri, ro, strand) => {
-    let span = ea - sa; while (span < 0) span += 2 * Math.PI;
-    if (span < 0.004) return '';
-    const la = span > Math.PI ? 1 : 0, ae = sa + span;
-    const midR = (ri + ro) / 2;
-    const arrA = 0.04;
-
-    if (strand === 1 && span > arrA) {
-      const x1 = cx + ro * Math.cos(sa), y1 = cy + ro * Math.sin(sa);
-      const x2 = cx + ro * Math.cos(ae - arrA), y2 = cy + ro * Math.sin(ae - arrA);
-      const xTip = cx + midR * Math.cos(ae), yTip = cy + midR * Math.sin(ae);
-      const x3 = cx + ri * Math.cos(ae - arrA), y3 = cy + ri * Math.sin(ae - arrA);
-      const x4 = cx + ri * Math.cos(sa), y4 = cy + ri * Math.sin(sa);
-      return `M${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${xTip} ${yTip} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
-    } else if (strand === -1 && span > arrA) {
-      const xTip = cx + midR * Math.cos(sa), yTip = cy + midR * Math.sin(sa);
-      const x1 = cx + ro * Math.cos(sa + arrA), y1 = cy + ro * Math.sin(sa + arrA);
-      const x2 = cx + ro * Math.cos(ae), y2 = cy + ro * Math.sin(ae);
-      const x3 = cx + ri * Math.cos(ae), y3 = cy + ri * Math.sin(ae);
-      const x4 = cx + ri * Math.cos(sa + arrA), y4 = cy + ri * Math.sin(sa + arrA);
-      return `M${xTip} ${yTip} L${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
-    } else {
-      const x1 = cx + ro * Math.cos(sa), y1 = cy + ro * Math.sin(sa), x2 = cx + ro * Math.cos(ae), y2 = cy + ro * Math.sin(ae);
-      const x3 = cx + ri * Math.cos(ae), y3 = cy + ri * Math.sin(ae), x4 = cx + ri * Math.cos(sa), y4 = cy + Math.sin(sa) * ri;
-      return `M${x1} ${y1} A${ro} ${ro} 0 ${la} 1 ${x2} ${y2} L${x3} ${y3} A${ri} ${ri} 0 ${la} 0 ${x4} ${y4}Z`;
-    }
+  const point = (radius, angle) => ({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
+  const posFromSvgEvent = (event) => {
+    const svg = event.currentTarget;
+    const pt = svg.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const cursor = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const angle = Math.atan2(cursor.y - cy, cursor.x - cx);
+    const normalized = ((angle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    return Math.round((normalized / (Math.PI * 2)) * totalLen) % totalLen;
   };
-  return (
-    <svg viewBox="0 0 700 630" style={{ width: '100%', maxWidth: 700, height: 'auto' }}>
-      <circle cx={cx} cy={cy} r={R} fill="none" stroke="#cbd5e1" strokeWidth="3" />
-      {[0, 0.25, 0.5, 0.75].map(frac => {
-        const a = frac * 2 * Math.PI - Math.PI / 2, pos = Math.round(frac * totalLen);
-        return (<g key={frac}>
-          <line x1={cx + (R - 5) * Math.cos(a)} y1={cy + (R - 5) * Math.sin(a)} x2={cx + (R + 5) * Math.cos(a)} y2={cy + (R + 5) * Math.sin(a)} stroke="#94a3b8" strokeWidth="1.5" />
-          <text x={cx + (R + 22) * Math.cos(a)} y={cy + (R + 22) * Math.sin(a) + 3} textAnchor="middle" fill="#94a3b8" fontSize="10">{pos.toLocaleString()}</text>
-        </g>);
-      })}
-      {features.map((feat, i) => {
-        const sa = ang(feat.start), ea = ang(Math.min(feat.end, totalLen));
-        const ri = feat.strand === -1 ? R - FW : R, ro = feat.strand === -1 ? R : R + FW;
-        const d = arcShapePath(sa, ea, ri, ro, feat.strand); if (!d) return null;
-        const isSel = i === selectedIdx;
-        return <path key={i} d={d} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.85} stroke={isSel ? '#0f172a' : '#334155'} strokeWidth={isSel ? 1.5 : 0.6} cursor="pointer" onClick={(e) => { e.stopPropagation(); onFeatureClick ? onFeatureClick(e, feat, i) : onSelect(i === selectedIdx ? null : i); }} />;
-      })}
-      {(() => {
-        const labelR = R + 40;
-        const sortedFeatures = features.map((feat, i) => {
-          let ma = ang((feat.start + feat.end) / 2);
-          while (ma < 0) ma += 2 * Math.PI;
-          return { ...feat, index: i, ma, labelAngle: ma };
-        }).sort((a, b) => a.ma - b.ma);
+  const arcLinePath = (start, end, radius) => {
+    let sa = ang(start), ea = ang(end);
+    let span = ea - sa;
+    while (span <= 0) span += Math.PI * 2;
+    if (span >= Math.PI * 2 - 0.01) span = Math.PI * 2 - 0.01;
+    ea = sa + span;
+    const p1 = point(radius, sa);
+    const p2 = point(radius, ea);
+    return `M${p1.x} ${p1.y} A${radius} ${radius} 0 ${span > Math.PI ? 1 : 0} 1 ${p2.x} ${p2.y}`;
+  };
+  const arcShapePath = (start, end, ri, ro, strand) => {
+    const sa = ang(start);
+    let ea = ang(Math.min(end, totalLen));
+    let span = ea - sa;
+    while (span <= 0) span += Math.PI * 2;
+    if (span >= Math.PI * 2 - 0.01) span = Math.PI * 2 - 0.01;
+    ea = sa + span;
+    const la = span > Math.PI ? 1 : 0;
+    const midR = (ri + ro) / 2;
+    const arrow = Math.min(0.11, span * 0.45);
+    if (strand === 1 && span > 0.08) {
+      const p1 = point(ro, sa), p2 = point(ro, ea - arrow), tip = point(midR, ea), p3 = point(ri, ea - arrow), p4 = point(ri, sa);
+      return `M${p1.x} ${p1.y} A${ro} ${ro} 0 ${la} 1 ${p2.x} ${p2.y} L${tip.x} ${tip.y} L${p3.x} ${p3.y} A${ri} ${ri} 0 ${la} 0 ${p4.x} ${p4.y}Z`;
+    }
+    if (strand === -1 && span > 0.08) {
+      const tip = point(midR, sa), p1 = point(ro, sa + arrow), p2 = point(ro, ea), p3 = point(ri, ea), p4 = point(ri, sa + arrow);
+      return `M${tip.x} ${tip.y} L${p1.x} ${p1.y} A${ro} ${ro} 0 ${la} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${ri} ${ri} 0 ${la} 0 ${p4.x} ${p4.y}Z`;
+    }
+    const p1 = point(ro, sa), p2 = point(ro, ea), p3 = point(ri, ea), p4 = point(ri, sa);
+    return `M${p1.x} ${p1.y} A${ro} ${ro} 0 ${la} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${ri} ${ri} 0 ${la} 0 ${p4.x} ${p4.y}Z`;
+  };
+  const trianglePoints = (x, y, directionAngle, size = 6) => {
+    const tip = { x: x + size * Math.cos(directionAngle), y: y + size * Math.sin(directionAngle) };
+    const left = { x: x + size * 0.7 * Math.cos(directionAngle + 2.35), y: y + size * 0.7 * Math.sin(directionAngle + 2.35) };
+    const right = { x: x + size * 0.7 * Math.cos(directionAngle - 2.35), y: y + size * 0.7 * Math.sin(directionAngle - 2.35) };
+    return `${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`;
+  };
+  const featureSelected = feat => selectedMapItem?.kind === feat.kind && selectedMapItem?.index === feat.sourceIndex;
+  const colorText = color => getReadableTextColor(color || '#e2e8f0');
+  const labelModels = layoutExternalLabels([
+    ...features.filter(feat => !featureLabelFits(feat, totalLen, R)).map((feat, index) => {
+      const label = feat.label || feat.name || feat.type || 'feature';
+      const width = Math.max(30, label.length * 6.2 + (feat.kind === 'primer' ? 18 : 14));
+      const height = 18;
+      return {
+        kind: feat.kind || 'feature',
+        sourceIndex: feat.sourceIndex ?? index,
+        feat,
+        label,
+        width,
+        height,
+        anchorAngle: ang((feat.start + feat.end) / 2),
+      };
+    }),
+    ...cutSites.map((site, index) => {
+      const isColored = Boolean(site.color && selectedMapItem?.kind !== 'enzyme') || Boolean(site.color && site.color !== '#111827');
+      const label = site.name;
+      return {
+        kind: 'enzyme',
+        sourceIndex: index,
+        site,
+        label,
+        width: Math.max(28, label.length * 6.2 + (isColored ? 14 : 2)),
+        height: 18,
+        anchorAngle: ang(site.pos),
+      };
+    }),
+  ], { cx, cy, radius: R, laneStep: 19, sideOffset: 46, lanes: 8, minGap: 3 });
+  const labelKeyOf = (label) => `${label.kind}-${label.sourceIndex}-${label.label}-${label.site?.pos ?? label.feat?.start ?? 0}`;
+  const labelRects = labelModels.map(label => ({
+    key: labelKeyOf(label),
+    x1: label.lx - label.width / 2 - 4,
+    y1: label.ly - label.height / 2 - 4,
+    x2: label.lx + label.width / 2 + 4,
+    y2: label.ly + label.height / 2 + 4,
+  }));
+  const routeLeaderLine = (label, ring, edge) => {
+    const ownKey = labelKeyOf(label);
+    const blockingRects = labelRects.filter(rect => rect.key !== ownKey);
+    const clearSegment = (from, to) => !blockingRects.some(rect => segmentIntersectsRect(from, to, rect));
+    const makePath = points => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
+    if (clearSegment(ring, edge)) return makePath([ring, edge]);
 
-        const minAngDist = (FONT_SIZE + 2 * PADDING_Y) / labelR; // Adjust based on new label height
-        for (let iter = 0; iter < 10; iter++) {
-          for (let i = 0; i < sortedFeatures.length; i++) {
-            const curr = sortedFeatures[i];
-            const next = sortedFeatures[(i + 1) % sortedFeatures.length];
-            let diff = next.labelAngle - curr.labelAngle;
-            if (diff < 0 && i === sortedFeatures.length - 1) diff += 2 * Math.PI;
-            if (diff < minAngDist) {
-              const push = (minAngDist - diff) / 2;
-              curr.labelAngle -= push;
-              next.labelAngle += push;
-            }
-          }
+    const radial = { x: Math.cos(label.anchorAngle), y: Math.sin(label.anchorAngle) };
+    const tangent = { x: -radial.y, y: radial.x };
+    const labelOffset = (label.labelAngle ?? label.anchorAngle) - label.anchorAngle;
+    const preferredSide = labelOffset >= 0 ? 1 : -1;
+    const bendRadii = [R + 24 + (label.lane || 0) * 6, R + 36 + (label.lane || 0) * 8, R + 48 + (label.lane || 0) * 9];
+    const tangentOffsets = [18, 30, 42, 56].flatMap(offset => [preferredSide * offset, -preferredSide * offset]);
+
+    for (const bendRadius of bendRadii) {
+      const bend1 = point(bendRadius, label.anchorAngle);
+      for (const offset of tangentOffsets) {
+        const bend2 = {
+          x: edge.x - radial.x * 12 + tangent.x * offset,
+          y: edge.y - radial.y * 12 + tangent.y * offset,
+        };
+        const candidate = [ring, bend1, bend2, edge];
+        if (candidate.every((pointItem, index) => index === 0 || clearSegment(candidate[index - 1], pointItem))) {
+          return makePath(candidate);
         }
+      }
+    }
 
-        return sortedFeatures.sort((a, b) => a.index - b.index).map((l, _idx) => {
-          const ma = l.ma;
-          const la = l.labelAngle;
+    const fallbackBend = point(R + 38 + (label.lane || 0) * 8, label.anchorAngle);
+    return makePath([ring, fallbackBend, edge]);
+  };
 
-          const ex = cx + labelR * Math.cos(la);
-          const ey = cy + labelR * Math.sin(la);
-
-          const lx = ex; // Center the label on the line end
-          const ly = ey;
-
-          const textW = l.label.length * 5.5 + 2 * PADDING_X; // Heuristic for text width + padding
-          const rectX = lx - textW / 2; // Center the rectangle
-          const rectY = ly - (FONT_SIZE / 2 + PADDING_Y);
-          const rectHeight = FONT_SIZE + 2 * PADDING_Y;
-          const fill = l.color || '#e2e8f0';
-          const textColor = getReadableTextColor(fill);
-          const sx = cx + (R + FW + 4) * Math.cos(ma);
-          const sy = cy + (R + FW + 4) * Math.sin(ma);
-          const bendX = cx + (R + 28) * Math.cos(ma);
-          const bendY = cy + (R + 28) * Math.sin(ma);
-          const labelEdge = radialRectEdgePoint(cx, cy, lx, ly, textW, rectHeight);
+  return (
+    <svg
+      viewBox="-70 -55 840 720"
+      style={{ width: '100%', maxWidth: 900, height: 'auto' }}
+      onClick={(e) => onMapPositionClick?.(e, posFromSvgEvent(e))}
+    >
+      <circle cx={cx} cy={cy} r={R} fill="none" stroke="#2f3437" strokeWidth="3.2" />
+      <circle cx={cx} cy={cy} r={R + 5} fill="none" stroke="#2f3437" strokeWidth="3.2" />
+      {sequenceColors.map((region, index) => {
+        const start = Math.max(0, Math.min(totalLen, region.start || 0));
+        const end = Math.max(0, Math.min(totalLen, region.end || 0));
+        if (end <= start) return null;
+        const paths = [];
+        if (region.strand === 0 || region.strand === 1) paths.push({ key: 'top', radius: R + 5 });
+        if (region.strand === 0 || region.strand === -1) paths.push({ key: 'bottom', radius: R });
+        return paths.map(({ key, radius }) => (
+          <path
+            key={`seq-color-${index}-${key}`}
+            d={arcLinePath(start, end, radius)}
+            fill="none"
+            stroke={region.color || '#4a90d9'}
+            strokeWidth="3.4"
+            strokeLinecap="butt"
+          />
+        ));
+      })}
+      {[0, 0.25, 0.5, 0.75].map(frac => {
+        const a = frac * 2 * Math.PI - Math.PI / 2;
+        const pos = Math.round(frac * totalLen);
+        const p1 = point(R - 8, a), p2 = point(R + 8, a), tp = point(R + 26, a);
+        return (
+          <g key={frac}>
+            <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#2f3437" strokeWidth="2" />
+            <text x={tp.x} y={tp.y + 3} textAnchor="middle" fill="#111827" fontSize="11" transform={`rotate(${(a + Math.PI / 2) * 180 / Math.PI}, ${tp.x}, ${tp.y})`}>{pos.toLocaleString()}</text>
+          </g>
+        );
+      })}
+      {selectedRange && selectedRange.end > selectedRange.start && (
+        <path d={arcLinePath(selectedRange.start, selectedRange.end, R + 12)} fill="none" stroke={rangeColor || '#0ea5e9'} strokeWidth="7" strokeLinecap="round" opacity="0.95" />
+      )}
+      {selectedMapItem?.kind === 'position' && (() => {
+        const a = ang(selectedMapItem.pos || 0);
+        const p1 = point(R - 18, a);
+        const p2 = point(R + 18, a);
+        return <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#0f766e" strokeWidth="2.5" strokeLinecap="round" />;
+      })()}
+      {features.map((feat, index) => {
+        if (feat.kind === 'primer') {
+          const radius = feat.strand === -1 ? R - 10 : R + 10;
+          const selected = featureSelected(feat);
+          const start = Math.max(0, Math.min(totalLen, feat.start));
+          const end = Math.max(0, Math.min(totalLen, feat.end));
+          const arrowAngle = feat.strand === -1 ? ang(start) : ang(end);
+          const arrowPoint = point(radius, arrowAngle);
+          const direction = feat.strand === -1 ? arrowAngle - Math.PI / 2 : arrowAngle + Math.PI / 2;
           return (
-            <g key={`l${l.index}`} style={{ pointerEvents: 'none' }}>
-              <polyline points={`${sx},${sy} ${bendX},${bendY} ${labelEdge.x},${labelEdge.y}`} fill="none" stroke="#8a8f98" strokeWidth="1" />
-              <rect x={rectX} y={rectY} width={textW} height={rectHeight} rx={4} fill={fill} fillOpacity={1} stroke="#6b7280" strokeWidth="0.8" />
-              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={textColor} fontSize={FONT_SIZE} fontWeight="700">{l.label}</text>
+            <g key={`primer-${feat.sourceIndex ?? index}`} cursor="pointer">
+              <path
+                d={arcLinePath(start, end, radius)}
+                fill="none"
+                stroke={feat.color || '#a36ee8'}
+                strokeWidth={selected ? 3 : 2}
+                strokeLinecap="round"
+                onClick={(e) => onLabelClick?.(e, feat, index)}
+                onMouseEnter={(e) => onLabelHover?.(e, feat, index)}
+                onMouseLeave={onLabelLeave}
+              />
+              <polygon
+                points={trianglePoints(arrowPoint.x, arrowPoint.y, direction, selected ? 6.5 : 5.5)}
+                fill={feat.color || '#a36ee8'}
+                onClick={(e) => onLabelClick?.(e, feat, index)}
+                onMouseEnter={(e) => onLabelHover?.(e, feat, index)}
+                onMouseLeave={onLabelLeave}
+              />
             </g>
           );
-        });
-      })()}
-      {cutSites.map((site, i) => {
+        }
+        const ri = feat.strand === -1 ? R - 34 : R - 22;
+        const ro = feat.strand === -1 ? R - 18 : R - 4;
+        const selected = featureSelected(feat);
+        const d = arcShapePath(feat.start, feat.end, ri, ro, feat.strand);
+        if (!d) return null;
+        const ma = ang((feat.start + feat.end) / 2);
+        const mid = point((ri + ro) / 2, ma);
+        const labelFits = featureLabelFits(feat, totalLen, (ri + ro) / 2);
+        const textRotation = uprightTextRotation(ma);
+        return (
+          <g key={`${feat.kind || 'feature'}-${feat.sourceIndex ?? index}`}>
+            <path
+              d={d}
+              fill={feat.color || '#8fbad9'}
+              fillOpacity={feat.kind === 'primer' ? 0.78 : 0.92}
+              stroke={selected ? '#0f766e' : '#4b5563'}
+              strokeWidth={selected ? 3 : 0.9}
+              cursor="pointer"
+              onClick={(e) => onLabelClick?.(e, feat, index)}
+              onMouseEnter={(e) => onLabelHover?.(e, feat, index)}
+              onMouseLeave={onLabelLeave}
+            />
+            {labelFits && (
+              <text x={mid.x} y={mid.y + 3} textAnchor="middle" fill={colorText(feat.color)} fontSize="10" fontWeight="700" fontFamily={MAP_LABEL_FONT_FAMILY} transform={`rotate(${textRotation}, ${mid.x}, ${mid.y})`} pointerEvents="none">
+                {feat.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+      {cutSites.map((site, index) => {
         const a = ang(site.pos);
-        const markerColor = site.color || '#111827';
+        const p1 = point(R - 8, a), p2 = point(R + 8, a);
+        const selected = selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === site.name && selectedMapItem?.pos === site.pos;
         return (
           <line
-            key={`cs-mark${i}`}
-            x1={cx + (R - FW - 2) * Math.cos(a)}
-            y1={cy + (R - FW - 2) * Math.sin(a)}
-            x2={cx + (R + FW + 2) * Math.cos(a)}
-            y2={cy + (R + FW + 2) * Math.sin(a)}
-            stroke={markerColor}
-            strokeWidth="2"
+            key={`${site.name}-${site.pos}-${index}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke={selected ? '#0f766e' : site.color || '#111827'}
+            strokeWidth={selected ? 4 : 2}
+            cursor="pointer"
+            onClick={(e) => onEnzymeClick?.(e, site, index)}
+            onMouseEnter={(e) => onEnzymeHover?.(e, site, index)}
+            onMouseLeave={onEnzymeLeave}
           />
         );
       })}
-      {(() => {
-        const enzymeLabelR = R + 96;
-        const enzymeLineR = R + 76;
-        const enzymeFontSize = 9;
-        const enzymePadX = 7;
-        const enzymeLabelH = 16;
-        const sortedSites = cutSites.map((site, i) => {
-          let ma = ang(site.pos);
-          while (ma < 0) ma += 2 * Math.PI;
-          return { ...site, index: i, ma, labelAngle: ma };
-        }).sort((a, b) => a.ma - b.ma);
-
-        const minAngDist = enzymeLabelH / enzymeLabelR;
-        for (let iter = 0; iter < 12; iter++) {
-          for (let i = 0; i < sortedSites.length; i++) {
-            const curr = sortedSites[i];
-            const next = sortedSites[(i + 1) % sortedSites.length];
-            let diff = next.labelAngle - curr.labelAngle;
-            if (diff < 0 && i === sortedSites.length - 1) diff += 2 * Math.PI;
-            if (diff < minAngDist) {
-              const push = (minAngDist - diff) / 2;
-              curr.labelAngle -= push;
-              next.labelAngle += push;
-            }
-          }
-        }
-
-        return sortedSites.sort((a, b) => a.index - b.index).map((site) => {
-          const siteAngle = ang(site.pos);
-          const labelAngle = site.labelAngle;
-          const sx = cx + (R + FW + 4) * Math.cos(siteAngle);
-          const sy = cy + (R + FW + 4) * Math.sin(siteAngle);
-          const bendX = cx + enzymeLineR * Math.cos(siteAngle);
-          const bendY = cy + enzymeLineR * Math.sin(siteAngle);
-          const lx = cx + enzymeLabelR * Math.cos(labelAngle);
-          const ly = cy + enzymeLabelR * Math.sin(labelAngle);
-          const isHighlighted = !!site.color;
-          const lineColor = isHighlighted ? site.color : '#8a8f98';
-          const textColor = isHighlighted ? '#111827' : '#111827';
-          const textW = site.name.length * 5.6 + 2 * enzymePadX + (isHighlighted ? 8 : 0);
-          const rectX = lx - textW / 2;
-          const rectY = ly - enzymeLabelH / 2;
-          const labelEdge = radialRectEdgePoint(cx, cy, lx, ly, textW, enzymeLabelH);
-
-          return (
-            <g key={`cs-label${site.index}`} style={{ pointerEvents: 'none' }}>
-              <polyline points={`${sx},${sy} ${bendX},${bendY} ${labelEdge.x},${labelEdge.y}`} fill="none" stroke={lineColor} strokeOpacity="0.9" strokeWidth="1" />
-              {isHighlighted && (
-                <>
-                  <rect x={rectX} y={rectY} width={textW} height={enzymeLabelH} rx={4} fill={site.color} fillOpacity="1" stroke="#4b5563" strokeWidth="0.8" />
-                  <circle cx={rectX + 7} cy={ly} r="2.2" fill={getReadableTextColor(site.color)} opacity="0.9" />
-                </>
-              )}
-              <text x={isHighlighted ? lx + 4 : lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={isHighlighted ? getReadableTextColor(site.color) : textColor} fontSize={enzymeFontSize} fontWeight="700" fontStyle="italic">{site.name}</text>
-            </g>
-          );
-        });
-      })()}
-      <text x={cx} y={cy - 10} textAnchor="middle" fill="#475569" fontSize="13" fontWeight="700">{(name || 'Sequence').slice(0, 20)}</text>
-      <text x={cx} y={cy + 9} textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="600">{totalLen.toLocaleString()} bp</text>
-      {isCircular && <text x={cx} y={cy + 26} textAnchor="middle" fill="#94a3b8" fontSize="9">circular</text>}
+      {labelModels.map((label) => {
+        const isEnzyme = label.kind === 'enzyme';
+        const data = isEnzyme ? label.site : label.feat;
+        const a = label.anchorAngle;
+        const ring = point(R + 7, a);
+        const edge = radialRectEdgePoint(ring.x, ring.y, label.lx, label.ly, label.width, label.height);
+        const selected = isEnzyme
+          ? selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === data.name && selectedMapItem?.pos === data.pos
+          : selectedMapItem?.kind === label.kind && selectedMapItem?.index === label.sourceIndex;
+        const baseColor = data.color || (isEnzyme ? '#111827' : '#cbd5e1');
+        const isPrimer = label.kind === 'primer';
+        const hasCard = (!isEnzyme && !isPrimer) || (isEnzyme && data.color && data.color !== '#111827');
+        const rectX = label.lx - label.width / 2;
+        const rectY = label.ly - label.height / 2;
+        const primerDotX = rectX + 6;
+        const textX = isPrimer ? rectX + 15 : label.lx;
+        return (
+          <g
+            key={`label-${label.kind}-${label.sourceIndex}-${data.name || data.label || data.pos}`}
+            cursor="pointer"
+            onClick={(e) => isEnzyme ? onEnzymeClick?.(e, data, label.sourceIndex) : onLabelClick?.(e, data, label.sourceIndex)}
+            onMouseEnter={(e) => isEnzyme ? onEnzymeHover?.(e, data, label.sourceIndex) : onLabelHover?.(e, data, label.sourceIndex)}
+            onMouseLeave={isEnzyme ? onEnzymeLeave : onLabelLeave}
+          >
+            <path d={routeLeaderLine(label, ring, edge)} fill="none" stroke="#8c8c8c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            {hasCard && (
+              <rect x={rectX} y={rectY} width={label.width} height={label.height} rx={4} fill={selected ? '#ffffff' : baseColor} stroke={selected ? '#0f766e' : baseColor} strokeWidth={selected ? 2 : 1} />
+            )}
+            {isPrimer && <circle cx={primerDotX} cy={label.ly} r={selected ? 4.8 : 4} fill={baseColor} stroke={selected ? '#0f766e' : '#ffffff'} strokeWidth={selected ? 1.8 : 1} />}
+            <text x={textX} y={label.ly + 0.5} textAnchor={isPrimer ? 'start' : 'middle'} dominantBaseline="middle" fill={(isPrimer || isEnzyme) && selected ? '#0f766e' : hasCard ? colorText(baseColor) : '#111827'} fontSize="11" fontWeight={selected ? 800 : 600} fontFamily={MAP_LABEL_FONT_FAMILY}>
+              {label.label}
+            </text>
+          </g>
+        );
+      })}
+      <text x={cx} y={cy - 8} textAnchor="middle" fill="#111827" fontSize="15" fontWeight="800">{(name || 'Sequence').slice(0, 28)}</text>
+      <text x={cx} y={cy + 13} textAnchor="middle" fill="#111827" fontSize="13">{totalLen.toLocaleString()} bp</text>
+      {isCircular && <text x={cx} y={cy + 31} textAnchor="middle" fill="#64748b" fontSize="10">circular</text>}
     </svg>
   );
 }
 
 // ── Linear Map ────────────────────────────────────────────────────────────────
-function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureClick, name }) {
+function LinearMap({ seq, features, cutSites, selectedMapItem, selectedRange, rangeColor, onLabelClick, onLabelHover, onLabelLeave, onEnzymeClick, onEnzymeHover, onEnzymeLeave, name }) {
   const totalLen = seq.length; if (!totalLen) return null;
-  const W = 800, H = 230, trackY = 110, FW = 16, ml = 30, mr = 770, mw = 740;
-  const FONT_SIZE = 9;
-  const rectHeight = FONT_SIZE + 6;
+  const W = 820, H = 240, trackY = 110, FW = 18, ml = 40, mr = 780, mw = 740;
   const xOf = pos => ml + (pos / totalLen) * mw;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
-      <line x1={ml} y1={trackY} x2={mr} y2={trackY} stroke="#cbd5e1" strokeWidth="3" />
+      <line x1={ml} y1={trackY} x2={mr} y2={trackY} stroke="#2f3437" strokeWidth="3" />
+      {selectedRange && selectedRange.end > selectedRange.start && <line x1={xOf(selectedRange.start)} y1={trackY - 22} x2={xOf(selectedRange.end)} y2={trackY - 22} stroke={rangeColor || '#0ea5e9'} strokeWidth="7" strokeLinecap="round" />}
       {[0, 0.25, 0.5, 0.75, 1].map(frac => {
         const x = xOf(frac * totalLen), pos = Math.round(frac * totalLen);
-        return (<g key={frac}><line x1={x} y1={trackY - 5} x2={x} y2={trackY + 5} stroke="#94a3b8" strokeWidth="1" /><text x={x} y={trackY + 20} textAnchor="middle" fill="#94a3b8" fontSize="10">{pos.toLocaleString()}</text></g>);
+        return (<g key={frac}><line x1={x} y1={trackY - 7} x2={x} y2={trackY + 7} stroke="#2f3437" strokeWidth="1.4" /><text x={x} y={trackY + 25} textAnchor="middle" fill="#111827" fontSize="10">{pos.toLocaleString()}</text></g>);
       })}
       {features.map((feat, i) => {
         const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
         const y = feat.strand === -1 ? trackY : trackY - FW;
-        const isSel = i === selectedIdx;
-        const aw = Math.min(w, 10);
+        const aw = Math.min(w, 11);
+        const selected = selectedMapItem?.kind === (feat.kind || 'feature') && selectedMapItem?.index === feat.sourceIndex;
         let points = "";
         if (feat.strand === 1 && w > aw) points = `${x1},${y} ${x2 - aw},${y} ${x2},${y + FW / 2} ${x2 - aw},${y + FW} ${x1},${y + FW}`;
         else if (feat.strand === -1 && w > aw) points = `${x1 + aw},${y} ${x2},${y} ${x2},${y + FW} ${x1 + aw},${y + FW} ${x1},${y + FW / 2}`;
         else points = `${x1},${y} ${x2},${y} ${x2},${y + FW} ${x1},${y + FW}`;
-        return (<g key={i} cursor="pointer" onClick={(e) => { e.stopPropagation(); onFeatureClick ? onFeatureClick(e, feat, i) : onSelect(i === selectedIdx ? null : i); }}>
-          <polygon points={points} fill={feat.color || '#6366f1'} fillOpacity={isSel ? 1 : 0.85} stroke={isSel ? '#0f172a' : '#334155'} strokeWidth={isSel ? 1.5 : 0.6} strokeLinejoin="round" />
-        </g>);
+        return (
+          <g key={`${feat.kind || 'feature'}-${feat.sourceIndex ?? i}`} cursor="pointer" onClick={(e) => onLabelClick?.(e, feat, i)} onMouseEnter={(e) => onLabelHover?.(e, feat, i)} onMouseLeave={onLabelLeave}>
+            <polygon points={points} fill={feat.color || '#8fbad9'} fillOpacity="0.92" stroke={selected ? '#0f766e' : '#4b5563'} strokeWidth={selected ? 3 : 0.8} strokeLinejoin="round" />
+            {w > 54 && <text x={x1 + w / 2} y={y + FW / 2 + 1} textAnchor="middle" dominantBaseline="middle" fill={getReadableTextColor(feat.color)} fontSize="10" fontWeight="700" fontFamily={MAP_LABEL_FONT_FAMILY}>{feat.label}</text>}
+          </g>
+        );
       })}
-      {(() => {
-        const placedTop = [];
-        const placedBottom = [];
-        return features.map((feat, i) => {
-          const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
-          const midX = x1 + w / 2;
-          const textW = feat.label.length * 5.5 + 10;
-
-          if (w >= textW + 4) {
-            const fill = feat.color || '#e2e8f0';
-            return (
-              <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
-                <text x={midX} y={feat.strand === -1 ? trackY + FW / 2 + 1 : trackY - FW / 2 + 1} textAnchor="middle" dominantBaseline="middle" fill={getReadableTextColor(fill)} fontSize={FONT_SIZE} fontWeight="700">{feat.label}</text>
-              </g>
-            );
-          }
-
-          const isTop = feat.strand === 1;
-          const yBase = isTop ? trackY - FW - 5 : trackY + FW + 5;
-          const pad = 6;
-          const rectX = midX - textW / 2;
-          const bounds = { x1: rectX - pad, x2: rectX + textW + pad };
-
-          let track = 1;
-          const placed = isTop ? placedTop : placedBottom;
-          while (placed.some(p => p.track === track && !(bounds.x2 < p.x1 || bounds.x1 > p.x2))) {
-            track++;
-          }
-          placed.push({ track, x1: bounds.x1, x2: bounds.x2 });
-
-          const offset = track * 16;
-          const lineY2 = isTop ? yBase - offset + 6 : yBase + offset - 6;
-          const rectY = isTop ? lineY2 - 14 : lineY2;
-          const fill = feat.color || '#e2e8f0';
-          const labelEdgeY = isTop ? rectY + rectHeight : rectY;
-
-          return (
-            <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
-              <line x1={midX} y1={yBase} x2={midX} y2={labelEdgeY} stroke="#8a8f98" strokeWidth="1" />
-              <rect x={rectX} y={rectY} width={textW} height={rectHeight} rx={4} fill={fill} fillOpacity={1} stroke="#6b7280" strokeWidth="0.8" />
-              <text x={midX} y={rectY + rectHeight / 2} textAnchor="middle" dominantBaseline="central" fill={getReadableTextColor(fill)} fontSize={FONT_SIZE} fontWeight="700">{feat.label}</text>
-            </g>
-          );
-        });
-      })()}
-      {(() => {
-        const placed = [];
-        return cutSites.map((site, i) => {
-          const x = xOf(site.pos);
-          const isHighlighted = !!site.color;
-          const lineColor = site.color || '#111827';
-          const labelW = site.name.length * 5.6 + (isHighlighted ? 24 : 10);
-          const clampedX = Math.max(ml + labelW / 2, Math.min(mr - labelW / 2, x));
-          const bounds = { x1: clampedX - labelW / 2 - 4, x2: clampedX + labelW / 2 + 4 };
-          let row = 0;
-          while (placed.some(p => p.row === row && !(bounds.x2 < p.x1 || bounds.x1 > p.x2))) {
-            row++;
-          }
-          placed.push({ row, x1: bounds.x1, x2: bounds.x2 });
-
-          const labelY = 22 + row * 18;
-          const labelH = 15;
-          const rectX = clampedX - labelW / 2;
-          const rectY = labelY - labelH / 2;
-          const labelEdgeY = labelY + labelH / 2;
-
-          return (
-            <g key={i}>
-              <line x1={x} y1={trackY - FW - 5} x2={x} y2={trackY + FW + 5} stroke={lineColor} strokeWidth="1.5" strokeDasharray="3,2" />
-              <polyline points={`${x},${trackY - FW - 5} ${x},${labelEdgeY + 7} ${clampedX},${labelEdgeY}`} fill="none" stroke={lineColor} strokeOpacity="0.85" strokeWidth="1" />
-              {isHighlighted && (
-                <>
-                  <rect x={rectX} y={rectY} width={labelW} height={labelH} rx={4} fill={site.color} fillOpacity="1" stroke="#4b5563" strokeWidth="0.8" />
-                  <circle cx={rectX + 8} cy={labelY} r="2.2" fill={getReadableTextColor(site.color)} opacity="0.9" />
-                </>
-              )}
-              <text x={isHighlighted ? clampedX + 4 : clampedX} y={labelY} textAnchor="middle" dominantBaseline="central" fill={isHighlighted ? getReadableTextColor(site.color) : '#111827'} fontSize="9" fontWeight="700" fontStyle="italic">{site.name}</text>
-            </g>
-          );
-        });
-      })()}
-      <text x={ml} y={H - 12} fill="#475569" fontSize="12" fontWeight="700">{name || 'Sequence'} — {totalLen.toLocaleString()} bp</text>
+      {cutSites.map((site, i) => {
+        const x = xOf(site.pos);
+        const selected = selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === site.name && selectedMapItem?.pos === site.pos;
+        return (
+          <g key={`${site.name}-${site.pos}-${i}`} cursor="pointer" onClick={(e) => onEnzymeClick?.(e, site, i)} onMouseEnter={(e) => onEnzymeHover?.(e, site, i)} onMouseLeave={onEnzymeLeave}>
+            <line x1={x} y1={trackY - FW - 9} x2={x} y2={trackY + FW + 9} stroke={selected ? '#0f766e' : site.color || '#111827'} strokeWidth={selected ? 3 : 1.7} />
+            <text x={x} y={trackY - FW - 16} textAnchor="middle" fill={site.color || '#111827'} fontSize="10" fontWeight="700" fontFamily={MAP_LABEL_FONT_FAMILY}>{site.name}</text>
+          </g>
+        );
+      })}
+      <text x={ml} y={24} fill="#111827" fontSize="13" fontWeight="800">{name || 'Sequence'} - {totalLen.toLocaleString()} bp</text>
     </svg>
   );
 }
@@ -555,6 +765,7 @@ const newEmptyTab = (name = '') => ({
   isCircular: true,
   features: [],
   primers: [],
+  sequenceColors: [],
   selectedEnzymes: {},
   viewMode: 'map',
 });
@@ -577,15 +788,20 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [isCircular, setIsCircular] = useState(true);
   const [features, setFeatures] = useState([]);
   const [primers, setPrimers] = useState([]);
+  const [sequenceColors, setSequenceColors] = useState([]);
   const [selectedEnzymes, setSelectedEnzymes] = useState({});
   const [viewMode, setViewMode] = useState('map');
 
   // ── Shared UI state ───────────────────────────────────────────────────────────
-  const [enzymeFilter, setEnzymeFilter] = useState('all_db');
+  const [enzymeFilter, setEnzymeFilter] = useState('all');
   const [enzymeSearch, setEnzymeSearch] = useState('');
   const [activePanel, setActivePanel] = useState('features');
   const [library, setLibrary] = useState(loadLib);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState(null);
+  const [selectedMapItem, setSelectedMapItem] = useState(null);
+  const [selectedRange, setSelectedRange] = useState(null);
+  const [rangeColor, setRangeColor] = useState('#4a90d9');
+  const [showRangeColorTools, setShowRangeColorTools] = useState(false);
   const [expandedFeatures, setExpandedFeatures] = useState(() => loadExpState(EXP_FEATURES_KEY));
   const [expandedPrimers, setExpandedPrimers] = useState(() => loadExpState(EXP_PRIMERS_KEY));
   const [editingFeatureIdx, setEditingFeatureIdx] = useState(null);
@@ -602,7 +818,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [enzymeSort, setEnzymeSort] = useState({ key: 'name', direction: 'asc' });
   const [expandedEnzymes, setExpandedEnzymes] = useState(() => loadExpState(EXP_ENZYMES_KEY));
   const [enzListFilter, setEnzListFilter] = useState('all');
+  const [enzymeSupplierFilter, setEnzymeSupplierFilter] = useState('all');
   const [movingItemId, setMovingItemId] = useState(null);
+  const [libraryContextMenu, setLibraryContextMenu] = useState(null);
+  const [libraryContextPanel, setLibraryContextPanel] = useState(null);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const hoverTimerRef = useRef(null);
+  const undoHistoryRef = useRef([]);
+  const undoIndexRef = useRef(-1);
+  const skipUndoRecordRef = useRef(false);
+  const [undoVersion, setUndoVersion] = useState(0);
 
   // Persistence Effects
   useEffect(() => { saveExpState(EXP_FOLDERS_KEY, expandedFolders); }, [expandedFolders]);
@@ -649,7 +875,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRawInput('');
     setFeatures([]);
     setPrimers([]);
+    setSequenceColors([]);
     setSelectedEnzymes({});
+    setSelectedMapItem(null);
+    setSelectedRange(null);
     setTargetParentId(parentId);
     setPhase('input');
     // Ensure we start with a fresh tab or update current tab to empty
@@ -669,6 +898,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       const hasChanged = 
         JSON.stringify(item.features) !== JSON.stringify(features) ||
         JSON.stringify(item.primers) !== JSON.stringify(primers) ||
+        JSON.stringify(item.sequenceColors || []) !== JSON.stringify(sequenceColors) ||
         JSON.stringify(item.selectedEnzymes) !== JSON.stringify(selectedEnzymes) ||
         item.isCircular !== isCircular ||
         item.name !== seqName;
@@ -679,6 +909,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         ...item,
         features,
         primers,
+        sequenceColors,
         selectedEnzymes,
         isCircular,
         name: seqName
@@ -689,7 +920,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       saveLib(next);
       return next;
     });
-  }, [features, primers, selectedEnzymes, isCircular, seqName, activeEntryId, phase]);
+  }, [features, primers, sequenceColors, selectedEnzymes, isCircular, seqName, activeEntryId, phase]);
   const [showAddFeature, setShowAddFeature] = useState(false);
   const [newFeature, setNewFeature] = useState({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   const [showAddPrimer, setShowAddPrimer] = useState(false);
@@ -724,6 +955,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         }
         setRenamingId(null);
       }
+      setLibraryContextMenu(null);
+      setLibraryContextPanel(null);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -735,12 +968,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const switchToTab = (tabId) => {
     const tab = openTabs.find(t => t.id === tabId);
     if (!tab || tabId === activeTabId) return;
-    const cleanedTab = splitFeaturesAndPrimers({ sequence: tab.sequence, features: tab.features || [] }, tab.primers || []);
     // Save current tab state first
     setOpenTabs(prev => prev.map(t => t.id === activeTabId
-      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, selectedEnzymes, viewMode, activeEntryId }
-      : t.id === tabId
-        ? { ...t, features: cleanedTab.features, primers: cleanedTab.primers }
+      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, sequenceColors, selectedEnzymes, viewMode, activeEntryId }
       : t
     ));
     setActiveTabId(tabId);
@@ -748,12 +978,15 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSequence(tab.sequence);
     setRawInput(tab.rawInput || tab.sequence);
     setIsCircular(tab.isCircular);
-    setFeatures(cleanedTab.features);
-    setPrimers(cleanedTab.primers);
+    setFeatures(tab.features);
+    setPrimers(tab.primers);
+    setSequenceColors(tab.sequenceColors || []);
     setSelectedEnzymes(tab.selectedEnzymes);
     setActiveEntryId(tab.activeEntryId || null);
     setViewMode(tab.viewMode || 'map');
     setSelectedFeatureIdx(null);
+    setSelectedMapItem(null);
+    setSelectedRange(null);
     setEditingFeatureIdx(null);
     setPhase('map');
   };
@@ -780,13 +1013,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         if (d.rawInput !== undefined) setRawInput(d.rawInput);
         if (d.sequence !== undefined) setSequence(d.sequence);
         if (d.isCircular !== undefined) setIsCircular(d.isCircular);
-        if (d.features !== undefined || d.primers !== undefined) {
-          const cleaned = splitFeaturesAndPrimers({ sequence: d.sequence || sequence, features: d.features || [] }, d.primers || []);
-          setFeatures(cleaned.features);
-          setPrimers(cleaned.primers);
-        }
+        if (d.features !== undefined) setFeatures(d.features);
+        if (d.primers !== undefined) setPrimers(d.primers);
+        if (d.sequenceColors !== undefined) setSequenceColors(d.sequenceColors);
         if (d.selectedEnzymes !== undefined) setSelectedEnzymes(d.selectedEnzymes);
-        if (d.enzymeFilter !== undefined) setEnzymeFilter(d.enzymeFilter);
+        if (d.enzymeFilter !== undefined) setEnzymeFilter(normalizeEnzymeFilter(d.enzymeFilter));
         if (d.enzymeSearch !== undefined) setEnzymeSearch(d.enzymeSearch);
         if (d.activePanel !== undefined) setActivePanel(d.activePanel);
         if (d.viewMode !== undefined) setViewMode(d.viewMode);
@@ -813,6 +1044,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
           isCircular,
           features,
           primers,
+          sequenceColors,
           selectedEnzymes,
           enzymeFilter,
           enzymeSearch,
@@ -832,6 +1064,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     isCircular,
     features,
     primers,
+    sequenceColors,
     selectedEnzymes,
     enzymeFilter,
     enzymeSearch,
@@ -841,6 +1074,82 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     isRestoring,
     addHistoryItem
   ]);
+
+  const undoSnapshot = useMemo(() => ({
+    seqName,
+    rawInput,
+    sequence,
+    isCircular,
+    features,
+    primers,
+    sequenceColors,
+    selectedEnzymes,
+  }), [seqName, rawInput, sequence, isCircular, features, primers, sequenceColors, selectedEnzymes]);
+
+  const applyUndoSnapshot = (snapshot) => {
+    if (!snapshot) return;
+    skipUndoRecordRef.current = true;
+    setSeqName(snapshot.seqName || '');
+    setRawInput(snapshot.rawInput || '');
+    setSequence(snapshot.sequence || '');
+    setIsCircular(snapshot.isCircular ?? true);
+    setFeatures(snapshot.features || []);
+    setPrimers(snapshot.primers || []);
+    setSequenceColors(snapshot.sequenceColors || []);
+    setSelectedEnzymes(snapshot.selectedEnzymes || {});
+    setSelectedMapItem(null);
+    setSelectedRange(null);
+    setTimeout(() => { skipUndoRecordRef.current = false; }, 0);
+  };
+
+  useEffect(() => {
+    if (phase !== 'map' || !sequence) return;
+    if (skipUndoRecordRef.current) return;
+    const serialized = JSON.stringify(undoSnapshot);
+    const current = undoHistoryRef.current[undoIndexRef.current];
+    if (current && current.serialized === serialized) return;
+    const next = undoHistoryRef.current.slice(0, undoIndexRef.current + 1);
+    next.push({ serialized, snapshot: undoSnapshot });
+    undoHistoryRef.current = next.slice(-80);
+    undoIndexRef.current = undoHistoryRef.current.length - 1;
+    setUndoVersion(v => v + 1);
+  }, [undoSnapshot, phase, sequence]);
+
+  const undoChange = () => {
+    if (undoIndexRef.current <= 0) return;
+    undoIndexRef.current -= 1;
+    applyUndoSnapshot(undoHistoryRef.current[undoIndexRef.current]?.snapshot);
+    setUndoVersion(v => v + 1);
+  };
+
+  const redoChange = () => {
+    if (undoIndexRef.current >= undoHistoryRef.current.length - 1) return;
+    undoIndexRef.current += 1;
+    applyUndoSnapshot(undoHistoryRef.current[undoIndexRef.current]?.snapshot);
+    setUndoVersion(v => v + 1);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const target = e.target;
+      const isTyping = target?.closest?.('input, textarea, select, [contenteditable="true"]');
+      if (isTyping || !(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'a' && phase === 'map' && sequence && (viewMode === 'map' || viewMode === 'sequence')) {
+        e.preventDefault();
+        setSelectedRange({ start: 0, end: sequence.length, anchors: [{ kind: 'position', pos: 0 }, { kind: 'position', pos: sequence.length }] });
+        setSelectedMapItem(null);
+        setPopupData(null);
+        return;
+      }
+      if (key !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) redoChange();
+      else undoChange();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase, sequence, viewMode]);
 
 
 
@@ -854,42 +1163,114 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   }, [seq]);
 
   const _filteredEnzymes = useMemo(() => {
-    return Object.entries(RE_DB).map(([name]) => ({ name, count: (allCutSites[name] || []).length }))
-      .filter(({ name, count }) => {
-        const mf = enzymeFilter === 'all' ? count > 0 : enzymeFilter === 'single' ? count === 1 : enzymeFilter === 'double' ? count === 2 : count === 0;
-        return mf && name.toLowerCase().includes(enzymeSearch.toLowerCase());
+    return Object.entries(RE_DB).map(([name, details]) => {
+      const meta = getEnzymeMeta(name, details);
+      return { name, count: (allCutSites[name] || []).length, ...meta };
+    })
+      .filter((enzyme) => {
+        return enzymeMatchesFilters(enzyme, enzymeFilter, enzymeSupplierFilter) && enzyme.name.toLowerCase().includes(enzymeSearch.toLowerCase());
       });
-  }, [allCutSites, enzymeFilter, enzymeSearch]);
+  }, [allCutSites, enzymeFilter, enzymeSearch, enzymeSupplierFilter]);
 
   const activeCutSites = useMemo(() => {
     const res = [];
     Object.entries(selectedEnzymes).forEach(([name, { color }]) => {
-      (allCutSites[name] || []).forEach(pos => res.push({ name, pos, color }));
+      (allCutSites[name] || []).forEach(pos => res.push({ name, pos, color: color || null }));
     });
     return res;
   }, [selectedEnzymes, allCutSites]);
 
   const mapFeatures = useMemo(() => {
-    const visibleFeats = features.filter(f => f.visible !== false);
+    const visibleFeats = features
+      .map((f, index) => ({ ...f, kind: 'feature', sourceIndex: index }))
+      .filter(f => f.visible !== false && normalizedFeatureType(f.type) !== 'source' && normalizedFeatureType(f.type) !== 'primer_bind');
     const primerFeats = primers
-      .filter(p => p.visible && p.seq && seq)
-      .flatMap(p => {
+      .filter(p => p.visible !== false && p.seq && seq)
+      .flatMap((p, primerIndex) => {
         const sites = findPrimerSites(p.seq, seq, p.annealing || p.seq);
-        return sites.map(s => ({ label: p.name, start: s.start, end: s.end, strand: s.strand, color: p.color, type: 'primer' }));
+        return sites.map(s => ({ label: p.name, start: s.start, end: s.end, strand: s.strand, color: p.color, type: 'primer', kind: 'primer', sourceIndex: primerIndex }));
       });
     return [...visibleFeats, ...primerFeats];
   }, [features, primers, seq]);
 
-  const handleFile = (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const content = ev.target.result;
-      const parsedContent = parseFileContent(file.name, content);
-      setRawInput(parsedContent);
-      if (!seqName) setSeqName(file.name.replace(/\.[^.]+$/, ''));
+  const sequenceFocusRange = useMemo(() => {
+    if (selectedRange) return selectedRange;
+    if (!selectedMapItem) return null;
+    if (selectedMapItem.kind === 'enzyme') return { start: selectedMapItem.pos, end: Math.min(seq.length, selectedMapItem.pos + 1) };
+    if (selectedMapItem.kind === 'position') return { start: selectedMapItem.pos, end: Math.min(seq.length, selectedMapItem.pos + 1) };
+    const item = mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index);
+    return item ? { start: item.start, end: item.end } : null;
+  }, [selectedRange, selectedMapItem, mapFeatures, seq.length]);
+
+  const parseImportedSequence = (name, text, existingPrimers = []) => {
+    let parsed;
+    const content = parseFileContent(name, text).trim();
+    if (content.startsWith('>')) parsed = parseFasta(content);
+    else if (content.includes('LOCUS')) parsed = parseGenBank(content);
+    else parsed = { name: name.replace(/\.[^.]+$/, '') || 'Sequence', sequence: content.toUpperCase().replace(/[^ATGCN\s]/g, '').replace(/\s/g, ''), features: [], isCircular };
+
+    const split = splitFeaturesAndPrimers(parsed, existingPrimers);
+    const featureStamp = Date.now();
+    const primerStamp = Date.now();
+    return {
+      ...parsed,
+      features: split.features.map((f, i) => ({ ...f, id: f.id || `f_${featureStamp}_${i}`, visible: f.visible ?? true })),
+      primers: split.primers.map((p, i) => ({ ...p, id: p.id || `p_${primerStamp}_${i}`, visible: p.visible ?? true })),
     };
-    reader.readAsText(file); e.target.value = '';
+  };
+
+  const handleFile = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const readFile = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = ev => resolve({ file, text: ev.target.result });
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+
+    try {
+      const loaded = await Promise.all(files.map(readFile));
+      if (loaded.length === 1) {
+        const { file, text } = loaded[0];
+        const parsedContent = parseFileContent(file.name, text);
+        setRawInput(parsedContent);
+        if (!seqName) setSeqName(file.name.replace(/\.[^.]+$/, ''));
+        e.target.value = '';
+        return;
+      }
+
+      const parent = library.find(i => i.id === targetParentId);
+      const defaultColor = parent ? parent.color : '#475569';
+      const now = new Date().toISOString();
+      const entries = loaded.map(({ file, text }, index) => {
+        const parsed = parseImportedSequence(file.name, text);
+        const name = parsed.name || file.name.replace(/\.[^.]+$/, '') || `Sequence ${index + 1}`;
+        return {
+          id: `file_${Date.now()}_${index}`,
+          name,
+          sequence: parsed.sequence,
+          features: parsed.features,
+          sequenceColors: [],
+          isCircular: parsed.isCircular ?? true,
+          selectedEnzymes: {},
+          primers: parsed.primers,
+          dateAdded: now,
+          dateEdited: now,
+          parentId: targetParentId,
+          color: defaultColor,
+          type: 'file'
+        };
+      }).filter(entry => entry.sequence);
+      if (entries.length) {
+        const next = [...entries, ...library].slice(0, 80);
+        setLibrary(next);
+        saveLib(next);
+        loadFromLibrary(entries[0]);
+      }
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const handleSave = () => {
@@ -900,18 +1281,20 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     else parsed = { name: seqName || 'Sequence', sequence: text.toUpperCase().replace(/[^ATGCN\s]/g, '').replace(/\s/g, ''), features: [], isCircular };
 
     const name = seqName || parsed.name || 'Unnamed';
-    const imported = splitFeaturesAndPrimers(parsed);
-    const importId = Date.now();
-    const featuresWithId = imported.features.map((f, i) => ({ ...f, id: `f_${importId}_${i}`, visible: true }));
-    const primersWithId = imported.primers.map((p, i) => ({ ...p, id: `p_${importId}_${i}` }));
+    const split = splitFeaturesAndPrimers(parsed, primers);
+    const featuresWithId = (split.features || []).map((f, i) => ({ ...f, id: f.id || `f_${Date.now()}_${i}`, visible: f.visible ?? true }));
+    const primersWithId = (split.primers || []).map((p, i) => ({ ...p, id: p.id || `p_${Date.now()}_${i}`, visible: p.visible ?? true }));
 
     setSeqName(name);
     setSequence(parsed.sequence);
     setFeatures(featuresWithId);
+    setPrimers(primersWithId);
+    setSequenceColors([]);
     if (parsed.isCircular !== undefined) setIsCircular(parsed.isCircular);
     setSelectedEnzymes({});
-    setPrimers(primersWithId);
     setSelectedFeatureIdx(null);
+    setSelectedMapItem(null);
+    setSelectedRange(null);
 
     const parent = library.find(i => i.id === targetParentId);
     const defaultColor = parent ? parent.color : '#475569';
@@ -921,6 +1304,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       name,
       sequence: parsed.sequence,
       features: featuresWithId,
+      sequenceColors: [],
       isCircular: parsed.isCircular ?? isCircular,
       selectedEnzymes: {},
       primers: primersWithId,
@@ -947,37 +1331,25 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     if (existing) { switchToTab(existing.id); return; }
     // Save current tab state
     setOpenTabs(prev => prev.map(t => t.id === activeTabId
-      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, selectedEnzymes, viewMode, activeEntryId }
+      ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, sequenceColors, selectedEnzymes, viewMode, activeEntryId }
       : t
     ));
     // Open in new tab
     const tab = newEmptyTab(entry.name);
-    const cleaned = splitFeaturesAndPrimers({ sequence: entry.sequence, features: entry.features || [] }, entry.primers || []);
-    const feats = cleaned.features.map(f => ({ ...f, visible: f.visible ?? true }));
-    const cleanedPrimers = cleaned.primers.map((p, i) => ({
-      ...p,
-      id: p.id || `p_${entry.id}_${i}`,
-      visible: p.visible ?? true,
-    }));
+    const feats = (entry.features || []).map(f => ({ ...f, visible: f.visible ?? true }));
     const newTab = { 
       ...tab, 
       seqName: entry.name, 
       sequence: entry.sequence, 
       rawInput: entry.sequence, 
       features: feats, 
+      sequenceColors: entry.sequenceColors || [],
       isCircular: entry.isCircular ?? true, 
       selectedEnzymes: entry.selectedEnzymes || {}, 
-      primers: cleanedPrimers, 
+      primers: entry.primers || [], 
       viewMode: 'map',
       activeEntryId: entry.id
     };
-    if (cleaned.features.length !== (entry.features || []).length || cleaned.primers.length !== (entry.primers || []).length) {
-      setLibrary(prev => {
-        const updated = prev.map(item => item.id === entry.id ? { ...item, features: feats, primers: cleanedPrimers, dateEdited: new Date().toISOString() } : item);
-        saveLib(updated);
-        return updated;
-      });
-    }
     setOpenTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
     setSeqName(entry.name);
@@ -985,9 +1357,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRawInput(entry.sequence);
     setIsCircular(entry.isCircular ?? true);
     setFeatures(feats);
-    setPrimers(cleanedPrimers);
+    setPrimers(entry.primers || []);
+    setSequenceColors(entry.sequenceColors || []);
     setSelectedEnzymes(entry.selectedEnzymes || {});
     setActiveEntryId(entry.id);
+    setSelectedMapItem(null);
+    setSelectedRange(null);
     setPhase('map');
   };
 
@@ -1017,6 +1392,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setLibrary(next);
     saveLib(next);
     setMovingItemId(null);
+  };
+  const startRenamingLibraryItem = (item) => {
+    setRenamingId(item.id);
+    setRenamingName(item.name);
   };
   const updateLibraryItem = (id, updates) => {
     let next = library.map(item => 
@@ -1063,28 +1442,63 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     return [...children.map(c => c.id), ...children.flatMap(c => getChildrenIds(c.id))];
   };
 
+  const toggleLibraryFolder = (folderId) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
+  const openLibraryItem = (item) => {
+    if (!item) return;
+    if (item.type === 'folder') {
+      toggleLibraryFolder(item.id);
+      return;
+    }
+    loadFromLibrary(item);
+  };
+
+  const openLibraryContextMenu = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setPopupData(null);
+    setMovingItemId(null);
+    setLibraryContextMenu({ itemId: item.id, x: event.clientX, y: event.clientY });
+    setLibraryContextPanel(null);
+  };
+
+  const getLibraryMoveTargets = (item) => (
+    library.filter(folder => (
+      folder.type === 'folder' &&
+      folder.id !== item.id &&
+      !getChildrenIds(item.id).includes(folder.id)
+    ))
+  );
+
   const renderLibraryExplorer = () => {
     const renderRows = (parentId = null, depth = 0) => {
       const items = library.filter(i => (i.parentId || null) === parentId);
       return items.flatMap(item => {
         const isFolder = item.type === 'folder';
-        const isMoving = FiSend === item.id;
+        const isMoving = movingItemId === item.id;
         const isExpanded = expandedFolders.has(item.id);
         const hasChildren = library.some(i => i.parentId === item.id);
         const itemColor = item.color || '#475569';
 
         return [
-          <tr key={item.id} className={`hover:bg-slate-50/80 transition-colors group ${activeEntryId === item.id ? 'bg-teal-50/30' : ''}`}>
+          <tr
+            key={item.id}
+            className={`hover:bg-slate-50/80 transition-colors group cursor-pointer ${activeEntryId === item.id ? 'bg-teal-50/30' : ''}`}
+            onClick={() => openLibraryItem(item)}
+            onContextMenu={(e) => openLibraryContextMenu(e, item)}
+          >
             <td className="px-4 py-2.5">
               <div className="flex items-center gap-2" style={{ paddingLeft: depth * 24 }}>
                 <div className="w-5 flex-shrink-0 flex items-center justify-center">
                   {isFolder && hasChildren && (
-                    <button onClick={() => setExpandedFolders(prev => {
-                      const next = new Set(prev);
-                      if (next.has(item.id)) next.delete(item.id);
-                      else next.add(item.id);
-                      return next;
-                    })} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
+                    <button onClick={(e) => { e.stopPropagation(); toggleLibraryFolder(item.id); }} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
                       <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                     </button>
                   )}
@@ -1092,7 +1506,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
                 <div className="relative flex items-center justify-center">
                   <button 
-                    onClick={() => setShowFolderColorPickerId(showFolderColorPickerId === item.id ? null : item.id)}
+                    onClick={(e) => { e.stopPropagation(); setShowFolderColorPickerId(showFolderColorPickerId === item.id ? null : item.id); }}
                     className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all flex items-center justify-center"
                     style={{ color: itemColor }}
                   >
@@ -1151,11 +1565,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         setRenamingId(null);
                       }}
                     />
-                    <button onClick={() => { updateLibraryItem(item.id, { name: renamingName }); setRenamingId(null); }} className="p-1 text-teal-600 hover:bg-teal-50 rounded"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => { updateLibraryItem(item.id, { name: renamingName }); setRenamingId(null); }} className="p-1 text-slate-600 hover:bg-teal-50 rounded"><Check className="w-4 h-4" /></button>
                   </div>
                 ) : (
-                  <span className={`text-sm font-medium transition-colors ${isFolder ? 'text-slate-700' : 'text-slate-900 cursor-pointer hover:text-teal-600'}`}
-                        onClick={() => !isFolder && loadFromLibrary(item)}>
+                  <span
+                    className={`text-sm font-medium transition-colors ${isFolder ? 'text-slate-700' : 'text-slate-900 group-hover:text-teal-600'}`}
+                  >
                     {item.name}
                   </span>
                 )}
@@ -1169,13 +1584,13 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             </td>
             <td className="px-4 py-2.5 text-right relative">
               <div className="flex items-center justify-end gap-1">
-                <button onClick={() => { setRenamingId(item.id); setRenamingName(item.name); }} 
+                <button onClick={(e) => { e.stopPropagation(); startRenamingLibraryItem(item); }} 
                         className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="Rename">
                   <Edit3 className="w-4 h-4" />
                 </button>
                 
                 <div className="relative">
-                  <button onClick={() => setMovingItemId(isMoving ? null : item.id)}
+                  <button onClick={(e) => { e.stopPropagation(); setMovingItemId(isMoving ? null : item.id); }}
                           className={`p-1.5 rounded-lg transition-colors ${isMoving ? 'text-teal-600 bg-teal-50 shadow-inner' : 'text-slate-400 hover:text-teal-600 hover:bg-teal-50'}`} title="Move Item">
                     <FiSend className={`w-4 h-4 transition-transform ${isMoving ? 'rotate-180' : ''}`} />
                   </button>
@@ -1187,12 +1602,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         <button onClick={() => setMovingItemId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-3 h-3" /></button>
                       </div>
                       <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                        <button onClick={() => moveItem(item.id, null)} 
+                        <button onClick={(e) => { e.stopPropagation(); moveItem(item.id, null); }} 
                                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${item.parentId === null ? 'bg-teal-50 text-teal-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}>
                           <div className="w-4 h-4 flex items-center justify-center bg-slate-100 rounded text-[10px]">/</div> Root Directory
                         </button>
                         {library.filter(f => f.type === 'folder' && f.id !== item.id && !getChildrenIds(item.id).includes(f.id)).map(folder => (
-                          <button key={folder.id} onClick={() => moveItem(item.id, folder.id)}
+                          <button key={folder.id} onClick={(e) => { e.stopPropagation(); moveItem(item.id, folder.id); }}
                                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${item.parentId === folder.id ? 'bg-teal-50 text-teal-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}>
                             <Folder className="w-4 h-4 text-amber-500 fill-current opacity-40" /> {folder.name}
                           </button>
@@ -1202,7 +1617,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   )}
                 </div>
 
-                <button onClick={() => { if (confirm(`Are you sure you want to delete ${isFolder ? 'folder' : 'file'} "${item.name}"?`)) deleteFromLibrary(item.id); }} 
+                <button onClick={(e) => { e.stopPropagation(); if (confirm(`Are you sure you want to delete ${isFolder ? 'folder' : 'file'} "${item.name}"?`)) deleteFromLibrary(item.id); }} 
                         className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1216,7 +1631,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
     const rows = renderRows(null, 0);
     return (
-      <div className="bg-white rounded-xl border border-slate-200 overflow-visible shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-visible shadow-sm" style={{ fontFamily: LIBRARY_FONT_FAMILY }}>
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
@@ -1250,6 +1665,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     });
   };
 
+  const clearEnzymeHighlight = (name) => {
+    setSelectedEnzymes(prev => prev[name] ? { ...prev, [name]: { ...prev[name], color: null } } : prev);
+  };
+
   const addFeature = () => {
     const f = { ...newFeature, id: `f_${Date.now()}`, start: parseInt(newFeature.start) - 1, end: parseInt(newFeature.end), strand: parseInt(newFeature.strand), type: newFeature.type || 'misc_feature', visible: true };
     setFeatures(prev => [...prev, f]);
@@ -1279,12 +1698,139 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSequence(newSeq);
     setRawInput(newSeq);
     setFeatures(newFeats);
+    setSequenceColors(prev => prev
+      .map(region => {
+        if (region.start >= end) return { ...region, start: region.start - delLen, end: region.end - delLen };
+        if (region.end <= start) return region;
+        if (region.start >= start && region.end <= end) return null;
+        return { ...region, start: Math.min(region.start, start), end: Math.max(start, region.end - delLen) };
+      })
+      .filter(Boolean));
   };
 
   const handleAddFeatureFromSelection = (start, end) => {
     setActivePanel('features');
     setNewFeature({ label: 'Nieuwe Feature', type: 'misc_feature', color: '#3b82f6', start: start + 1, end: end, strand: 1 });
     setShowAddFeature(true);
+  };
+
+  const colorSequenceRegion = (start, end, strand = 0, color = rangeColor) => {
+    if (start >= end) return;
+    setSequenceColors(prev => [...prev, { id: `sc_${Date.now()}`, start, end, strand, color }]);
+    setRangeColor(color);
+    setShowRangeColorTools(false);
+  };
+
+  const itemAnchor = (kind, item, index) => ({
+    kind,
+    index,
+    name: item.name || item.label,
+    pos: kind === 'enzyme' || kind === 'position' ? item.pos : Math.round(((item.start || 0) + (item.end || 0)) / 2),
+  });
+
+  const selectRangeFromAnchors = (first, second) => {
+    if (!first || !second || !seq.length) return null;
+    const a = Math.max(0, Math.min(seq.length, first.pos));
+    const b = Math.max(0, Math.min(seq.length, second.pos));
+    if (a === b) return null;
+    const range = { start: Math.min(a, b), end: Math.max(a, b), anchors: [first, second] };
+    setSelectedRange(range);
+    return range;
+  };
+
+  const handleMapSelection = (e, kind, item, index) => {
+    e.stopPropagation();
+    clearTimeout(hoverTimerRef.current);
+    setPopupData(null);
+    const next = kind === 'enzyme'
+      ? { kind, name: item.name, pos: item.pos, index }
+      : { kind, index: item.sourceIndex ?? index };
+
+    if (e.shiftKey && selectedMapItem) {
+      const firstItem = selectedMapItem.kind === 'enzyme'
+        ? { name: selectedMapItem.name, pos: selectedMapItem.pos }
+        : mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index) || item;
+      selectRangeFromAnchors(itemAnchor(selectedMapItem.kind, firstItem, selectedMapItem.index), itemAnchor(kind, item, index));
+      setSelectedMapItem(next);
+      return;
+    }
+
+    setSelectedMapItem(next);
+    setSelectedFeatureIdx(kind === 'feature' ? item.sourceIndex ?? index : null);
+    setSelectedRange(null);
+  };
+
+  const handlePositionClick = (e, pos) => {
+    e.stopPropagation();
+    clearTimeout(hoverTimerRef.current);
+    setPopupData(null);
+    const positionItem = { pos };
+    const next = { kind: 'position', pos };
+
+    if (e.shiftKey && selectedMapItem) {
+      const firstItem = selectedMapItem.kind === 'enzyme' || selectedMapItem.kind === 'position'
+        ? { name: selectedMapItem.name, pos: selectedMapItem.pos }
+        : mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index) || positionItem;
+      selectRangeFromAnchors(itemAnchor(selectedMapItem.kind, firstItem, selectedMapItem.index), itemAnchor('position', positionItem, null));
+      setSelectedMapItem(next);
+      return;
+    }
+
+    setSelectedMapItem(next);
+    setSelectedFeatureIdx(null);
+    setSelectedRange(null);
+  };
+
+  const showHoverPopup = (e, kind, item, index) => {
+    clearTimeout(hoverTimerRef.current);
+    const x = e.clientX;
+    const y = e.clientY;
+    hoverTimerRef.current = setTimeout(() => {
+      setPopupData({ x, y, kind, item, idx: item.sourceIndex ?? index });
+    }, 2000);
+  };
+
+  const clearHoverPopup = () => clearTimeout(hoverTimerRef.current);
+
+  const openSelectedEditor = (data) => {
+    setPopupData(null);
+    if (data.kind === 'feature') {
+      setViewMode('features');
+      setActivePanel('features');
+      setExpandedFeatures(new Set([data.idx]));
+      setEditingFeatureIdx(data.idx);
+    } else if (data.kind === 'primer') {
+      setViewMode('primers');
+      setActivePanel('primers');
+      const primer = primers[data.idx];
+      if (primer) {
+        setExpandedPrimerId(primer.id);
+        setEditingPrimerIdx(data.idx);
+      }
+    } else if (data.kind === 'enzyme') {
+      setViewMode('enzymes');
+      setActivePanel('enzymes');
+      setExpandedEnzymes(new Set([data.item.name]));
+    }
+  };
+
+  const hideSelectedItem = (data) => {
+    if (data.kind === 'feature') updateFeature(data.idx, { visible: false });
+    if (data.kind === 'primer') updatePrimer(data.idx, { visible: false });
+    if (data.kind === 'enzyme') {
+      setSelectedEnzymes(prev => {
+        const next = { ...prev };
+        delete next[data.item.name];
+        return next;
+      });
+    }
+    setPopupData(null);
+  };
+
+  const recolorSelectedItem = (data, color) => {
+    if (data.kind === 'feature') updateFeature(data.idx, { color });
+    if (data.kind === 'primer') updatePrimer(data.idx, { color });
+    if (data.kind === 'enzyme') toggleEnzyme(data.item.name, color);
   };
 
 
@@ -1312,15 +1858,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
   const exportGenBank = () => {
     const n = seqName || 'Sequence';
-    const primerFeatureLines = primers.flatMap((p) => {
-      const site = findPrimerSites(p.seq, seq, p.annealing || p.seq)[0];
-      if (!site) return [];
-      return [
-        `     ${'primer_bind'.padEnd(16)}${site.strand === -1 ? `complement(${site.start + 1}..${site.end})` : `${site.start + 1}..${site.end}`}`,
-        `                     /label="${p.name || 'Primer'}"`,
-        `                     /ApEinfo_fwdcolor="${p.color || '#6366f1'}"`
-      ];
-    });
     const lines = [
       `LOCUS       ${n.padEnd(16)} ${String(seq.length).padStart(6)} bp    DNA     ${isCircular ? 'circular' : 'linear  '} SYN`,
       'FEATURES             Location/Qualifiers',
@@ -1329,7 +1866,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         `                     /label="${f.label}"`,
         `                     /ApEinfo_fwdcolor="${f.color || '#6366f1'}"`
       ]),
-      ...primerFeatureLines,
       'ORIGIN',
       ...Array.from({ length: Math.ceil(seq.length / 60) }, (_, i) => {
         const chunk = seq.slice(i * 60, (i + 1) * 60);
@@ -1346,37 +1882,193 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `${seqName || 'sequence'}_map.png`; a.click();
   };
 
-  const handleFeatureClick = (e, feature, idx) => {
-    e.stopPropagation();
-    setPopupData({ x: e.clientX, y: e.clientY, feature, idx });
-    setSelectedFeatureIdx(idx);
-    setActivePanel('features');
+  const handleFeatureClick = (e, feature, idx) => handleMapSelection(e, feature.kind || 'feature', feature, idx);
+  const handleFeatureHover = (e, feature, idx) => showHoverPopup(e, feature.kind || 'feature', feature, idx);
+  const handleEnzymeClick = (e, site, idx) => handleMapSelection(e, 'enzyme', site, idx);
+  const handleEnzymeHover = (e, site, idx) => showHoverPopup(e, 'enzyme', site, idx);
+  const handleSequenceAnnotationClick = (e, data) => {
+    const kind = data.kind || 'feature';
+    handleMapSelection(e, kind, data.item || data, data.item?.sourceIndex ?? 0);
+    setViewMode('sequence');
   };
-  const handleMapClick = () => { setPopupData(null); };
+  const handleMapClick = () => {
+    setPopupData(null);
+    setLibraryContextMenu(null);
+    setLibraryContextPanel(null);
+    setShowRangeColorTools(false);
+    clearTimeout(hoverTimerRef.current);
+  };
 
   return (
     <div className="space-y-4 relative" onClick={handleMapClick}>
+      {libraryContextMenu && (() => {
+        const item = library.find(i => i.id === libraryContextMenu.itemId);
+        if (!item) return null;
+        const moveTargets = getLibraryMoveTargets(item);
+        const itemColor = item.color || '#111827';
+        const colorChoices = ['#111827', '#475569', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
+        return (
+          <div
+            className="fixed z-[300] w-56 rounded-xl border border-slate-200 bg-white p-1.5 text-xs shadow-2xl"
+            style={{ left: libraryContextMenu.x, top: libraryContextMenu.y }}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
+            onContextMenu={e => e.preventDefault()}
+          >
+            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 truncate">{item.name}</div>
+            <button
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
+              onClick={() => { startRenamingLibraryItem(item); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+            >
+              <Edit3 className="h-3.5 w-3.5" /> Rename
+            </button>
+            <button
+              className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left ${libraryContextPanel === 'move' ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-slate-100'}`}
+              onClick={() => setLibraryContextPanel(libraryContextPanel === 'move' ? null : 'move')}
+            >
+              <span className="flex items-center gap-2"><FiSend className="h-3.5 w-3.5" /> Move</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left ${libraryContextPanel === 'color' ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-slate-100'}`}
+              onClick={() => setLibraryContextPanel(libraryContextPanel === 'color' ? null : 'color')}
+            >
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 rounded-full border border-slate-300" style={{ backgroundColor: itemColor }} />
+                Change color
+              </span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
+              onClick={() => { updateLibraryItem(item.id, { color: '#111827' }); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+            >
+              <X className="h-3.5 w-3.5" /> Remove color
+            </button>
+
+            {libraryContextPanel === 'move' && (
+              <div className="absolute left-full top-8 ml-2 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl">
+                <div className="mb-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Move to</div>
+                <button
+                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${item.parentId == null ? 'bg-teal-50 font-bold text-teal-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                  onClick={() => { moveItem(item.id, null); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+                >
+                  <div className="flex h-4 w-4 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-500">/</div>
+                  Root Directory
+                </button>
+                <div className="max-h-52 overflow-y-auto pr-1">
+                  {moveTargets.map(folder => (
+                    <button
+                      key={folder.id}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${item.parentId === folder.id ? 'bg-teal-50 font-bold text-teal-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                      onClick={() => { moveItem(item.id, folder.id); setLibraryContextMenu(null); setLibraryContextPanel(null); setExpandedFolders(prev => new Set([...prev, folder.id])); }}
+                    >
+                      <Folder className="h-4 w-4 fill-current opacity-80" style={{ color: folder.color || '#475569' }} />
+                      <span className="truncate">{folder.name}</span>
+                    </button>
+                  ))}
+                  {moveTargets.length === 0 && (
+                    <div className="px-2 py-2 text-slate-400">No folders available</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {libraryContextPanel === 'color' && (
+              <div className="absolute left-full top-16 ml-2 w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Change color</div>
+                <div className="grid grid-cols-5 gap-2">
+                  {colorChoices.map(c => (
+                    <button
+                      key={c}
+                      className={`h-6 w-6 rounded-full border transition-transform hover:scale-110 ${itemColor === c ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
+                      style={{ backgroundColor: c }}
+                      onClick={() => { updateLibraryItem(item.id, { color: c }); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+                    />
+                  ))}
+                </div>
+                <label className="mt-3 flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-semibold text-teal-700 hover:bg-teal-50">
+                  Custom color
+                  <input
+                    type="color"
+                    value={itemColor}
+                    onChange={e => { updateLibraryItem(item.id, { color: e.target.value }); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+                    className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {popupData && (
         <div 
-          onClick={() => {
-            setViewMode('features');
-            setExpandedFeatures(new Set([popupData.idx]));
-            setEditingFeatureIdx(popupData.idx);
-            setPopupData(null);
-          }}
-          className="fixed z-[100] bg-white border border-slate-200 text-slate-800 p-4 rounded-2xl shadow-2xl text-xs w-60 cursor-pointer transition-transform hover:scale-[1.02]" 
+          onClick={e => e.stopPropagation()}
+          className="fixed z-[100] bg-white border border-slate-200 text-slate-800 p-4 rounded-xl shadow-2xl text-xs w-64"
           style={{ left: popupData.x, top: popupData.y, transform: 'translate(-50%, -100%)', marginTop: '-15px' }}>
-          <div className="font-bold text-sm mb-1 text-slate-900">{popupData.feature.label}</div>
-          {popupData.feature.type && popupData.feature.type !== 'misc_feature' && <div className="text-slate-500 mb-2 truncate text-[10px] uppercase font-bold tracking-wider">{popupData.feature.type}</div>}
+          <div className="font-bold text-sm mb-1 text-slate-900">{popupData.item?.label || popupData.item?.name || popupData.item?.type}</div>
+          {popupData.kind && <div className="text-slate-500 mb-2 truncate text-[10px] uppercase font-bold tracking-wider">{popupData.kind}</div>}
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-slate-500">
-            <div>Start: <span className="text-slate-800 font-semibold">{popupData.feature.start + 1}</span></div>
-            <div>Einde: <span className="text-slate-800 font-semibold">{popupData.feature.end}</span></div>
-            <div>Lengte: <span className="text-slate-800 font-semibold">{popupData.feature.end - popupData.feature.start} bp</span></div>
-            <div>Richt: <span className="text-slate-800 font-bold text-sm leading-none">{popupData.feature.strand === 1 ? '→' : popupData.feature.strand === -1 ? '←' : '↔︎'}</span></div>
+            {popupData.kind === 'enzyme' ? (
+              <>
+                <div>Positie: <span className="text-slate-800 font-semibold">{popupData.item.pos + 1}</span></div>
+                <div>Naam: <span className="text-slate-800 font-semibold">{popupData.item.name}</span></div>
+              </>
+            ) : (
+              <>
+                <div>Start: <span className="text-slate-800 font-semibold">{(popupData.item?.start || 0) + 1}</span></div>
+                <div>Einde: <span className="text-slate-800 font-semibold">{popupData.item?.end}</span></div>
+                <div>Lengte: <span className="text-slate-800 font-semibold">{(popupData.item?.end || 0) - (popupData.item?.start || 0)} bp</span></div>
+                <div>Richt: <span className="text-slate-800 font-bold text-sm leading-none">{popupData.item?.strand === 1 ? '→' : popupData.item?.strand === -1 ? '←' : '↔︎'}</span></div>
+              </>
+            )}
           </div>
-          <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-teal-600 font-bold animate-pulse">Klik om te bewerken</div>
-          {/* Arrow pointing down */}
+          <div className="mt-3 pt-2 border-t border-slate-100 space-y-2">
+            <div className="flex items-center gap-2">
+              <button onClick={() => openSelectedEditor(popupData)} className="px-2 py-1 rounded-md bg-teal-50 text-teal-700 font-bold hover:bg-teal-100">Bewerk</button>
+              <button onClick={() => hideSelectedItem(popupData)} className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">Hide</button>
+              <button onClick={() => { if (popupData.kind === 'enzyme') clearEnzymeHighlight(popupData.item.name); else recolorSelectedItem(popupData, undefined); }} className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">Geen kleur</button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {RE_HIGHLIGHT_COLORS.slice(0, 6).map(c => (
+                <button key={c} onClick={() => recolorSelectedItem(popupData, c)} className="w-5 h-5 rounded-full border border-slate-200" style={{ backgroundColor: c }} />
+              ))}
+              <input type="color" defaultValue={popupData.item?.color || '#4a90d9'} onChange={e => recolorSelectedItem(popupData, e.target.value)} className="w-6 h-6 p-0 border-0 bg-transparent" />
+            </div>
+          </div>
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.1)]"></div>
+        </div>
+      )}
+      {selectedRange && (
+        <div className="fixed z-[90] bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <span className="font-semibold text-slate-600">{selectedRange.start + 1}..{selectedRange.end} ({selectedRange.end - selectedRange.start} bp)</span>
+          <button onClick={() => handleAddFeatureFromSelection(selectedRange.start, selectedRange.end)} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-slate-800 hover:bg-slate-100">
+            <Plus className="h-3.5 w-3.5" /> Make feature
+          </button>
+          <div className="relative">
+            <button onClick={() => setShowRangeColorTools(v => !v)} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-slate-800 hover:bg-slate-100">
+              <Palette className="h-3.5 w-3.5" /> Change DNA color
+            </button>
+            {showRangeColorTools && (
+              <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl">
+                <div className="mb-2 grid grid-cols-6 gap-1.5">
+                  {DNA_COLOR_PRESETS.map(color => (
+                    <button key={color} onClick={() => setRangeColor(color)} className={`h-6 w-6 rounded-full border ${rangeColor === color ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`} style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+                <label className="mb-2 flex items-center justify-between gap-2 text-[11px] font-medium text-slate-600">
+                  Custom
+                  <input type="color" value={rangeColor} onChange={e => setRangeColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0" />
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button onClick={() => colorSequenceRegion(selectedRange.start, selectedRange.end, 1, rangeColor)} className="rounded-md bg-slate-100 px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200">Top</button>
+                  <button onClick={() => colorSequenceRegion(selectedRange.start, selectedRange.end, -1, rangeColor)} className="rounded-md bg-slate-100 px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200">Bottom</button>
+                  <button onClick={() => colorSequenceRegion(selectedRange.start, selectedRange.end, 0, rangeColor)} className="rounded-md bg-teal-50 px-2 py-1.5 text-[11px] font-medium text-teal-700 hover:bg-teal-100">Both</button>
+                </div>
+              </div>
+            )}
+          </div>
+          <button onClick={() => { setSelectedRange(null); setShowRangeColorTools(false); }} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="w-3.5 h-3.5" /></button>
         </div>
       )}
       {/* Header */}
@@ -1440,7 +2132,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       )}
 
       {/* Global hidden file input */}
-      <input ref={fileRef} type="file" accept=".dna,.fasta,.fa,.fna,.gb,.gbk,.ape,.txt" className="hidden" onChange={handleFile} />
+      <input ref={fileRef} type="file" multiple accept=".dna,.fasta,.fa,.fna,.gb,.gbk,.ape,.txt" className="hidden" onChange={handleFile} />
 
       {/* ── Input phase ── */}
       {toolTab === 'analyzer' && phase === 'input' && (
@@ -1462,7 +2154,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             />
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-1.5">
-                <Upload className="w-4 h-4" /> Import sequence
+                <Upload className="w-4 h-4" /> Import sequence(s)
               </Button>
               <Button onClick={handleSave} disabled={!rawInput.trim()} className="flex-1 bg-teal-600 hover:bg-teal-700 gap-1.5">
                 <Save className="w-4 h-4" /> Save &amp; Visualize
@@ -1477,7 +2169,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             {library.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-8">No saved sequences yet</p>
             ) : (
-              <div className="space-y-1 max-h-80 overflow-y-auto">
+              <div className="space-y-1 max-h-80 overflow-y-auto" style={{ fontFamily: LIBRARY_FONT_FAMILY }}>
                 {library.map(entry => (
                   <div key={entry.id} className="group flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-teal-50 border border-transparent hover:border-teal-200 cursor-pointer transition-colors" onClick={() => loadFromLibrary(entry)}>
                     <Dna className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
@@ -1504,30 +2196,44 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       )}
 
       {toolTab === 'analyzer' && phase === 'map' && seq && (
-        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white" style={{ minHeight: 560 }}>
+        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white min-h-0" style={{ height: 'calc(100vh - 155px)', minHeight: 560 }}>
 
 
 
           {/* Sidebar + map row */}
-          <div className="flex flex-1 overflow-hidden relative">
+          <div className="flex flex-1 min-h-0 overflow-hidden relative">
 
-            <div className="flex-shrink-0 border-r flex flex-col bg-slate-50 relative" style={{ width: leftWidth }}>
+            <div className="flex-shrink-0 border-r flex flex-col bg-slate-50 relative" style={{ width: leftPanelCollapsed ? 42 : leftWidth }}>
+              <button
+                onClick={() => setLeftPanelCollapsed(v => !v)}
+                className="absolute -right-3 top-3 z-20 w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-teal-700"
+                title={leftPanelCollapsed ? 'Open left panel' : 'Close left panel'}
+              >
+                {leftPanelCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+              </button>
+              {leftPanelCollapsed ? (
+                <div className="flex flex-col items-center gap-2 py-12">
+                  <button onClick={() => setPhase('library')} className="p-2 rounded-lg text-black-700 hover:bg-slate-50" title="Library"><Library className="w-4 h-4" /></button>
+                  <button onClick={() => startNewSequence(null)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100" title="New Sequence"><Plus className="w-4 h-4" /></button>
+                </div>
+              ) : (
+              <>
               {/* Library Button */}
               <div className="p-2 border-b bg-white">
-                <button onClick={() => setPhase('library')} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors border border-teal-100">
+                <button onClick={() => setPhase('library')} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-black-700 bg-slate-50 hover:bg-slate-100 transition-colors border border-black-100">
                   <Library className="w-4 h-4 flex-shrink-0" /> Library
                 </button>
               </div>
 
               {/* Library entry list */}
-              <div className="flex-1 overflow-y-auto p-2">
+              <div className="flex-1 overflow-y-auto p-2" style={{ fontFamily: LIBRARY_FONT_FAMILY }}>
                 <div className="flex items-center justify-between mb-2 px-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">My Files</p>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wide">My Files</p>
                   <div className="flex gap-1">
-                    <button onClick={() => addFolder(null)} title="New Folder" className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-teal-600 transition-colors">
+                    <button onClick={() => addFolder(null)} title="New Folder" className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-slate-900 transition-colors">
                       <FolderPlus className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => startNewSequence(null)} title="New Sequence" className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-teal-600 transition-colors">
+                    <button onClick={() => startNewSequence(null)} title="New Sequence" className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-slate-900 transition-colors">
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -1544,39 +2250,25 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         if (!entry) return null;
                         const isFolder = entry.type === 'folder';
                       const isExpanded = expandedFolders.has(entry.id);
-                      const active = entry.sequence === sequence;
+                      const active = activeEntryId === entry.id;
                       const itemColor = entry.color || parentColor || '#475569';
-                      
-                      // Derive a lighter version for files inside colored folders
-                      const bgStyle = isFolder 
-                        ? { backgroundColor: `${itemColor}15`, borderColor: `${itemColor}30`, color: itemColor }
-                        : active 
-                          ? { backgroundColor: 'var(--teal-50)', borderColor: 'var(--teal-200)', color: 'var(--teal-700)' }
-                          : parentColor 
-                            ? { backgroundColor: `${parentColor}08`, borderColor: 'transparent' }
-                            : { backgroundColor: 'transparent', borderColor: 'transparent' };
+                      const bgStyle = isFolder
+                        ? { backgroundColor: `${itemColor}18`, borderColor: `${itemColor}35`, color: itemColor }
+                        : active
+                          ? { backgroundColor: `${itemColor}18`, borderColor: 'var(--teal-300)', color: itemColor }
+                          : { backgroundColor: `${itemColor}08`, borderColor: 'transparent', color: itemColor };
 
                       return (
                         <div key={entry.id} className="mb-0.5">
                           <div
                             className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all border ${active ? 'font-bold' : ''}`}
                             style={bgStyle}
-                            onClick={() => {
-                              if (isFolder) {
-                                setExpandedFolders(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(entry.id)) next.delete(entry.id);
-                                  else next.add(entry.id);
-                                  return next;
-                                });
-                              } else {
-                                loadFromLibrary(entry);
-                              }
-                            }}>
+                            onClick={() => openLibraryItem(entry)}
+                            onContextMenu={(e) => openLibraryContextMenu(e, entry)}>
                             {isFolder ? (
                               <ChevronRight className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                             ) : (
-                              <Dna className="w-3 h-3 flex-shrink-0 opacity-60" />
+                              <Dna className="w-3 h-3 flex-shrink-0 opacity-80" style={{ color: itemColor }} />
                             )}
                             
                             {renamingId === entry.id ? (
@@ -1599,23 +2291,22 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                 onClick={e => e.stopPropagation()}
                               />
                             ) : (
-                              <span className="text-xs flex-1 truncate">
-                                {isFolder && <Folder className="w-3 h-3 inline mr-1 opacity-60" style={{ color: itemColor }} />}
+                              <span
+                                className="text-xs flex-1 truncate"
+                              >
+                                {isFolder && <Folder className="w-3 h-3 inline mr-1 opacity-90 fill-current" style={{ color: itemColor }} />}
                                 {entry.name}
                               </span>
                             )}
 
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {isFolder && (
-                                <button onClick={e => { e.stopPropagation(); setShowFolderColorPickerId(showFolderColorPickerId === entry.id ? null : entry.id); }} className="text-slate-400 hover:text-teal-600 p-0.5" title="Change Color">
-                                  <div className="w-2.5 h-2.5 rounded-full border border-slate-300 shadow-sm" style={{ backgroundColor: itemColor }} />
-                                </button>
-                              )}
+                              <button onClick={e => { e.stopPropagation(); setShowFolderColorPickerId(showFolderColorPickerId === entry.id ? null : entry.id); }} className="text-slate-400 hover:text-teal-600 p-0.5" title="Change Color">
+                                <div className="w-2.5 h-2.5 rounded-full border border-slate-300 shadow-sm" style={{ backgroundColor: itemColor }} />
+                              </button>
                               <button 
                                 onClick={e => { 
                                   e.stopPropagation(); 
-                                  setRenamingId(entry.id); 
-                                  setRenamingName(entry.name); 
+                                  startRenamingLibraryItem(entry); 
                                 }} 
                                 className="text-slate-400 hover:text-teal-600 p-0.5"
                                 title="Rename"
@@ -1631,24 +2322,24 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                             <div className="ml-2 pl-2 border-l border-slate-200 mt-0.5">
                               {renderItems(entry.id, itemColor)}
                               <div className="flex gap-2">
-                                <button onClick={() => addFolder(entry.id)} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-400 hover:text-teal-600 transition-colors">
+                                <button onClick={(e) => { e.stopPropagation(); addFolder(entry.id); }} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-400 hover:text-teal-600 transition-colors">
                                   <FolderPlus className="w-2.5 h-2.5" /> Subfolder
                                 </button>
-                                <button onClick={() => startNewSequence(entry.id)} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-400 hover:text-teal-600 transition-colors">
+                                <button onClick={(e) => { e.stopPropagation(); startNewSequence(entry.id); }} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-400 hover:text-teal-600 transition-colors">
                                   <Plus className="w-2.5 h-2.5" /> File
                                 </button>
                               </div>
                             </div>
                           )}
                           
-                          {/* Absolute color picker popup for folders */}
-                          {isFolder && showFolderColorPickerId === entry.id && (
-                            <div className="flex items-center left-full z-[90] bg-white border border-slate-200 rounded-lg shadow-xl p-2" onClick={e => e.stopPropagation()}>
+                          {/* Absolute color picker popup */}
+                          {showFolderColorPickerId === entry.id && (
+                            <div ref={colorPickerRef} className="flex items-center left-full z-[90] bg-white border border-slate-200 rounded-lg shadow-xl p-2" onClick={e => e.stopPropagation()}>
                               <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase">Map Kleur</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{isFolder ? 'Map kleur' : 'File kleur'}</span>
                                 <input 
                                   type="color" 
-                                  value={entry.color || '#475569'} 
+                                  value={entry.color || itemColor} 
                                   onChange={e => updateLibraryItem(entry.id, { color: e.target.value })}
                                   className="w-12 h-8 p-0 border-0 bg-transparent cursor-pointer rounded"
                                 />
@@ -1673,16 +2364,20 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   <Edit3 className="w-3.5 h-3.5 flex-shrink-0" /> Edit
                 </button>
               </div>
+              </>
+              )}
             </div>
 
             {/* Resize Handle Left */}
-            <div 
-              onMouseDown={() => setIsResizingLeft(true)}
-              className="w-1 hover:bg-teal-400 cursor-col-resize transition-colors flex-shrink-0 bg-slate-200 z-10"
-            />
+            {!leftPanelCollapsed && (
+              <div 
+                onMouseDown={() => setIsResizingLeft(true)}
+                className="w-1 hover:bg-teal-400 cursor-col-resize transition-colors flex-shrink-0 bg-slate-200 z-10"
+              />
+            )}
 
             {/* Main Window */}
-            <div className="flex-1 flex flex-col min-w-0 bg-white overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white overflow-hidden">
               
               {/* View Toggle Bar */}
               <div className="flex items-center gap-1.5 px-4 py-1.5 border-b bg-slate-50/50">
@@ -1708,9 +2403,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                     </button>
                   ))}
                 </div>
+                <div className="ml-auto flex items-center gap-1">
+                  <button onClick={undoChange} disabled={undoIndexRef.current <= 0} className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent" title="Undo">
+                    <Undo2 className="w-4 h-4" />
+                  </button>
+                  <button onClick={redoChange} disabled={undoIndexRef.current >= undoHistoryRef.current.length - 1} className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent" title="Redo">
+                    <Redo2 className="w-4 h-4" />
+                  </button>
+                  <span className="hidden">{undoVersion}</span>
+                </div>
               </div>
 
-              <div ref={mapRef} className="flex-1 overflow-auto px-4 py-1">
+              <div ref={mapRef} className="flex-1 min-h-0 overflow-auto px-4 py-1">
                 {viewMode === 'library' && (
                   <div className="space-y-6 p-4">
                     <div className="flex items-center justify-between border-b pb-4">
@@ -1734,95 +2438,104 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                 {viewMode === 'map' && (
                   <div className="items-top justify-top h-full">
                     {isCircular
-                      ? <CircularMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} isCircular={isCircular} />
-                      : <LinearMap seq={seq} features={mapFeatures} cutSites={activeCutSites} selectedIdx={selectedFeatureIdx} onSelect={setSelectedFeatureIdx} onFeatureClick={handleFeatureClick} name={seqName} />
+                      ? <CircularMap
+                          seq={seq}
+                          features={mapFeatures}
+                          cutSites={activeCutSites}
+                          sequenceColors={sequenceColors}
+                          selectedMapItem={selectedMapItem}
+                          selectedRange={selectedRange}
+                          rangeColor={rangeColor}
+                          onLabelClick={handleFeatureClick}
+                          onLabelHover={handleFeatureHover}
+                          onLabelLeave={clearHoverPopup}
+                          onEnzymeClick={handleEnzymeClick}
+                          onEnzymeHover={handleEnzymeHover}
+                          onEnzymeLeave={clearHoverPopup}
+                          onMapPositionClick={handlePositionClick}
+                          name={seqName}
+                          isCircular={isCircular}
+                        />
+                      : <LinearMap
+                          seq={seq}
+                          features={mapFeatures}
+                          cutSites={activeCutSites}
+                          selectedMapItem={selectedMapItem}
+                          selectedRange={selectedRange}
+                          rangeColor={rangeColor}
+                          onLabelClick={handleFeatureClick}
+                          onLabelHover={handleFeatureHover}
+                          onLabelLeave={clearHoverPopup}
+                          onEnzymeClick={handleEnzymeClick}
+                          onEnzymeHover={handleEnzymeHover}
+                          onEnzymeLeave={clearHoverPopup}
+                          name={seqName}
+                        />
                     }
                   </div>
                 )}
-                {viewMode === 'sequence' && <SequenceView seq={seq} features={mapFeatures} onDelete={handleDeleteRegion} onAddFeature={handleAddFeatureFromSelection} cutSites={activeCutSites} />}
+                {viewMode === 'sequence' && (
+                  <SequenceView
+                    seq={seq}
+                    features={mapFeatures}
+                    sequenceColors={sequenceColors}
+                    selectedMapItem={selectedMapItem}
+                    onDelete={handleDeleteRegion}
+                    onAddFeature={handleAddFeatureFromSelection}
+                    onColorSequence={colorSequenceRegion}
+                    onAnnotationClick={handleSequenceAnnotationClick}
+                    onPositionClick={handlePositionClick}
+                    cutSites={activeCutSites}
+                    focusRange={sequenceFocusRange}
+                  />
+                )}
                 
                 {viewMode === 'enzymes' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <h4 className="text-sm font-bold text-slate-700">Restriction Enzyme Analysis</h4>
-                        <p className="text-[10px] text-slate-400">Total enzymes with cuts: {Object.values(allCutSites).filter(s => s.length > 0).length}</p>
+                    <div className="flex flex-wrap items-center gap-2 pb-2">
+                      <div className="relative flex-1 min-w-48">
+                        <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Input value={enzymeSearch} onChange={e => setEnzymeSearch(e.target.value)} placeholder="Search enzymes…" className="h-8 text-xs border-slate-200 pl-7" />
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <Input value={enzymeSearch} onChange={e => setEnzymeSearch(e.target.value)} placeholder="Search enzymes…" className="h-8 text-xs border-slate-200 pl-7 w-48" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Filter chips */}
-                    <div className="flex flex-wrap gap-1.5 pb-2">
-                      {[
-                        { id: 'all', label: 'All' },
-                        { id: '1x', label: 'Single (1×)' },
-                        { id: '2x', label: 'Double (2×)' },
-                        { id: '3x', label: 'Triple (3×)' },
-                        { id: 'multiple', label: 'Multiple (3×+)' },
-                        { id: 'fd', label: 'FastDigest' },
-                        { id: 'neb', label: 'NEB' },
-                        { id: 'iis', label: 'Type IIS' },
-                        { id: 'goldengate', label: 'Golden Gate' },
-                        { id: 'sticky', label: 'Sticky' },
-                        { id: 'blunt', label: 'Blunt' }
-                      ].map(f => (
-                        <button 
-                          key={f.id}
-                          onClick={() => setEnzListFilter(f.id)}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                            enzListFilter === f.id 
-                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm' 
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300'
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
+                      <select
+                        value={enzListFilter}
+                        onChange={e => setEnzListFilter(e.target.value)}
+                        className="h-8 min-w-44 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700"
+                      >
+                        {ENZYME_CUT_FILTERS.map(filter => <option key={filter.id} value={filter.id}>{filter.label}</option>)}
+                      </select>
+                      <select
+                        value={enzymeSupplierFilter}
+                        onChange={e => setEnzymeSupplierFilter(e.target.value)}
+                        className="h-8 min-w-56 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700"
+                      >
+                        {ENZYME_SUPPLIERS.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.label}</option>)}
+                      </select>
                     </div>
 
                     {(() => {
                       const list = Object.keys(RE_DB).map(name => {
                         const details = RE_DB[name];
                         const sites = allCutSites[name] || [];
-                        const isBlunt = ['GGCC', 'CCCGGG', 'GATATC', 'AATATT', 'TTTAAA', 'AGCGCT', 'AGGCCT', 'TCGCGA', 'AGTACT'].includes(details.seq);
-                        const typeIIS = ['BsaI', 'BbsI', 'BsmBI', 'Esp3I', 'SapI', 'BtgZI', 'BsfAI', 'BsgI', 'FokI'].includes(getEnzymeDisplayName(name));
-                        const goldenGate = ['BsaI', 'BsmBI', 'BbsI'].includes(getEnzymeDisplayName(name));
-                        
-                        let typeStr = details.hasFD ? 'FastDigest' : 'NEB';
-                        if (typeIIS) typeStr = 'Type IIS';
-                        if (goldenGate) typeStr = 'Golden Gate';
+                        const meta = getEnzymeMeta(name, details);
                         
                         return {
-                          name: getEnzymeDisplayName(name),
+                          name: meta.displayName,
                           rawName: name,
-                          type: typeStr,
+                          type: meta.type,
+                          typeIIS: meta.typeIIS,
+                          goldenGate: meta.goldenGate,
+                          supplier: meta.supplier,
                           count: sites.length,
                           locations: sites,
                           seq: details.seq,
-                          cut: isBlunt ? 'Blunt' : 'Sticky',
+                          cut: meta.cut,
                           hasFD: details.hasFD
                         };
                       }).filter(e => {
                         const q = enzymeSearch.toLowerCase();
                         if (q && !e.name.toLowerCase().includes(q) && !e.seq.toLowerCase().includes(q)) return false;
-                        
-                        if (enzListFilter === '1x') return e.count === 1;
-                        if (enzListFilter === '2x') return e.count === 2;
-                        if (enzListFilter === '3x') return e.count === 3;
-                        if (enzListFilter === 'multiple') return e.count >= 3;
-                        if (enzListFilter === 'fd') return e.hasFD;
-                        if (enzListFilter === 'neb') return !e.hasFD;
-                        if (enzListFilter === 'iis') return e.type === 'Type IIS' || e.type === 'Golden Gate';
-                        if (enzListFilter === 'goldengate') return e.type === 'Golden Gate';
-                        if (enzListFilter === 'sticky') return e.cut === 'Sticky';
-                        if (enzListFilter === 'blunt') return e.cut === 'Blunt';
-                        
-                        return true;
+                        return enzymeMatchesFilters(e, enzListFilter, enzymeSupplierFilter);
                       }).sort((a, b) => {
                         const { key, direction } = enzymeSort;
                         let valA = a[key];
@@ -1891,9 +2604,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               {list.length === 0 ? (
                                 <tr><td colSpan="7" className="py-10 text-center text-slate-400">No enzymes found matching your filters</td></tr>
                               ) : list.map(enz => {
-                                const isExpanded = expandedEnzymes.has(enz.rawName);
-                                const isSelected = !!selectedEnzymes[enz.rawName];
-                                const fragments = [];
+                              const isExpanded = expandedEnzymes.has(enz.rawName);
+                              const isSelected = !!selectedEnzymes[enz.rawName];
+                              const color = selectedEnzymes[enz.rawName]?.color || null;
+                              const fragments = [];
                                 if (enz.count > 1) {
                                   const pos = [...enz.locations].sort((a,b) => a-b);
                                   for (let i = 0; i < pos.length; i++) {
@@ -1922,12 +2636,26 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                       <td className="py-2.5 px-1">
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); toggleEnzyme(enz.rawName); }}
-                                          className={`p-1 rounded-md transition-colors ${isSelected ? 'text-slate-900 bg-slate-100' : 'text-slate-300 hover:text-slate-400'}`}
+                                          className={`p-1 rounded-md transition-colors ${isSelected ? 'text-rose-600 bg-rose-50' : 'text-slate-300 hover:text-slate-400'}`}
                                         >
                                           {isSelected ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                                         </button>
                                       </td>
-                                      <td className="py-2.5 font-bold text-slate-700">{enz.name}</td>
+                                      <td className="py-2.5 font-bold text-slate-700">
+                                        <div className="flex items-center gap-2">
+                                          <label onClick={e => e.stopPropagation()} className="relative flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center">
+                                            <input
+                                              type="color"
+                                              value={color || RE_HIGHLIGHT_COLORS[0]}
+                                              onChange={e => toggleEnzyme(enz.rawName, e.target.value)}
+                                              className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                                              aria-label={`Highlight ${enz.name}`}
+                                            />
+                                            <span className="h-3.5 w-3.5 rounded-full border border-slate-300" style={{ backgroundColor: color || '#ffffff' }} />
+                                          </label>
+                                          <span>{enz.name}</span>
+                                        </div>
+                                      </td>
                                       <td className="py-2.5">
                                         <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
                                           enz.type === 'Type IIS' ? 'bg-indigo-100 text-indigo-700' : 
@@ -1969,38 +2697,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                               </div>
                                             </div>
                                             <div className="space-y-2">
-                                              {isSelected && (
-                                                <div>
-                                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Map Label Style</p>
-                                                  <div className="flex items-center gap-1.5">
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => toggleEnzyme(enz.rawName, null)}
-                                                      className={`h-6 px-2 rounded border text-[10px] font-semibold ${!selectedEnzymes[enz.rawName]?.color ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
-                                                    >
-                                                      Black
-                                                    </button>
-                                                    {RE_HIGHLIGHT_COLORS.slice(0, 6).map(c => (
-                                                      <button
-                                                        key={c}
-                                                        type="button"
-                                                        onClick={() => toggleEnzyme(enz.rawName, c)}
-                                                        className={`w-5 h-5 rounded-full border ${selectedEnzymes[enz.rawName]?.color === c ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
-                                                        style={{ background: c }}
-                                                      />
-                                                    ))}
-                                                    <label className="cursor-pointer" title="Custom color">
-                                                      <input
-                                                        type="color"
-                                                        value={selectedEnzymes[enz.rawName]?.color || RE_HIGHLIGHT_COLORS[0]}
-                                                        onChange={e => toggleEnzyme(enz.rawName, e.target.value)}
-                                                        className="w-6 h-6 rounded border border-slate-200 cursor-pointer p-0"
-                                                        style={{ WebkitAppearance: 'none' }}
-                                                      />
-                                                    </label>
-                                                  </div>
-                                                </div>
-                                              )}
                                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fragments {isCircular ? '(Circular)' : '(Linear)'}</p>
                                               {fragments.length > 0 ? (
                                                 <div className="flex flex-wrap gap-1.5">
@@ -2071,6 +2767,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                       <tbody>
                         {(() => {
                           const sorted = [...features].sort((a, b) => {
+                            const hiddenA = a.visible === false ? 1 : 0;
+                            const hiddenB = b.visible === false ? 1 : 0;
+                            if (hiddenA !== hiddenB) return hiddenA - hiddenB;
                             const { key, direction } = featureSort;
                             let valA = a[key];
                             let valB = b[key];
@@ -2340,13 +3039,30 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             </div>
 
             {/* Resize Handle Right */}
-            <div 
-              onMouseDown={() => setIsResizingRight(true)}
-              className="w-1 hover:bg-teal-400 cursor-col-resize transition-colors flex-shrink-0 bg-slate-200 z-10"
-            />
+            {!rightPanelCollapsed && (
+              <div 
+                onMouseDown={() => setIsResizingRight(true)}
+                className="w-1 hover:bg-teal-400 cursor-col-resize transition-colors flex-shrink-0 bg-slate-200 z-10"
+              />
+            )}
 
             {/* Right panel */}
-            <div className="flex flex-col bg-white overflow-hidden" style={{ width: rightWidth, flexShrink: 0, display: viewMode === 'alignment' ? 'none' : undefined }}>
+            <div className="flex flex-col bg-white overflow-visible relative min-h-0" style={{ width: rightPanelCollapsed ? 42 : rightWidth, flexShrink: 0, display: viewMode === 'alignment' ? 'none' : undefined }}>
+              <button
+                onClick={() => setRightPanelCollapsed(v => !v)}
+                className="absolute -left-3 top-3 z-40 w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-teal-700"
+                title={rightPanelCollapsed ? 'Open right panel' : 'Close right panel'}
+              >
+                {rightPanelCollapsed ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </button>
+              {rightPanelCollapsed ? (
+                <div className="flex flex-col items-center gap-2 py-12">
+                  <button onClick={() => { setRightPanelCollapsed(false); setActivePanel('features'); }} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100" title="Features"><PiTagBold className="w-4 h-4" /></button>
+                  <button onClick={() => { setRightPanelCollapsed(false); setActivePanel('enzymes'); }} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100" title="Enzymes"><BiGame className="w-4 h-4" /></button>
+                  <button onClick={() => { setRightPanelCollapsed(false); setActivePanel('primers'); }} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100" title="Primers"><TbArrowsExchange className="w-4 h-4" /></button>
+                </div>
+              ) : (
+              <>
               <div className="flex border-b bg-slate-50">
                 {[{ id: 'features', label: 'Features' }, { id: 'enzymes', label: 'Enzymes' }, { id: 'primers', label: 'Primers' }].map(({ id, label }) => (
                   <button key={id} onClick={() => setActivePanel(id)}
@@ -2355,11 +3071,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   </button>
                 ))}
               </div>
-              <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+              <div className="flex-1 min-h-0 overflow-hidden p-2.5 bg-white">
 
                 {/* Features */}
                 {activePanel === 'features' && (
-                  <>
+                  <div className="flex h-full min-h-0 flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">Features ({features.length})</span>
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddFeature(s => !s)}>
@@ -2391,8 +3107,16 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         </div>
                       </div>
                     )}
-                    <div className="space-y-0.5">
-                      {features.map((feat, i) => (
+                    <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pr-1">
+                      {features
+                        .map((feat, i) => ({ feat, i }))
+                        .sort((a, b) => {
+                          const hiddenA = a.feat.visible === false ? 1 : 0;
+                          const hiddenB = b.feat.visible === false ? 1 : 0;
+                          if (hiddenA !== hiddenB) return hiddenA - hiddenB;
+                          return (a.feat.start || 0) - (b.feat.start || 0);
+                        })
+                        .map(({ feat, i }) => (
                         <div key={feat.id || i}
                           className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-colors cursor-pointer ${selectedFeatureIdx === i ? 'bg-teal-50 border-teal-200' : 'hover:bg-slate-50 border-transparent'}`}
                           onClick={() => setSelectedFeatureIdx(i === selectedFeatureIdx ? null : i)}>
@@ -2432,25 +3156,33 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                       ))}
                       {features.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No features. Add manually or import a GenBank/ApE file.</p>}
                     </div>
-                  </>
+                  </div>
                 )}
 
                 {/* Enzymes */}
                 {activePanel === 'enzymes' && (
-                  <>
-                    <div className="flex gap-1 flex-wrap">
-                      {[['all_db', 'All'], ['single', '1×'], ['double', '2×'], ['triple_plus', '3×+'], ['fd', 'FD'], ['none_cut', '0×'], ['all', 'On map']].map(([f, l]) => (
-                        <button key={f} onClick={() => setEnzymeFilter(f)}
-                          className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${enzymeFilter === f ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 text-slate-600 hover:border-rose-300'}`}>
-                          {l}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex h-full min-h-0 flex-col gap-2">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                       <Input value={enzymeSearch} onChange={e => setEnzymeSearch(e.target.value)} placeholder="Search enzyme…" className="h-7 text-xs border-slate-200 pl-7" />
                     </div>
-                    <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      <select
+                        value={enzymeFilter}
+                        onChange={e => setEnzymeFilter(e.target.value)}
+                        className="h-7 w-full rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700"
+                      >
+                        {ENZYME_CUT_FILTERS.map(filter => <option key={filter.id} value={filter.id}>{filter.label}</option>)}
+                      </select>
+                      <select
+                        value={enzymeSupplierFilter}
+                        onChange={e => setEnzymeSupplierFilter(e.target.value)}
+                        className="h-7 w-full rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700"
+                      >
+                        {ENZYME_SUPPLIERS.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
                       <table className="w-full text-xs">
                         <thead className="sticky top-0 bg-white z-10">
                           <tr className="border-b border-slate-100">
@@ -2468,21 +3200,15 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                 const re = new RegExp(motif.replace(/N/g, '[ATGC]').replace(/R/, '[AG]').replace(/Y/, '[CT]').replace(/W/, '[AT]').replace(/M/, '[AC]').replace(/K/, '[GT]').replace(/S/, '[GC]').replace(/B/, '[CGT]').replace(/D/, '[AGT]').replace(/H/, '[ACT]').replace(/V/, '[ACG]'), 'gi');
                                 return (seq.match(re) || []).length;
                               })() : 0;
-                              const isBlunt = ['GGCC', 'CCCGGG', 'GATATC', 'AATATT', 'TTTAAA', 'AGCGCT', 'AGGCCT', 'TCGCGA', 'AGTACT'].includes(motif);
-                              const cutType = isBlunt ? 'Blunt' : 'Sticky';
-                              return { name, count, cutType, motif, hasFD: details.hasFD };
+                              const meta = getEnzymeMeta(name, details);
+                              return { name, count, cutType: meta.cut, motif, hasFD: details.hasFD, typeIIS: meta.typeIIS, goldenGate: meta.goldenGate, supplier: meta.supplier };
                             });
 
-                            const filtered = withCounts.filter(({ name, count, hasFD }) => {
+                            const filtered = withCounts.filter((enzyme) => {
+                              const { name } = enzyme;
                               const q = enzymeSearch.toLowerCase();
                               if (q && !name.toLowerCase().includes(q)) return false;
-                              if (enzymeFilter === 'single') return count === 1;
-                              if (enzymeFilter === 'double') return count === 2;
-                              if (enzymeFilter === 'none_cut') return count === 0;
-                              if (enzymeFilter === 'triple_plus') return count >= 3;
-                              if (enzymeFilter === 'fd') return hasFD;
-                              if (enzymeFilter === 'all') return count > 0 || !!selectedEnzymes[name]; // only shown on map
-                              return true; // 'all_db' - show everything
+                              return enzymeMatchesFilters(enzyme, enzymeFilter, enzymeSupplierFilter);
                             });
 
                             if (filtered.length === 0) return (
@@ -2494,38 +3220,22 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               const color = isSel ? selectedEnzymes[name].color : null;
                               return (
                                 <tr key={name}
-                                  className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
+                                  className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-rose-50' : 'hover:bg-slate-50'}`}>
                                   <td className="py-1 px-2" onClick={() => toggleEnzyme(name)}>
-                                    <div className="flex flex-col gap-1">
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 border" style={{ background: isSel ? (color || '#111827') : '#cbd5e1', borderColor: isSel ? (color || '#111827') : '#cbd5e1' }} />
-                                        <span className={`font-medium ${isSel ? 'text-slate-900' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
-                                      </div>
-                                      {isSel && (
-                                        <div className="flex items-center gap-1 pl-4" onClick={e => e.stopPropagation()}>
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleEnzyme(name, null)}
-                                            className={`h-4 px-1.5 rounded border text-[9px] font-semibold ${!color ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}
-                                          >
-                                            black
-                                          </button>
-                                          {RE_HIGHLIGHT_COLORS.slice(0, 5).map(c => (
-                                            <button
-                                              key={c}
-                                              type="button"
-                                              onClick={() => toggleEnzyme(name, c)}
-                                              className={`w-4 h-4 rounded-full border ${color === c ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
-                                              style={{ background: c }}
-                                              title={`Use ${c}`}
-                                            />
-                                          ))}
-                                          <label className="cursor-pointer flex-shrink-0" title="Custom color">
-                                            <input type="color" value={color || RE_HIGHLIGHT_COLORS[0]} onChange={e => toggleEnzyme(name, e.target.value)}
-                                              className="w-4 h-4 rounded border border-slate-200 cursor-pointer p-0" style={{ WebkitAppearance: 'none' }} />
-                                          </label>
-                                        </div>
-                                      )}
+                                    <div className="flex items-center gap-1.5">
+                                      <label onClick={e => e.stopPropagation()} className="relative flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center" title="Highlight color">
+                                        <input
+                                          type="color"
+                                          value={color || RE_HIGHLIGHT_COLORS[0]}
+                                          onChange={e => toggleEnzyme(name, e.target.value)}
+                                          className="absolute inset-0 h-4 w-4 cursor-pointer opacity-0"
+                                        />
+                                        <span
+                                          className="h-3 w-3 rounded-full border"
+                                          style={{ backgroundColor: color || '#e5e7eb', borderColor: color || '#cbd5e1' }}
+                                        />
+                                      </label>
+                                      <span className={`font-medium ${isSel ? 'text-slate-900' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
                                     </div>
                                   </td>
                                   <td className="py-1 px-1 text-center" onClick={() => toggleEnzyme(name)}>
@@ -2558,7 +3268,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               key={name}
                               className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border"
                               style={color
-                                ? { background: color, color: getReadableTextColor(color), borderColor: '#4b5563' }
+                                ? { background: `${color}22`, color, borderColor: `${color}55` }
                                 : { background: '#ffffff', color: '#111827', borderColor: '#cbd5e1' }}
                             >
                               {getEnzymeDisplayName(name)}<button onClick={() => toggleEnzyme(name)}><X className="w-2.5 h-2.5" /></button>
@@ -2567,12 +3277,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
 
                 {/* Primers */}
                 {activePanel === 'primers' && (
-                  <>
+                  <div className="flex h-full min-h-0 flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">Primers ({primers.length})</span>
                       <button onClick={() => setShowAddPrimer(s => !s)} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
@@ -2614,7 +3324,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         </div>
                       </div>
                     )}
-                    <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                    <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
                       {primers.map((p) => {
                         const annealingSeq = p.annealing || p.seq;
                         const sites = seq ? findPrimerSites(p.seq, seq, annealingSeq) : [];
@@ -2682,9 +3392,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         </div>
                       )}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
+              </>
+              )}
             </div>
           </div>
         </div>
