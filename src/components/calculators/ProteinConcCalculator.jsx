@@ -134,7 +134,7 @@ function parseSampleBatchInput(input) {
   return parsed;
 }
 
-export default function ProteinConcCalculator({ externalTab, onTabChange, historyData, isActive }) {
+export default function ProteinConcCalculator({ externalTab, onTabChange, historyData, isActive, tabs }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
   const standardsTableRef = useRef(null);
@@ -413,6 +413,8 @@ export default function ProteinConcCalculator({ externalTab, onTabChange, histor
             SDS-PAGE Sample Prep
           </TabsTrigger>
         </TabsList>
+
+        {tabs}
 
         {/* ─── STANDARDS ─── */}
         <TabsContent value="standards" className="mt-3 space-y-4">

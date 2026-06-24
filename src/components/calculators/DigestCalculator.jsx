@@ -74,7 +74,7 @@ function DnaMass({ ng }) {
   return <span className="text-rose-600 dark:text-rose-400 font-semibold">({ng} ng)</span>;
 }
 
-export default function DigestCalculator({ externalTab, onTabChange, historyData, isActive }) {
+export default function DigestCalculator({ externalTab, onTabChange, historyData, isActive, tabs }) {
   const singleTableRef = useRef(null);
   const batchTableRef = useRef(null);
   const [tab, setTab] = useState(externalTab || 'single');
@@ -309,6 +309,8 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
           </TabsTrigger>
         </TabsList>
 
+        {tabs}
+
         {/* ─── SINGLE ─── */}
         <TabsContent value="single" className="mt-6">
           <div className="grid md:grid-cols-2 gap-6">
@@ -362,11 +364,11 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
                   <div className="space-y-2">
                     <Label className="text-xs sm:text-sm text-slate-600 dark:text-slate-200">DNA Type</Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       {['insert', 'vector'].map(role => (
                         <button key={role} onClick={() => setDnaRole(role)}
                           className={`flex-1 py-1.5 px-2.5 rounded-md text-xs font-semibold border transition-colors flex items-center justify-center gap-1.5 ${dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}>
-                          {role === 'insert' ? '🧬 Insert' : '🔵 Vector'}
+                          {role === 'insert' ? '⧦ Insert' : '◎ Vector'}
                         </button>
                       ))}
                     </div>
@@ -608,8 +610,8 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
                                 <button 
                                   key={role} 
                                   onClick={() => setBatchSamples(batchSamples.map(x => x.id === s.id ? { ...x, dnaRole: role } : x))}
-                                  className={`w-20 py-1 h-8 px-2 rounded text-[10px] font-bold border transition-colors flex items-center justify-center gap-1 ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}>
-                                  {role === 'insert' ? '🧬 Insert' : '🔵 Vector'}
+                                  className={`w-18 py-1 h-8 px-2 rounded text-[10px] font-bold border transition-colors flex items-center justify-center gap-1 ${s.dnaRole === role ? 'bg-rose-500 text-white border-rose-500' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}>
+                                  {role === 'insert' ? '⧦ Insert' : '◎ Vector'}
                                 </button>
                               ))}
                             </div>

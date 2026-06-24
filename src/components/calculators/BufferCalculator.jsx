@@ -231,7 +231,7 @@ function NumInput({ value, onChange, ...props }) {
   return <Input ref={ref} type={props.type || "text"} inputMode={props.type === "number" ? undefined : "decimal"} value={value} onChange={handleChange} {...props} />;
 }
 
-export default function BufferCalculator({ historyData, isActive }) {
+export default function BufferCalculator({ historyData, isActive, externalTab, onTabChange, tabs }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
   const [savedRecipes, setSavedRecipes] = useState(() => {
@@ -242,7 +242,8 @@ export default function BufferCalculator({ historyData, isActive }) {
   const [selectedBuffer, setSelectedBuffer] = useState('TAE (50×)');
   const [desiredVolume, setDesiredVolume] = useState('500');
   const [showProtocol, setShowProtocol] = useState(false);
-  const [activeTab, setActiveTab] = useState('recipes');
+  const [activeTab, setActiveTab] = useState(externalTab || 'recipes');
+  useEffect(() => { if (externalTab) setActiveTab(externalTab); }, [externalTab]);
 
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -322,7 +323,7 @@ export default function BufferCalculator({ historyData, isActive }) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); onTabChange?.(v); }}>
         <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="recipes" className="flex items-center gap-2">
             <FlaskConical className="w-4 h-4" />
@@ -337,6 +338,8 @@ export default function BufferCalculator({ historyData, isActive }) {
             AI Assistant
           </TabsTrigger>
         </TabsList>
+
+        {tabs}
         <TabsContent value="ai" className="mt-0">
           <AIBufferChat
             onSaveRecipe={handleSaveAiRecipe}

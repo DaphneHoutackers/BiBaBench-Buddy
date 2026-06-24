@@ -1507,11 +1507,15 @@ function BatchGibson({ historyData, isActive, sessionId }) {
 }
 
 // ─── Main Gibson Calculator Wrapper ──────────────────────────────
-export default function GibsonCalculator({ historyData, isActive }) {
+export default function GibsonCalculator({ historyData, isActive, externalTab, onTabChange, tabs }) {
   const sessionId = useRef(makeId()).current;
-  const [tab, setTab] = useState(() => {
+  const [tab, setTab] = useState(externalTab || (() => {
     return localStorage.getItem('bibabench_gibson_active_tab') || 'single';
-  });
+  }));
+
+  useEffect(() => {
+    if (externalTab) setTab(externalTab);
+  }, [externalTab]);
 
   useEffect(() => {
     if (historyData?.data?.tab) setTab(historyData.data.tab);
@@ -1534,7 +1538,7 @@ export default function GibsonCalculator({ historyData, isActive }) {
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
           <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
             <TabsTrigger value="single" className="flex items-center gap-2">
               <PiCircleDashedBold className="w-4 h-4" />
@@ -1545,6 +1549,8 @@ export default function GibsonCalculator({ historyData, isActive }) {
               Batch Gibson
             </TabsTrigger>
           </TabsList>
+
+          {tabs}
         </Tabs>
 
         <div style={{ display: tab === 'single' ? 'block' : 'none' }} className="mt-4 animate-none">

@@ -1039,9 +1039,13 @@ function BatchLigation({ historyData, isActive, sessionId }) {
   );
 }
 
-export default function LigationCalculator({ historyData, isActive }) {
+export default function LigationCalculator({ historyData, isActive, externalTab, onTabChange, tabs }) {
   const sessionId = useRef(makeId()).current;
-  const [tab, setTab] = useState('single');
+  const [tab, setTab] = useState(externalTab || 'single');
+
+  useEffect(() => {
+    if (externalTab) setTab(externalTab);
+  }, [externalTab]);
 
   useEffect(() => {
     if (historyData?.data?.tab) setTab(historyData.data.tab === 'multi' ? 'batch' : historyData.data.tab);
@@ -1060,7 +1064,7 @@ export default function LigationCalculator({ historyData, isActive }) {
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
           <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
             <TabsTrigger value="single" className="flex items-center gap-2">
               <BsOpencollective className="w-4 h-4" />
@@ -1068,6 +1072,8 @@ export default function LigationCalculator({ historyData, isActive }) {
             </TabsTrigger>
             <TabsTrigger value="batch" className="flex items-center gap-2"><Layers className="w-4 h-4" /> Batch Ligations</TabsTrigger>
           </TabsList>
+
+          {tabs}
           <TabsContent value="single" className="mt-4"><SingleLigation historyData={tab === 'single' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
           <TabsContent value="batch" className="mt-4"><BatchLigation historyData={tab === 'batch' ? historyData : null} isActive={isActive} sessionId={sessionId} /></TabsContent>
         </Tabs>

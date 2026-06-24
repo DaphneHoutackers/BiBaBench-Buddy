@@ -80,11 +80,12 @@ const VOL_UNITS = {
 import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 
-export default function DilutionCalculator({ historyData, isActive }) {
+export default function DilutionCalculator({ historyData, isActive, externalTab, onTabChange, tabs }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
   const tableRef = useRef(null);
-  const [mode, setMode] = useState('c1v1');
+  const [mode, setMode] = useState(externalTab || 'c1v1');
+  useEffect(() => { if (externalTab) setMode(externalTab); }, [externalTab]);
 
   // Sample dilution mode
   const [sdStartConc, setSdStartConc] = useState('');
@@ -403,7 +404,7 @@ export default function DilutionCalculator({ historyData, isActive }) {
         </div>
       </div>
 
-      <Tabs value={mode} onValueChange={setMode}>
+      <Tabs value={mode} onValueChange={v => { setMode(v); onTabChange?.(v); }}>
         <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="c1v1" className="flex items-center gap-2">
             <Calculator className="w-4 h-4" />
@@ -422,6 +423,8 @@ export default function DilutionCalculator({ historyData, isActive }) {
             Serial Dilution
           </TabsTrigger>
         </TabsList>
+
+        {tabs}
 
         {/* ─── C1V1 ─── */}
         <TabsContent value="c1v1" className="mt-6">

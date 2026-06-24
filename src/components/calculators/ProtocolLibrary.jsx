@@ -506,12 +506,16 @@ function ProtocolCard({ protocol }) {
   );
 }
 
-export default function ProtocolLibrary({ historyData, isActive, settings, user }) {
+export default function ProtocolLibrary({ historyData, isActive, settings, user, externalTab, onTabChange, tabs }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [activeTab, setActiveTab] = useState('library');
+  const [activeTab, setActiveTab] = useState(externalTab || 'library');
+
+  React.useEffect(() => {
+    if (externalTab) setActiveTab(externalTab);
+  }, [externalTab]);
 
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -562,7 +566,7 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user 
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); onTabChange?.(v); }}>
         <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="library" className="flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
@@ -573,6 +577,8 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user 
             AI Protocol Generator
           </TabsTrigger>
         </TabsList>
+
+        {tabs}
 
         <TabsContent value="library" className="mt-4 space-y-4">
           <div className="flex flex-wrap gap-3">

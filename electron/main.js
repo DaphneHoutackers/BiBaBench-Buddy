@@ -126,6 +126,29 @@ const createWindow = async () => {
     mainWindow.show();
   });
 
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const menuTemplate = [];
+
+    if (params.isEditable) {
+      menuTemplate.push(
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { type: 'separator' },
+        { role: 'selectAll' }
+      );
+      const menu = Menu.buildFromTemplate(menuTemplate);
+      menu.popup({ window: mainWindow });
+    } else if (params.selectionText && params.selectionText.trim() !== '') {
+      menuTemplate.push({ role: 'copy' });
+      const menu = Menu.buildFromTemplate(menuTemplate);
+      menu.popup({ window: mainWindow });
+    }
+  });
+
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 
   console.log('VITE_DEV_SERVER_URL:', devServerUrl);
@@ -136,21 +159,38 @@ const createWindow = async () => {
     await mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
 
+  // macOS: Hide window instead of destroying it, so localStorage (auth session) persists
+  mainWindow.on('close', (event) => {
+    if (process.platform === 'darwin' && !app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   setTimeout(() => {
     if (!mainWindow.isVisible()) {
       mainWindow.show();
     }
   }, 1000);
+
+  return mainWindow;
 };
+
+let mainWindow = null;
 
 app.whenReady().then(async () => {
   createMenu();
 
-  await createWindow();
+  mainWindow = await createWindow();
 
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify();
   }
+});
+
+// Set quitting flag so the window close handler allows actual quit
+app.on('before-quit', () => {
+  app.isQuitting = true;
 });
 
 autoUpdater.on('update-downloaded', () => {
@@ -179,7 +219,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+  } else if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow().then(win => { mainWindow = win; });
   }
 });

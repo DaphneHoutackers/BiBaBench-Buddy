@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Cpu,
@@ -81,6 +81,14 @@ const TRANSLATIONS = {
     sending: 'Sending...',
     emailSent: 'Reset link sent! Check your inbox (and spam) for the email to reset your password.',
     accountCreated: 'Account created! Check your inbox for a confirmation email and then log in.',
+    resetPasswordTitle: 'Reset Password',
+    resetPasswordSub: 'Enter your new password below',
+    newPassword: 'New Password',
+    confirmNewPassword: 'Confirm New Password',
+    updatePassword: 'Update Password',
+    updating: 'Updating...',
+    passwordUpdated: 'Password updated successfully! You can now sign in with your new password.',
+    passwordsMismatch: 'Passwords do not match.',
     authFailed: 'Authentication failed',
     invalidCredentials: 'Invalid email or password. Please check your details and try again.',
     emailNotConfirmed: 'Your email address has not been confirmed yet. Please check your inbox.',
@@ -149,6 +157,14 @@ const TRANSLATIONS = {
     sending: 'Versturen...',
     emailSent: 'Reset-link verstuurd! Check je inbox (en spam) voor de e-mail om je wachtwoord opnieuw in te stellen.',
     accountCreated: 'Account aangemaakt! Check je inbox voor een bevestigingsmail en log daarna in.',
+    resetPasswordTitle: 'Wachtwoord resetten',
+    resetPasswordSub: 'Vul hieronder je nieuwe wachtwoord in',
+    newPassword: 'Nieuw wachtwoord',
+    confirmNewPassword: 'Bevestig nieuw wachtwoord',
+    updatePassword: 'Wachtwoord bijwerken',
+    updating: 'Bijwerken...',
+    passwordUpdated: 'Wachtwoord succesvol bijgewerkt! Je kunt nu inloggen met je nieuwe wachtwoord.',
+    passwordsMismatch: 'Wachtwoorden komen niet overeen.',
     authFailed: 'Authenticatie mislukt',
     invalidCredentials: 'Onjuist e-mailadres of wachtwoord. Controleer je gegevens en probeer opnieuw.',
     emailNotConfirmed: 'Je e-mailadres is nog niet bevestigd. Check je inbox voor de bevestigingsmail.',
@@ -211,39 +227,26 @@ const AI_PROVIDERS = {
   }
 };
 
-const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #2dd4bf 0%, #059669 100%)', // Teal
-  'linear-gradient(135deg, #4db4f5 10%, #0c50ed 90%)', // Blue
-  'linear-gradient(135deg, #ef4db4 10%, #f97bee 90%)', // Pink
-  'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', // Amber
-  'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)', // Violet
-  'linear-gradient(135deg, #94a3b8 0%, #475569 100%)', // Slate
-  'linear-gradient(135deg, #f87171 0%, #dc2626 100%)', // Red
-  'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)', // Orange
-];
-
 export default function SettingsPanel({ settings, onChange, onClose }) {
-  const { user: authUser, profile, setProfile, refreshProfile } = useAuth();
+  const { user: authUser, profile, setProfile, refreshProfile, logout, isLoadingAuth, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const [valStatus, setValStatus] = React.useState({});
   const [orModels, setOrModels] = React.useState([]);
   const [isFetchingOr, setIsFetchingOr] = React.useState(false);
 
   const currentTheme = settings.appTheme || 'default';
   const [tab, setTab] = useState('appearance');
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot'
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'forgot' | 'resetPassword'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
-  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
-  const loadingTimeoutRef = useRef(null);
 
   const getInitials = (name, fallbackEmail) => {
     if (name) {
@@ -255,22 +258,6 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     }
     if (fallbackEmail) return fallbackEmail[0].toUpperCase();
     return '?';
-  };
-
-  const handleCustomColorChange = async (e) => {
-    const color = e.target.value;
-    if (!authUser) return;
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ avatar_bg: color })
-        .eq('id', authUser.id);
-      
-      if (error) throw error;
-      refreshProfile();
-    } catch (err) {
-      console.error('Error updating avatar color:', err);
-    }
   };
 
   React.useEffect(() => {
@@ -304,131 +291,43 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   };
 
   useEffect(() => {
-    if (!isSyncEnabled()) {
-      setLoading(false);
-      return;
-    }
+    if (!authUser || !isSyncEnabled()) return;
 
     let mounted = true;
-
-    // Safety net: never leave loading stuck longer than 5 seconds
-    loadingTimeoutRef.current = setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 5000);
-
-    async function bootstrapSession() {
+    async function loadRemoteSettings() {
       try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+        const { data, error: settingsError } = await supabase
+          .from('user_settings')
+          .select('settings')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
 
         if (!mounted) return;
 
-        if (error) {
-          console.warn('Supabase getSession error:', error);
-          setUser(null);
-          setAuthMode('login');
-          setLoading(false);
-          return;
-        }
-
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-
-        if (!currentUser) setAuthMode('login');
-        setLoading(false);
-
-        if (currentUser) {
+        if (settingsError) {
+          console.warn('Failed to fetch user settings:', settingsError);
+        } else if (data?.settings) {
+          onChange(data.settings);
           try {
-            const { data, error: settingsError } = await supabase
-              .from('user_settings')
-              .select('settings')
-              .eq('user_id', currentUser.id)
-              .maybeSingle();
-
-            if (settingsError) {
-              console.warn('Failed to fetch user settings:', settingsError);
-            } else if (data?.settings) {
-              onChange(data.settings);
-              try {
-                localStorage.setItem('biba_bench_buddy_settings', JSON.stringify(data.settings));
-              } catch (err) {
-                console.warn('Failed to cache remote settings locally:', err);
-              }
-            }
+            localStorage.setItem(`biba_bench_buddy_settings_${authUser.id}`, JSON.stringify(data.settings));
           } catch (err) {
-            console.warn('Failed to load remote settings:', err);
+            console.warn('Failed to cache remote settings locally:', err);
           }
         }
       } catch (err) {
-        console.warn('bootstrapSession failed:', err);
-        if (mounted) {
-          setUser(null);
-          setAuthMode('login');
-          setLoading(false);
-        }
+        console.warn('Failed to load remote settings:', err);
       }
     }
 
-    bootstrapSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
-
-      try {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        if (!currentUser) setAuthMode('login');
-        setLoading(false);
-
-        if (currentUser) {
-          try {
-            const { data, error: settingsError } = await supabase
-              .from('user_settings')
-              .select('settings')
-              .eq('user_id', currentUser.id)
-              .maybeSingle();
-
-            if (settingsError) {
-              console.warn('Failed to fetch user settings after auth change:', settingsError);
-            } else if (data?.settings) {
-              onChange(data.settings);
-              try {
-                localStorage.setItem('biba_bench_buddy_settings', JSON.stringify(data.settings));
-              } catch (err) {
-                console.warn('Failed to cache remote settings locally:', err);
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to load remote settings after auth change:', err);
-          }
-        }
-      } catch (err) {
-        console.warn('onAuthStateChange failed:', err);
-        if (mounted) {
-          setUser(null);
-          setAuthMode('login');
-          setLoading(false);
-        }
-      }
-    });
-
+    loadRemoteSettings();
     return () => {
       mounted = false;
-      clearTimeout(loadingTimeoutRef.current);
-      subscription.unsubscribe();
     };
-  }, [onChange]);
+  }, [authUser, onChange]);
 
   useEffect(() => {
-    const lang = settings.language || 'en';
-    const t = TRANSLATIONS[lang];
-
     const getStorageKey = () => {
-      return user ? `biba_bench_buddy_settings_${user.id}` : 'biba_bench_buddy_settings';
+      return authUser ? `biba_bench_buddy_settings_${authUser.id}` : 'biba_bench_buddy_settings';
     };
 
     try {
@@ -437,14 +336,14 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
       console.warn('Failed to save settings locally:', err);
     }
 
-    if (!user || !isSyncEnabled()) return;
+    if (!authUser || !isSyncEnabled()) return;
 
     const timer = setTimeout(async () => {
       await supabase
         .from('user_settings')
         .upsert(
           {
-            user_id: user.id,
+            user_id: authUser.id,
             settings,
             updated_at: new Date().toISOString(),
           },
@@ -453,7 +352,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [settings, user]);
+  }, [settings, authUser]);
 
   const translateAuthError = (msg) => {
     const lang = settings.language || 'en';
@@ -523,7 +422,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     setAuthLoading(true);
 
     try {
-      const redirectTo = `${getAppUrl()}/`;
+      const redirectTo = `${getAppUrl()}/?reset-password=true`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (error) throw error;
       setAuthMessage(t.emailSent);
@@ -533,6 +432,56 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
       setAuthLoading(false);
     }
   };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!isSyncEnabled()) return;
+
+    const lang = settings.language || 'en';
+    const t = TRANSLATIONS[lang];
+
+    setAuthError('');
+    setAuthMessage('');
+
+    if (newPassword !== confirmPassword) {
+      setAuthError(t.passwordsMismatch);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setAuthError(t.passwordTooShort);
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setAuthMessage(t.passwordUpdated);
+      setNewPassword('');
+      setConfirmPassword('');
+      if (clearPasswordRecovery) clearPasswordRecovery();
+      // Switch back to logged-in view after a short delay
+      setTimeout(() => {
+        setAuthMessage('');
+      }, 4000);
+    } catch (err) {
+      setAuthError(translateAuthError(err.message));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Auto-switch to resetPassword mode when password recovery is detected
+  useEffect(() => {
+    if (isPasswordRecovery) {
+      setAuthMode('resetPassword');
+      setTab('account');
+      setAuthError('');
+      setAuthMessage('');
+    }
+  }, [isPasswordRecovery]);
 
   const handleOAuth = async () => {
     if (!isSyncEnabled()) return;
@@ -555,7 +504,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
   const handleSignOut = async () => {
     if (!isSyncEnabled()) return;
-    await supabase.auth.signOut();
+    await logout();
   };
 
   const handleUpdateDisplayName = async () => {
@@ -618,8 +567,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors ${tab === t.id
-                  ? 'border-teal-500 text-teal-700'
-                  : 'border-transparent text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200'
+                  ? 'border-teal-500 text-teal-700 dark:text-teal-500'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                   }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -633,7 +582,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
           {tab === 'appearance' && (
             <>
               <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Palette className="w-3.5 h-3.5" /> {t.appTheme}
                 </p>
                 <div className="space-y-4">
@@ -694,7 +643,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div>
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                   <ALargeSmall className="w-3.5 h-3.5" /> {t.fontSize}</p>
                 <div className="grid grid-cols-4 gap-2">
                   {FONT_SIZES.map((f) => (
@@ -713,7 +662,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5" /> {t.language}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -740,7 +689,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
           {tab === 'ai' && (
             <div className="space-y-6">
               <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5" /> {t.aiProvider}
                 </p>
                 <select
@@ -765,7 +714,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider">{t.modelSelection}</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t.modelSelection}</p>
                   {settings.aiProvider === 'openrouter' && (
                     <button
                       onClick={handleFetchOR}
@@ -874,7 +823,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl">
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 dark:text-slate-500 leading-relaxed italic">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed italic">
                   {t.apiKeyNote}
                 </p>
               </div>
@@ -890,12 +839,12 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                     {t.syncNote}
                   </p>
                 </div>
-              ) : loading ? (
+              ) : isLoadingAuth ? (
                 <div className="text-center py-8 text-slate-400 dark:text-slate-500">
                   <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-500" />
                   <p className="text-sm">{t.loadingSession}</p>
                 </div>
-              ) : authUser ? (
+              ) : authUser && !isPasswordRecovery ? (
                 <>
                   <div className="flex flex-col items-center py-4 space-y-4">
                     <div 
@@ -991,16 +940,85 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       <User className="w-6 h-6" />
                     </div>
                     <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                      {authMode === 'forgot' ? t.forgotPasswordTitle : authMode === 'login' ? t.welcomeBack : t.createAccount}
+                      {authMode === 'resetPassword' ? t.resetPasswordTitle : authMode === 'forgot' ? t.forgotPasswordTitle : authMode === 'login' ? t.welcomeBack : t.createAccount}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 mt-1">
-                      {authMode === 'forgot'
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {authMode === 'resetPassword'
+                        ? t.resetPasswordSub
+                        : authMode === 'forgot'
                         ? t.forgotPasswordSub
                         : t.syncSub}
                     </p>
                   </div>
 
-                  {authMode === 'forgot' ? (
+                  {authMode === 'resetPassword' ? (
+                    /* ── Reset Password form ── */
+                    <form onSubmit={handleResetPassword} className="space-y-3">
+                      <div className="space-y-1">
+                        <label htmlFor="new-password" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                          {t.newPassword}
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                          <input
+                            id="new-password"
+                            name="new-password"
+                            required
+                            type={showPassword ? 'text' : 'password'}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full h-10 pl-10 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                            placeholder="••••••••"
+                            autoComplete="new-password"
+                            minLength={6}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label htmlFor="confirm-password" className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase ml-1">
+                          {t.confirmNewPassword}
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                          <input
+                            id="confirm-password"
+                            name="confirm-password"
+                            required
+                            type={showPassword ? 'text' : 'password'}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full h-10 pl-10 pr-4 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/20 outline-none transition-all"
+                            placeholder="••••••••"
+                            autoComplete="new-password"
+                            minLength={6}
+                          />
+                        </div>
+                      </div>
+
+                      {authError && (
+                        <p className="text-[11px] text-center font-medium text-red-500">{authError}</p>
+                      )}
+                      {authMessage && (
+                        <p className="text-[11px] text-center font-medium text-green-600 bg-green-50 border border-green-200 rounded-xl p-3 leading-relaxed">{authMessage}</p>
+                      )}
+
+                      <Button type="submit" disabled={authLoading} className="w-full h-10 bg-teal-600 hover:bg-teal-700 rounded-xl gap-2 shadow-md shadow-teal-500/10">
+                        {authLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> {t.updating}</>
+                        ) : (
+                          <><KeyRound className="w-4 h-4" /> {t.updatePassword}</>
+                        )}
+                      </Button>
+                    </form>
+                  ) : authMode === 'forgot' ? (
                     /* ── Forgot Password form ── */
                     <form onSubmit={handleForgotPassword} className="space-y-3">
                       <div className="space-y-1">
@@ -1040,8 +1058,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
                       <button
                         type="button"
-                        onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMessage(''); }}
-                        className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-teal-600 transition-colors mt-1"
+                        onClick={() => { setAuthMode('login'); setEmail(''); setAuthError(''); setAuthMessage(''); }}
+                        className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-teal-600 transition-colors mt-1"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" /> {t.backToLogin}
                       </button>
@@ -1096,7 +1114,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                           </label>
                           {authMode === 'login' && (
                             <button
-                              type="button"
+                              type="button" tabIndex={-1}
                               onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthMessage(''); }}
                               className="text-[10px] text-teal-600 hover:text-teal-700 hover:underline font-medium transition-colors"
                             >
@@ -1120,7 +1138,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                           <button
                             type="button"
                             onClick={() => setShowPassword((v) => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-300 transition-colors"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 transition-colors"
                             tabIndex={-1}
                             aria-label={showPassword ? 'Verberg wachtwoord' : 'Toon wachtwoord'}
                           >

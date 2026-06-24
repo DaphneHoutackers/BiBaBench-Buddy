@@ -1,7 +1,8 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   ArrowLeft, BookOpen,
-  Settings, ImageIcon, PanelLeft, ChevronDown, Clock, Trash2, Home as HomeIcon
+  Settings, ImageIcon, PanelLeft, ChevronDown, Clock, Trash2, Home as HomeIcon,
+  Edit3, Palette
 } from 'lucide-react';
 import { BiTransferAlt, BiGame, BiDna} from 'react-icons/bi';
 import { FaSortAmountDown } from "react-icons/fa";
@@ -79,6 +80,14 @@ const TOOL_TABS = {
     { id: 'single', label: 'Single Digest' },
     { id: 'batch', label: 'Multiple Digest' },
   ],
+  ligation: [
+    { id: 'single', label: 'Single Ligation' },
+    { id: 'batch', label: 'Batch Ligation' },
+  ],
+  gibson: [
+    { id: 'single', label: 'Single Gibson' },
+    { id: 'batch', label: 'Batch Gibson' },
+  ],
   pcr: [
     { id: 'mix', label: 'PCR Mix' },
     { id: 'ta', label: 'Ta Calculator' },
@@ -98,6 +107,14 @@ const TOOL_TABS = {
   protein: [
     { id: 'standards', label: 'BCA assay' },
     { id: 'prep', label: 'SDS-PAGE Prep' },
+  ],
+  gel: [
+    { id: 'dna', label: 'DNA Gel' },
+    { id: 'wb', label: 'Western Blot' },
+  ],
+  protocols: [
+    { id: 'library', label: 'Protocol Library' },
+    { id: 'ai', label: 'AI Generator' },
   ],
 };
 
@@ -125,6 +142,16 @@ const TOOL_GROUPS = [
 const ALL_IDS = [
   'digest', 'ligation', 'gibson', 'pcr', 'dilution', 'protein',
   'buffer', 'protocols', 'ai', 'gel', 'plasmid', 'image-annotator',
+];
+
+// ── Custom tab colors ────────────────────────────────────────────────────────
+const TAB_COLORS = [
+  { id: 'rose', name: 'Rose/Rood', activeClass: 'bg-rose-500 hover:bg-rose-600 text-white', previewBg: 'bg-rose-500' },
+  { id: 'blue', name: 'Blauw', activeClass: 'bg-blue-500 hover:bg-blue-600 text-white', previewBg: 'bg-blue-500' },
+  { id: 'emerald', name: 'Groen', activeClass: 'bg-emerald-500 hover:bg-emerald-600 text-white', previewBg: 'bg-emerald-500' },
+  { id: 'purple', name: 'Paars', activeClass: 'bg-purple-500 hover:bg-purple-600 text-white', previewBg: 'bg-purple-500' },
+  { id: 'orange', name: 'Oranje', activeClass: 'bg-orange-500 hover:bg-orange-600 text-white', previewBg: 'bg-orange-500' },
+  { id: 'amber', name: 'Geel', activeClass: 'bg-amber-500 hover:bg-amber-600 text-white', previewBg: 'bg-amber-500' },
 ];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -324,12 +351,135 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 const ALL_BODY_THEME_CLASSES = Object.values(APP_THEMES).map(t => t.bodyClass).filter(Boolean);
 
 export default function Home() {
-  const { user, profile } = useAuth();
+  const { user, profile, isPasswordRecovery } = useAuth();
   const isMobile = useIsMobile();
   const [active, setActive] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [visitedIds, setVisitedIds] = useState(() => new Set());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Auto-open settings panel for password recovery
+  useEffect(() => {
+    if (isPasswordRecovery) {
+      setShowSettings(true);
+    }
+  }, [isPasswordRecovery]);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState({});
+  const [historyData, setHistoryData] = useState(null);
+  const [editingTab, setEditingTab] = useState(null); // { toolKey, tabId, name }
+  const [contextMenu, setContextMenu] = useState(null); // { x: number, y: number, toolKey: string, tab: object }
+
+  const getSubtoolKey = (toolId) => {
+    if (!TOOL_TABS[toolId]) return toolId;
+    const subTabId = activeTab[toolId] || TOOL_TABS[toolId][0].id;
+    return `${toolId}-${subTabId}`;
+  };
+
+  const [toolInstances, setToolInstances] = useState(() => {
+    const initial = {};
+    ALL_IDS.forEach(id => {
+      if (TOOL_TABS[id]) {
+        TOOL_TABS[id].forEach(subtab => {
+          const key = `${id}-${subtab.id}`;
+          initial[key] = [{ id: `default-${key}`, name: 'Tab 1' }];
+        });
+      } else {
+        initial[id] = [{ id: `default-${id}`, name: 'Tab 1' }];
+      }
+    });
+    return initial;
+  });
+
+  const [activeInstance, setActiveInstance] = useState(() => {
+    const initial = {};
+    ALL_IDS.forEach(id => {
+      if (TOOL_TABS[id]) {
+        TOOL_TABS[id].forEach(subtab => {
+          const key = `${id}-${subtab.id}`;
+          initial[key] = `default-${key}`;
+        });
+      } else {
+        initial[id] = `default-${id}`;
+      }
+    });
+    return initial;
+  });
+
+  const handleAddTab = (toolKey) => {
+    const newId = `${toolKey}-${Date.now()}`;
+    const currentList = toolInstances[toolKey] || [];
+    const nextNum = currentList.length + 1;
+    const newTab = { id: newId, name: `Tab ${nextNum}` };
+    setToolInstances(prev => ({
+      ...prev,
+      [toolKey]: [...currentList, newTab]
+    }));
+    setActiveInstance(prev => ({
+      ...prev,
+      [toolKey]: newId
+    }));
+  };
+
+  const handleRemoveTab = (toolKey, tabId, e) => {
+    e.stopPropagation();
+    const currentList = toolInstances[toolKey] || [];
+    if (currentList.length <= 1) return;
+    const index = currentList.findIndex(t => t.id === tabId);
+    const newList = currentList.filter(t => t.id !== tabId);
+    setToolInstances(prev => ({
+      ...prev,
+      [toolKey]: newList
+    }));
+    if (activeInstance[toolKey] === tabId) {
+      const nextActiveIndex = index > 0 ? index - 1 : 0;
+      setActiveInstance(prev => ({
+        ...prev,
+        [toolKey]: newList[nextActiveIndex].id
+      }));
+    }
+  };
+
+  const handleCommitRename = () => {
+    if (!editingTab) return;
+    const { toolKey, tabId, name } = editingTab;
+    const trimmed = name.trim();
+    if (trimmed) {
+      setToolInstances(prev => {
+        const list = prev[toolKey] || [];
+        return {
+          ...prev,
+          [toolKey]: list.map(t => t.id === tabId ? { ...t, name: trimmed } : t)
+        };
+      });
+    }
+    setEditingTab(null);
+  };
+
+  const handleSetTabColor = (toolKey, tabId, colorId) => {
+    setToolInstances(prev => {
+      const list = prev[toolKey] || [];
+      return {
+        ...prev,
+        [toolKey]: list.map(t => t.id === tabId ? { ...t, color: colorId } : t)
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClose = () => setContextMenu(null);
+    window.addEventListener('click', handleClose);
+    window.addEventListener('contextmenu', handleClose);
+    window.addEventListener('scroll', handleClose, true);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('contextmenu', handleClose);
+      window.removeEventListener('scroll', handleClose, true);
+    };
+  }, [contextMenu]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -513,10 +663,7 @@ export default function Home() {
     }
   };
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState({});
-  const [historyData, setHistoryData] = useState(null);
+
 
   const isElectron = navigator.userAgent.toLowerCase().includes('electron');
   const isMacElectron = isElectron && navigator.platform.toUpperCase().includes('MAC');
@@ -563,10 +710,11 @@ export default function Home() {
     setHistoryData(item);
   };
 
-  const getComponent = id => {
-    const isAct = active === id;
+  const getComponent = (id, instanceId) => {
+    const subtoolKey = getSubtoolKey(id);
+    const isAct = active === id && activeInstance[subtoolKey] === instanceId;
     const hData = isAct ? historyData : null;
-    const calculatorProps = { historyData: hData, isActive: isAct, isDark, theme, settings, user };
+    const calculatorProps = { key: instanceId, historyData: hData, isActive: isAct, isDark, theme, settings, user };
 
     const renderLazy = (ComponentInstance) => (
       <Suspense fallback={
@@ -580,33 +728,204 @@ export default function Home() {
 
     switch (id) {
       case 'digest':
-        return <DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} />;
+        return <DigestCalculator {...calculatorProps} externalTab={activeTab['digest']} onTabChange={t => handleSelectTab('digest', t)} tabs={renderToolTabs('digest-' + (activeTab['digest'] || 'single'))} />;
       case 'ligation':
-        return <LigationCalculator {...calculatorProps} />;
+        return <LigationCalculator {...calculatorProps} externalTab={activeTab['ligation']} onTabChange={t => handleSelectTab('ligation', t)} tabs={renderToolTabs('ligation-' + (activeTab['ligation'] || 'single'))} />;
       case 'gibson':
-        return <GibsonCalculator {...calculatorProps} />;
+        return <GibsonCalculator {...calculatorProps} externalTab={activeTab['gibson']} onTabChange={t => handleSelectTab('gibson', t)} tabs={renderToolTabs('gibson-' + (activeTab['gibson'] || 'single'))} />;
       case 'pcr':
-        return <PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} />;
+        return <PCRCalculator {...calculatorProps} externalTab={activeTab['pcr']} onTabChange={t => handleSelectTab('pcr', t)} tabs={renderToolTabs('pcr-' + (activeTab['pcr'] || 'mix'))} />;
       case 'dilution':
-        return <DilutionCalculator {...calculatorProps} />;
+        return <DilutionCalculator {...calculatorProps} externalTab={activeTab['dilution']} onTabChange={t => handleSelectTab('dilution', t)} tabs={renderToolTabs('dilution-' + (activeTab['dilution'] || 'c1v1'))} />;
       case 'buffer':
-        return renderLazy(<BufferCalculator {...calculatorProps} />);
+        return renderLazy(<BufferCalculator {...calculatorProps} externalTab={activeTab['buffer']} onTabChange={t => handleSelectTab('buffer', t)} tabs={renderToolTabs('buffer-' + (activeTab['buffer'] || 'recipes'))} />);
       case 'protein':
-        return <ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} />;
+        return <ProteinConcCalculator {...calculatorProps} externalTab={activeTab['protein']} onTabChange={t => handleSelectTab('protein', t)} tabs={renderToolTabs('protein-' + (activeTab['protein'] || 'standards'))} />;
       case 'protocols':
-        return renderLazy(<ProtocolLibrary {...calculatorProps} />);
+        return renderLazy(<ProtocolLibrary {...calculatorProps} externalTab={activeTab['protocols']} onTabChange={t => handleSelectTab('protocols', t)} tabs={renderToolTabs('protocols-' + (activeTab['protocols'] || 'library'))} />);
       case 'ai':
         return renderLazy(<AIAssistant {...calculatorProps} />);
       case 'gel':
-        return renderLazy(<GelSimulator {...calculatorProps} />);
+        return renderLazy(<GelSimulator {...calculatorProps} externalTab={activeTab['gel']} onTabChange={t => handleSelectTab('gel', t)} tabs={renderToolTabs('gel-' + (activeTab['gel'] || 'dna'))} />);
       case 'image-annotator':
-        return renderLazy(<ImageAnnotator {...calculatorProps} />);
+        return renderLazy(<ImageAnnotator {...calculatorProps} tabs={renderToolTabs('image-annotator')} />);
       case 'plasmid':
-        return renderLazy(<PlasmidAnalyzer {...calculatorProps} />);
+        return renderLazy(<PlasmidAnalyzer {...calculatorProps} tabs={renderToolTabs('plasmid')} />);
       default:
         return null;
     }
   };
+
+  const getToolTheme = (toolId, isDark) => {
+    const themes = {
+      digest: {
+        bg: isDark ? 'bg-rose-950/20 border-rose-900/30' : 'bg-rose-50/80 border-rose-100',
+        activeTab: 'bg-rose-500 hover:bg-rose-600 text-white',
+        plusBtn: isDark ? 'bg-rose-900/20 text-rose-300 hover:bg-rose-900/40' : 'bg-rose-100 hover:bg-rose-200 text-rose-700',
+      },
+      ligation: {
+        bg: isDark ? 'bg-orange-950/20 border-orange-900/30' : 'bg-orange-50/80 border-orange-100',
+        activeTab: 'bg-orange-500 hover:bg-orange-600 text-white',
+        plusBtn: isDark ? 'bg-orange-900/20 text-orange-300 hover:bg-orange-900/40' : 'bg-orange-100 hover:bg-orange-200 text-orange-700',
+      },
+      gibson: {
+        bg: isDark ? 'bg-purple-950/20 border-purple-900/30' : 'bg-purple-50/80 border-purple-100',
+        activeTab: 'bg-purple-500 hover:bg-purple-600 text-white',
+        plusBtn: isDark ? 'bg-purple-900/20 text-purple-300 hover:bg-purple-900/40' : 'bg-purple-100 hover:bg-purple-200 text-purple-700',
+      },
+      pcr: {
+        bg: isDark ? 'bg-pink-950/20 border-pink-900/30' : 'bg-pink-50/80 border-pink-100',
+        activeTab: 'bg-pink-500 hover:bg-pink-600 text-white',
+        plusBtn: isDark ? 'bg-pink-900/20 text-pink-300 hover:bg-pink-900/40' : 'bg-pink-100 hover:bg-pink-200 text-pink-700',
+      },
+      dilution: {
+        bg: isDark ? 'bg-rose-950/20 border-rose-900/30' : 'bg-rose-50/80 border-rose-100',
+        activeTab: 'bg-rose-500 hover:bg-rose-600 text-white',
+        plusBtn: isDark ? 'bg-rose-900/20 text-rose-300 hover:bg-rose-900/40' : 'bg-rose-100 hover:bg-rose-200 text-rose-700',
+      },
+      protein: {
+        bg: isDark ? 'bg-purple-950/20 border-purple-900/30' : 'bg-purple-50/80 border-purple-100',
+        activeTab: 'bg-purple-500 hover:bg-purple-600 text-white',
+        plusBtn: isDark ? 'bg-purple-900/20 text-purple-300 hover:bg-purple-900/40' : 'bg-purple-100 hover:bg-purple-200 text-purple-700',
+      },
+      gel: {
+        bg: isDark ? 'bg-blue-950/20 border-blue-900/30' : 'bg-blue-50/80 border-blue-100',
+        activeTab: 'bg-blue-500 hover:bg-blue-600 text-white',
+        plusBtn: isDark ? 'bg-blue-900/20 text-blue-300 hover:bg-blue-900/40' : 'bg-blue-100 hover:bg-blue-200 text-blue-700',
+      },
+      plasmid: {
+        bg: isDark ? 'bg-teal-950/20 border-teal-900/30' : 'bg-teal-50/80 border-teal-100',
+        activeTab: 'bg-teal-500 hover:bg-teal-600 text-white',
+        plusBtn: isDark ? 'bg-teal-900/20 text-teal-300 hover:bg-teal-900/40' : 'bg-teal-100 hover:bg-teal-200 text-teal-700',
+      },
+      'image-annotator': {
+        bg: isDark ? 'bg-green-950/20 border-green-900/30' : 'bg-green-50/80 border-green-100',
+        activeTab: 'bg-green-500 hover:bg-green-600 text-white',
+        plusBtn: isDark ? 'bg-green-900/20 text-green-300 hover:bg-green-900/40' : 'bg-green-100 hover:bg-green-200 text-green-700',
+      },
+      buffer: {
+        bg: isDark ? 'bg-orange-950/20 border-orange-900/30' : 'bg-orange-50/80 border-orange-100',
+        activeTab: 'bg-orange-500 hover:bg-orange-600 text-white',
+        plusBtn: isDark ? 'bg-orange-900/20 text-orange-300 hover:bg-orange-900/40' : 'bg-orange-100 hover:bg-orange-200 text-orange-700',
+      },
+      protocols: {
+        bg: isDark ? 'bg-yellow-950/20 border-yellow-900/30' : 'bg-yellow-50/80 border-yellow-100',
+        activeTab: 'bg-yellow-500 hover:bg-yellow-600 text-white',
+        plusBtn: isDark ? 'bg-yellow-900/20 text-yellow-300 hover:bg-yellow-900/40' : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700',
+      },
+    };
+    return themes[toolId] || {
+      bg: isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200',
+      activeTab: 'bg-slate-800 text-white',
+      plusBtn: 'bg-slate-200 hover:bg-slate-300 text-slate-700',
+    };
+  };
+
+  const renderToolTabs = (toolKey) => {
+    if (isHome || active === 'ai') return null;
+    const currentTabs = toolInstances[toolKey] || [];
+    const currentActiveId = activeInstance[toolKey];
+    const t = getToolTheme(active, isDark);
+
+    return (
+      <div className="w-fit mt-1 mb-3">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 shadow-sm transition-all">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <div className="flex items-center gap-1.5 flex-1">
+              {currentTabs.map((tab) => {
+                const isActive = tab.id === currentActiveId;
+                const isEditing = editingTab && editingTab.toolKey === toolKey && editingTab.tabId === tab.id;
+                const customColor = tab.color ? TAB_COLORS.find(c => c.id === tab.color) : null;
+                const activeTabStyle = customColor ? customColor.activeClass : t.activeTab;
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => setActiveInstance(prev => ({ ...prev, [toolKey]: tab.id }))}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTab({ toolKey, tabId: tab.id, name: tab.name });
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenu({ x: e.clientX, y: e.clientY, toolKey, tab });
+                    }}
+                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer text-xs font-semibold select-none transition-all ${
+                      isActive
+                        ? activeTabStyle
+                        : isDark
+                        ? 'bg-slate-800 hover:bg-slate-700/80 text-slate-300 border border-slate-700/40'
+                        : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600 border border-slate-200/60'
+                    }`}
+                  >
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingTab.name}
+                        onChange={(e) => setEditingTab(prev => ({ ...prev, name: e.target.value }))}
+                        onBlur={handleCommitRename}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCommitRename();
+                          } else if (e.key === 'Escape') {
+                            setEditingTab(null);
+                          }
+                        }}
+                        className="bg-transparent border-b border-current/40 focus:outline-none px-0.5 text-xs text-inherit w-16 text-center"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span>{tab.name}</span>
+                    )}
+                    {currentTabs.length > 1 && (
+                      <button
+                        onClick={(e) => handleRemoveTab(toolKey, tab.id, e)}
+                        className={`rounded-full p-0.5 transition-colors ${
+                          isActive
+                            ? 'hover:bg-white/20 text-white/80 hover:text-white'
+                            : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500'
+                        }`}
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              
+              <button
+                onClick={() => handleAddTab(toolKey)}
+                className={`p-1.5 rounded-xl transition-all flex items-center justify-center ${t.plusBtn}`}
+                title="Open new tab"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Ensure context menu stays inside viewport
+  let adjustedX = contextMenu ? contextMenu.x : 0;
+  let adjustedY = contextMenu ? contextMenu.y : 0;
+  if (contextMenu) {
+    const menuWidth = 192;
+    const menuHeight = 160;
+    if (adjustedX + menuWidth > window.innerWidth) {
+      adjustedX = window.innerWidth - menuWidth - 8;
+    }
+    if (adjustedY + menuHeight > window.innerHeight) {
+      adjustedY = window.innerHeight - menuHeight - 8;
+    }
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={bgStyle}>
@@ -731,6 +1050,7 @@ export default function Home() {
           onClick={() => { if (sidebarOpen) setSidebarOpen(false); }}
           className={`flex-1 px-2 sm:px-6 lg:px-8 pt-8 ${isHome ? 'pb-0' : 'pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col cursor-default`}
         >
+
           {/* ── HOME ── */}
           {isHome && (
             <div className="space-y-7 flex-1 flex flex-col">
@@ -832,7 +1152,39 @@ export default function Home() {
                 style={{ display: active === id ? 'block' : 'none' }}
                 className="transition-all duration-300 w-full pt-2"
               >
-                {getComponent(id)}
+                {TOOL_TABS[id] ? (
+                  TOOL_TABS[id].map(subtab => {
+                    const subtoolKey = `${id}-${subtab.id}`;
+                    const instances = toolInstances[subtoolKey] || [];
+                    const activeInst = activeInstance[subtoolKey];
+                    const isSubtabActive = activeTab[id] === subtab.id || (!activeTab[id] && subtab.id === TOOL_TABS[id][0].id);
+
+                    return (
+                      <div
+                        key={subtoolKey}
+                        style={{ display: isSubtabActive ? 'block' : 'none' }}
+                      >
+                        {instances.map(inst => (
+                          <div
+                            key={inst.id}
+                            style={{ display: activeInst === inst.id ? 'block' : 'none' }}
+                          >
+                            {getComponent(id, inst.id)}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })
+                ) : (
+                  (toolInstances[id] || []).map(inst => (
+                    <div
+                      key={inst.id}
+                      style={{ display: activeInstance[id] === inst.id ? 'block' : 'none' }}
+                    >
+                      {getComponent(id, inst.id)}
+                    </div>
+                  ))
+                )}
               </div>
             );
           })}
@@ -847,6 +1199,55 @@ export default function Home() {
           onChange={setSettings}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {contextMenu && (
+        <div
+          style={{ top: adjustedY, left: adjustedX }}
+          className="fixed bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1.5 w-48 text-xs font-medium text-slate-700 dark:text-slate-200 z-[100] backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setEditingTab({ toolKey: contextMenu.toolKey, tabId: contextMenu.tab.id, name: contextMenu.tab.name });
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 transition-colors"
+          >
+            <Edit3 className="w-3.5 h-3.5 text-slate-400" />
+            <span>Naam wijzigen</span>
+          </button>
+          <div className="border-t border-slate-100 dark:border-slate-800 my-1"></div>
+          <div className="px-3 py-1 text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            <Palette className="w-3.5 h-3.5 text-slate-400" />
+            <span>Kleur wijzigen</span>
+          </div>
+          <div className="grid grid-cols-6 gap-1.5 px-3 py-2">
+            {TAB_COLORS.map((colorOption) => (
+              <button
+                key={colorOption.id}
+                onClick={() => {
+                  handleSetTabColor(contextMenu.toolKey, contextMenu.tab.id, colorOption.id);
+                  setContextMenu(null);
+                }}
+                className={`w-5 h-5 rounded-full ${colorOption.previewBg} border border-slate-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-transform`}
+                title={colorOption.name}
+              />
+            ))}
+          </div>
+          {contextMenu.tab.color && (
+            <button
+              onClick={() => {
+                handleSetTabColor(contextMenu.toolKey, contextMenu.tab.id, null);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+              Herstel standaard kleur
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -203,17 +203,28 @@ const PAGruler_GEL_POSITIONS = {
 const LANE_WIDTH = 70;
 const GEL_PADDING_LEFT = 90;
 const GEL_PADDING_RIGHT = 20;
-const GEL_HEIGHT = 520;
-const BAND_H = 8;
-const LANE_COLORS = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#db2777','#0891b2','#65a30d'];
+const GEL_HEIGHT = 585; // Increased to make room for enzyme labels at the bottom and wrapped ladder titles
+const BAND_H = 7;
+
 
 // migFactor: 1 = standard (100V, 35min), scales band migration proportionally
-function bpToY(bp, minBp = 50, maxBp = 20000, migFactor = 1) {
+// agarosePct: gel percentage affecting pore size and retardation of larger vs smaller bands
+function bpToY(bp, minBp = 50, maxBp = 20000, migFactor = 1, agarosePct = 1.0) {
+  const A = Math.max(0.1, Math.min(5.0, parseFloat(agarosePct) || 1.0));
   const logMin = Math.log10(minBp);
   const logMax = Math.log10(maxBp);
   const logBp = Math.log10(Math.max(bp, minBp));
-  const rawPos = 1 - (logBp - logMin) / (logMax - logMin);
-  // migFactor compresses (< 1) or stretches (> 1) migration. Clamp to keep bands in gel.
+  
+  // Normal log-based position (0 at maxBp, 1 at minBp)
+  const normLog = (logMax - logBp) / (logMax - logMin);
+  
+  // Distort the position using a power curve that depends on Agarose concentration A.
+  // When A = 1.0, power = 1.0, which matches the original log-based behavior.
+  // We use a sensitivity factor of 0.4 so the effect of changing agarose concentration
+  // is present but gentler, preventing excessive compression at higher percentages.
+  const power = 1.0 + 0.4 * (A - 1.0);
+  const rawPos = Math.pow(normLog, power);
+  
   return Math.min(0.97, Math.max(0.03, rawPos * migFactor));
 }
 function kdaToY(kda, minKda = 5, maxKda = 300) {
@@ -350,8 +361,8 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
   const totalLanes = 1 + activeLanes.length;
   const gelWidth = GEL_PADDING_LEFT + totalLanes * LANE_WIDTH + GEL_PADDING_RIGHT;
 
-  const GEL_TOP = 30;
-  const GEL_BOTTOM = GEL_HEIGHT - 16;
+  const GEL_TOP = 55; // Increased to prevent ladder name from being clipped at the top
+  const GEL_BOTTOM = GEL_HEIGHT - 45; // Leave 45px space for enzyme labels
   const gelAreaH = GEL_BOTTOM - GEL_TOP;
 
   // Store band hit boxes for click detection
@@ -379,7 +390,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
     ctx.lineWidth = 0.5;
     ctx.setLineDash([4, 4]);
     ladderBands.forEach(bp => {
-      const y = bpToY(bp, 50, 20000, migFactor) * gelAreaH + GEL_TOP;
+      const y = bpToY(bp, 50, 20000, migFactor, agarose) * gelAreaH + GEL_TOP;
       ctx.beginPath();
       ctx.moveTo(GEL_PADDING_LEFT, y);
       ctx.lineTo(gelWidth - GEL_PADDING_RIGHT, y);
@@ -394,13 +405,32 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
     // ── Ladder lane ──
     const ladderX = GEL_PADDING_LEFT + Math.round(LANE_WIDTH * 0.5);
     ctx.fillStyle = '#475569';
-    ctx.font = 'bold 10px Inter';
+    ctx.font = 'bold 9px Inter';
     ctx.textAlign = 'center';
-    ctx.fillText('Ladder', ladderX, GEL_TOP - 6);
+    
+    // Split selected ladder name into multiple lines if needed to fit lane width (70px)
+    const words = selectedLadder.split(' ');
+    let lines = [];
+    let currentLine = '';
+    words.forEach(word => {
+      const testLine = currentLine ? currentLine + ' ' + word : word;
+      if (ctx.measureText(testLine).width > 60) {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+    if (currentLine) lines.push(currentLine);
+    
+    lines.forEach((line, lIdx) => {
+      const y = GEL_TOP - 6 - (lines.length - 1 - lIdx) * 10;
+      ctx.fillText(line, ladderX, y);
+    });
 
     const bw = Math.round(LANE_WIDTH * 0.74);
     ladderBands.forEach(bp => {
-      const y = bpToY(bp, 50, 20000, migFactor) * gelAreaH + GEL_TOP;
+      const y = bpToY(bp, 50, 20000, migFactor, agarose) * gelAreaH + GEL_TOP;
       const isBold = boldBands.includes(bp);
       const isRed = redBands.includes(bp);
       const h = isBold ? BAND_H + 0 : BAND_H;
@@ -418,14 +448,26 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
     activeLanes.forEach((lane, idx) => {
       const laneX = GEL_PADDING_LEFT + LANE_WIDTH * (idx + 1) + Math.round(LANE_WIDTH * 0.5);
 
-      ctx.fillStyle = '#111827';
+      const laneColor = (laneColors && laneColors[lane.id]) || '#000000';
+      ctx.fillStyle = laneColor;
       ctx.font = 'bold 12px Inter';
       ctx.textAlign = 'center';
       const lbl = lane.label || String(idx + 1);
       ctx.fillText(lbl.length > 10 ? lbl.slice(0, 10) + '…' : lbl, laneX, GEL_TOP - 6);
 
+      // Render enzymes at the bottom of the lane
+      if (lane.type === 'sequence' && lane.enzymes && lane.enzymes.length > 0) {
+        ctx.fillStyle = '#475569';
+        ctx.font = '10px Inter';
+        ctx.textAlign = 'center';
+        lane.enzymes.forEach((enz, eIdx) => {
+          const name = getEnzymeDisplayName(enz);
+          ctx.fillText(name, laneX, GEL_BOTTOM + 12 + eIdx * 10);
+        });
+      }
+
       lane.bpList.forEach(bp => {
-        const y = bpToY(bp, 50, 20000, migFactor) * gelAreaH + GEL_TOP;
+        const y = bpToY(bp, 50, 20000, migFactor, agarose) * gelAreaH + GEL_TOP;
         const key = `${lane.id}_${bp}`;
         const isExcised = excisedBands[key];
 
@@ -433,7 +475,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
         ctx.fillRect(laneX - Math.round(bw / 2), Math.round(y - BAND_H / 2), bw, BAND_H);
 
         ctx.fillStyle = '#64748b';
-        ctx.font = '8px Inter';
+        ctx.font = '9.5px Inter';
         ctx.textAlign = 'center';
         ctx.fillText(`${bp}`, laneX, Math.round(y + BAND_H / 2) + 11);
 
@@ -448,7 +490,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
       });
     });
     bandHitBoxes.current = hits;
-  }, [activeLanes, selectedLadder, agarose, gelWidth, excisedBands, migFactor]);
+  }, [activeLanes, selectedLadder, agarose, gelWidth, excisedBands, migFactor, laneColors]);
 
   const handleCanvasClick = (e) => {
     if (!onBandClick) return;
@@ -516,15 +558,29 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           {activeLanes.map((lane, idx) => {
-            const laneColor = (laneColors && laneColors[lane.id]) || LANE_COLORS[idx % LANE_COLORS.length];
+            const laneColor = (laneColors && laneColors[lane.id]) || '#000000';
             return (
               <div key={lane.id} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 {onLaneColorChange ? (
-                  <label className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer relative border border-slate-300" style={{ background: laneColor }} title="Change label color">
-                    <input type="color" value={laneColor} onChange={e => onLaneColorChange(lane.id, e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                  <label
+                    onClick={(e) => {
+                      const input = e.currentTarget.querySelector('input[type="color"]');
+                      if (input) input.click();
+                    }}
+                    className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer relative border border-slate-300"
+                    style={{ background: laneColor }}
+                    title="Change label color"
+                  >
+                    <input
+                      type="color"
+                      value={laneColor}
+                      onChange={e => onLaneColorChange(lane.id, e.target.value)}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                      style={{ pointerEvents: 'none' }}
+                    />
                   </label>
                 ) : (
-                  <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: laneColor }} />
+                  <div className="w-3 h-3 rounded-sm flex-shrink-0 border border-slate-300" style={{ background: laneColor }} />
                 )}
                 <span>{lane.label}: {lane.bpList.length > 0 ? lane.bpList.map(b => `${b}bp`).join(', ') : 'no fragments'}</span>
               </div>
@@ -551,7 +607,7 @@ function WesternBlotTab() {
   const [gelType, setGelType] = useState('Tris-Glycine');
   const [gelPct, setGelPct] = useState('10');
   const [proteins, setProteins] = useState([
-    { id: 1, name: 'Protein 1', input: '', inputType: 'kda', kda: null, color: '#ef4444' }
+    { id: 1, name: 'Protein 1', input: '', inputType: 'kda', kda: null, color: '#000000' }
   ]);
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
@@ -584,7 +640,7 @@ function WesternBlotTab() {
 
   const addProtein = () => {
     const id = Math.max(...proteins.map(p => p.id)) + 1;
-    setProteins([...proteins, { id, name: `Protein ${id}`, input: '', inputType: 'kda', kda: null, color: '#ef4444' }]);
+    setProteins([...proteins, { id, name: `Protein ${id}`, input: '', inputType: 'kda', kda: null, color: '#000000' }]);
   };
 
   const updateProtein = (id, field, val) => {
@@ -610,7 +666,7 @@ function WesternBlotTab() {
   const WB_TOP = 34;
   const WB_BOTTOM = WB_HEIGHT - 11;
   const wbAreaH = WB_BOTTOM - WB_TOP;
-  const WB_PAD_LEFT = 35;
+  const WB_PAD_LEFT = 45;
   const WB_PAD_RIGHT = 20;
   const BAND_THICKNESS = 7;
   const totalLanes = 1 + proteins.length;
@@ -644,10 +700,10 @@ function WesternBlotTab() {
       ctx.stroke();
     });
     ctx.setLineDash([]);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '9px Inter';
+    ctx.fillStyle = '#404245';
+    ctx.font = '10px Inter';
     ctx.textAlign = 'right';
-    ctx.fillText('kDa', WB_PAD_LEFT - 4, WB_TOP - 4);
+    ctx.fillText('kDa', WB_PAD_LEFT - 6, WB_TOP - 4);
 
     const ladderX = WB_PAD_LEFT + Math.round(LANE_WIDTH * 0.5);
     ctx.fillStyle = '#374151';
@@ -663,16 +719,16 @@ function WesternBlotTab() {
       ctx.fillStyle = bandColor;
       ctx.fillRect(ladderX - Math.round(bw / 2), Math.round(y - h / 2), bw, h);
       ctx.fillStyle = '#374151';
-      ctx.font = isBold ? 'bold 10px Inter' : '10px Inter';
+      ctx.font = isBold ? 'bold 11px Inter' : '11px Inter';
       ctx.textAlign = 'right';
-      ctx.fillText(`${kda}`, ladderX - Math.round(bw / 2) - 3, y + 3.5);
+      ctx.fillText(`${kda}`, WB_PAD_LEFT - 6, y + 3.5);
     });
 
     proteins.forEach((prot, idx) => {
       const laneX = WB_PAD_LEFT + LANE_WIDTH * (idx + 1) + Math.round(LANE_WIDTH * 0.5);
-      const color = prot.color || '#ef4444';
-      ctx.fillStyle = '#111827';
-      ctx.font = 'bold 11px Inter';
+      const color = prot.color || '#000000';
+      ctx.fillStyle = color;
+      ctx.font = 'bold 12px Inter';
       ctx.textAlign = 'center';
       const lbl = prot.name || `Protein ${idx + 1}`;
       ctx.fillText(lbl.length > 10 ? lbl.slice(0, 10) + '…' : lbl, laneX, WB_TOP - 8);
@@ -766,8 +822,8 @@ function WesternBlotTab() {
               <div key={prot.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
                 <div className="flex items-center gap-2">
                   {/* Clickable color swatch */}
-                  <label className="w-5 h-5 rounded cursor-pointer border-2 border-slate-300 flex-shrink-0 relative" style={{ background: prot.color || '#ef4444' }} title="Click to change color">
-                    <input type="color" value={prot.color || '#ef4444'} onChange={e => updateProtein(prot.id, 'color', e.target.value)}
+                  <label className="w-5 h-5 rounded cursor-pointer border-2 border-slate-300 flex-shrink-0 relative" style={{ background: prot.color || '#000000' }} title="Click to change color">
+                    <input type="color" value={prot.color || '#000000'} onChange={e => updateProtein(prot.id, 'color', e.target.value)}
                       className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
                   </label>
                   <Input value={prot.name}
@@ -823,7 +879,7 @@ function WesternBlotTab() {
           <div className="mt-2 flex flex-wrap gap-2">
             {proteins.map((p) => (
               <div key={p.id} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: p.color || '#ef4444' }} />
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: p.color || '#000000' }} />
                 <span>{p.name}{p.kda ? ` — ${p.kda} kDa` : ''}</span>
               </div>
             ))}
@@ -837,9 +893,10 @@ function WesternBlotTab() {
 // ════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════
-export default function GelAndWBSimulator({ historyData, isActive }) {
+export default function GelAndWBSimulator({ historyData, isActive, externalTab, onTabChange, tabs }) {
   const { addHistoryItem } = useHistory();
-  const [tab, setTab] = useState('dna');
+  const [tab, setTab] = useState(externalTab || 'dna');
+  useEffect(() => { if (externalTab) setTab(externalTab); }, [externalTab]);
   const [selectedLadder, setSelectedLadder] = useState('GeneRuler 1kb');
   const [agarose, setAgarose] = useState('1');
   const [voltage, setVoltage] = useState(120);
@@ -847,7 +904,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
   
   // Unified DNA lanes state
   const [dnaLanes, setDnaLanes] = useState([
-    { id: 1, label: 'Lane 1', type: 'manual', manualFragments: '500, 2000', sequence: '', enzymes: [], circular: false }
+    { id: 1, label: 'Lane 1', type: 'sequence', manualFragments: '', sequence: '', enzymes: [], circular: true }
   ]);
   
   const [excisedBands, setExcisedBands] = useState({});
@@ -957,7 +1014,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
 
   const addLane = () => {
     const id = dnaLanes.length > 0 ? Math.max(...dnaLanes.map(l => l.id)) + 1 : 1;
-    setDnaLanes([...dnaLanes, { id, label: `Lane ${id}`, type: 'manual', manualFragments: '', sequence: '', enzymes: [], circular: false }]);
+    setDnaLanes([...dnaLanes, { id, label: `Lane ${id}`, type: 'sequence', manualFragments: '', sequence: '', enzymes: [], circular: true }]);
   };
 
   const updateLane = (id, field, val) => setDnaLanes(dnaLanes.map(l => l.id === id ? { ...l, [field]: val } : l));
@@ -974,7 +1031,7 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs value={tab} onValueChange={v => { setTab(v); onTabChange?.(v); }}>
         <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="dna" className="flex items-center gap-2">
             <Microscope className="w-4 h-4" />
@@ -986,33 +1043,74 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
           </TabsTrigger>
         </TabsList>
 
+        {tabs}
+
         <TabsContent value="dna" className="mt-4" forceMount style={{ display: tab === 'dna' ? undefined : 'none' }}>
           <div className="grid lg:grid-cols-2 gap-4">
             <div className="space-y-3">
               <Card className="border-0 shadow-sm bg-white dark:bg-white/10 backdrop-blur">
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-700 dark:text-slate-200">Gel Configuration</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-600 dark:text-slate-200">DNA Ladder</Label>
-                      <Select value={selectedLadder} onValueChange={setSelectedLadder}>
-                        <SelectTrigger className="border-slate-200 dark:border-slate-700 h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>{Object.keys(LADDERS).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                      </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Left Column: DNA Ladder Select & Agarose Input */}
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-600 dark:text-slate-200">DNA Ladder</Label>
+                        <Select value={selectedLadder} onValueChange={setSelectedLadder}>
+                          <SelectTrigger className="border-slate-200 dark:border-slate-700 h-8 text-xs max-w-[210px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>{Object.keys(LADDERS).map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-600 dark:text-slate-200">Agarose (%)</Label>
+                        <div className="relative flex items-center max-w-[90px]">
+                          <NumInput
+                            value={agarose}
+                            onChange={e => setAgarose(e.target.value)}
+                            className="h-8 text-xs pr-7 border-slate-200 dark:border-slate-700 w-full"
+                          />
+                          <div className="absolute right-1 flex flex-col -space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = parseFloat(agarose) || 0;
+                                const newVal = Math.min(5.0, val + 0.5);
+                                setAgarose(String(Number(newVal.toFixed(1))));
+                              }}
+                              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5"
+                            >
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = parseFloat(agarose) || 0;
+                                const newVal = Math.max(0.1, val - 0.5);
+                                setAgarose(String(Number(newVal.toFixed(1))));
+                              }}
+                              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5"
+                            >
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-600 dark:text-slate-200">Agarose (%)</Label>
-                      <NumInput value={agarose} onChange={e => setAgarose(e.target.value)} className="h-8 text-xs border-slate-200 dark:border-slate-700" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-slate-700 dark:text-slate-200">Voltage: <span className="font-bold">{voltage}V</span></Label>
-                      <input type="range" min="50" max="200" step="5" value={voltage} onChange={e=>setVoltage(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-slate-700 dark:text-slate-200">Time: <span className="font-bold">{runtime}m</span></Label>
-                      <input type="range" min="10" max="120" step="5" value={runtime} onChange={e=>setRuntime(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
+
+                    {/* Right Column: Voltage & Time Sliders */}
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-slate-700 dark:text-slate-200">Voltage: <span className="font-bold">{voltage}V</span></Label>
+                        <input type="range" min="50" max="200" step="5" value={voltage} onChange={e=>setVoltage(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-slate-700 dark:text-slate-200">Time: <span className="font-bold">{runtime}m</span></Label>
+                        <input type="range" min="10" max="120" step="5" value={runtime} onChange={e=>setRuntime(+e.target.value)} className="w-full accent-blue-600 h-1.5" />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -1025,18 +1123,34 @@ export default function GelAndWBSimulator({ historyData, isActive }) {
                     <CardContent className="p-3 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded shadow-sm border border-slate-200 dark:border-slate-700" style={{ background: LANE_COLORS[idx % LANE_COLORS.length] }} />
+                          <label
+                            onClick={(e) => {
+                              const input = e.currentTarget.querySelector('input[type="color"]');
+                              if (input) input.click();
+                            }}
+                            className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer relative border border-slate-300"
+                            style={{ background: laneColors[lane.id] || '#000000' }}
+                            title="Change label color"
+                          >
+                            <input
+                              type="color"
+                              value={laneColors[lane.id] || '#000000'}
+                              onChange={e => setLaneColors(prev => ({ ...prev, [lane.id]: e.target.value }))}
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                              style={{ pointerEvents: 'none' }}
+                            />
+                          </label>
                           <Input value={lane.label} onChange={e => updateLane(lane.id, 'label', e.target.value)} 
                             className="h-7 text-sm font-semibold border-transparent hover:border-slate-200 dark:border-slate-700 focus:bg-white dark:bg-slate-900 w-32 bg-transparent" />
                         </div>
                         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-                          <button onClick={() => updateLane(lane.id, 'type', 'manual')}
-                            className={`px-2 py-0.5 text-[11px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                            Manual
-                          </button>
                           <button onClick={() => updateLane(lane.id, 'type', 'sequence')}
                             className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${lane.type === 'sequence' ? 'bg-white dark:bg-slate-900 shadow-sm text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             Digest
+                          </button>
+                          <button onClick={() => updateLane(lane.id, 'type', 'manual')}
+                            className={`px-2 py-0.5 text-[11px] font-bold uppercase rounded ${lane.type === 'manual' ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                            Manual
                           </button>
                           <Button variant="ghost" size="icon" className="h-5 w-5 ml-1 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400" onClick={() => setDnaLanes(dnaLanes.filter(l => l.id !== lane.id))}>
                             <X className="w-3 h-3" />

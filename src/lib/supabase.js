@@ -16,6 +16,10 @@ export const supabase = hasValidConfig
         detectSessionInUrl: true,
         storageKey: 'bibabenchbuddy-auth',
         autoRefreshToken: true,
+        // Bypass browser Web Locks to prevent deadlocks in Electron/SPA reloads
+        lock: async (name, acquireTimeout, fn) => {
+          return await fn();
+        },
       },
     })
   : null;

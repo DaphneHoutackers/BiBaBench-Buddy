@@ -255,7 +255,7 @@ const parseTimeToSeconds = (timeStr) => {
 };
 
 
-export default function PCRCalculator({ externalTab, onTabChange, historyData, isActive }) {
+export default function PCRCalculator({ externalTab, onTabChange, historyData, isActive, tabs }) {
   const { addHistoryItem } = useHistory();
   const sessionId = useRef(makeId());
   const tableRef = useRef(null);
@@ -698,6 +698,8 @@ export default function PCRCalculator({ externalTab, onTabChange, historyData, i
             Product Sequence
           </TabsTrigger>
         </TabsList>
+
+        {tabs}
 
         {/* ─── PCR MIX ─── */}
         <TabsContent value="mix" forceMount className={tab === 'mix' ? 'mt-6' : 'hidden'}>
