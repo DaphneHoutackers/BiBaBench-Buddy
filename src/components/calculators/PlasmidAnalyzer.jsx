@@ -19,9 +19,9 @@ import { useHistory } from '@/context/HistoryContext';
 import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
 import { makeId } from '@/utils/makeId';
 // ── Constants ─────────────────────────────────────────────────────────────────
-const FEATURE_DEFAULTS = { CDS: '#663399', gene: '#ff6699', promoter: '#66ccff', terminator: '#ff3300', rep_origin: '#ffff33', primer_bind: '#9933cc', misc_feature: '#ff33cc', regulatory: '#ff9966', polyA_signal: '#ec3c37' };
-const RE_HIGHLIGHT_COLORS = ['#ff6666', '#ffcc00', '#00cc66', '#00fc99', '#009966', '#8b5cf6', '#fc4894', '#66ffff', '#009999', '#fff666'];
-const PRIMER_COLORS = ['#ff3333', '#ff1099', '#cc0099', '#33fffc', '#ff9900', '#ff33fc', '#00ff99', '#ffff66'];
+const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#9fd4c3', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#d97063' };
+const RE_HIGHLIGHT_COLORS = ['#e4a72d', '#4a90d9', '#68a357', '#d16565', '#8a6fd1', '#5aa6a6', '#c9823b', '#7a8794'];
+const PRIMER_COLORS = ['#4a90d9', '#a36ee8', '#d16565', '#5aa6a6', '#e4a72d', '#68a357', '#c9823b', '#7a8794'];
 const RE_DB = Object.entries(ENZYME_DB)
   .reduce((acc, [name, info]) => {
     const displayName = getEnzymeDisplayName(name);
@@ -68,6 +68,28 @@ const translateDNA = (seq) => {
   }
   return protein;
 };
+
+function getReadableTextColor(hexColor) {
+  const hex = String(hexColor || '').replace('#', '');
+  if (hex.length !== 6) return '#111827';
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#111827' : '#ffffff';
+}
+
+function radialRectEdgePoint(cx, cy, lx, ly, width, height) {
+  const dx = lx - cx;
+  const dy = ly - cy;
+  if (!dx && !dy) return { x: lx, y: ly };
+  const scaleX = dx ? (width / 2) / Math.abs(dx) : Infinity;
+  const scaleY = dy ? (height / 2) / Math.abs(dy) : Infinity;
+  const scale = Math.min(scaleX, scaleY);
+  return {
+    x: lx - dx * scale,
+    y: ly - dy * scale,
+  };
+}
 
 function findCutSites(seq, recog) {
   const s = seq.toUpperCase(); const sites = []; let i = 0;
@@ -154,6 +176,56 @@ function parseGenBank(text) {
   }
   finishCur();
   return { name, sequence: sequence.toUpperCase().replace(/[^ATGCN]/g, ''), features, isCircular };
+}
+
+const normalizedFeatureType = (type) => String(type || '').trim().toLowerCase();
+
+function mergePrimersWithoutDuplicates(existingPrimers, importedPrimers) {
+  const seen = new Set();
+  return [...existingPrimers, ...importedPrimers].filter((primer) => {
+    const key = `${String(primer.name || '').trim().toLowerCase()}|${String(primer.seq || primer.annealing || '').toUpperCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function splitFeaturesAndPrimers(parsed, existingPrimers = []) {
+  const sequence = parsed.sequence || '';
+  const importedPrimers = [];
+  const importedFeatures = [];
+
+  (parsed.features || []).forEach((feature) => {
+    const type = normalizedFeatureType(feature.type);
+
+    if (type === 'source') {
+      return;
+    }
+
+    if (type !== 'primer_bind') {
+      importedFeatures.push(feature);
+      return;
+    }
+
+    const start = Math.max(0, feature.start || 0);
+    const end = Math.min(sequence.length, feature.end || 0);
+    const annealing = sequence.slice(start, end);
+    if (!annealing) return;
+
+    const primerSeq = feature.strand === -1 ? revComp(annealing) : annealing;
+    importedPrimers.push({
+      name: feature.label || feature.tags?.label || feature.tags?.name || feature.tags?.note || 'Primer',
+      seq: primerSeq,
+      overhang: '',
+      annealing: primerSeq,
+      strand: feature.strand || 1,
+      color: feature.color || PRIMER_COLORS[importedPrimers.length % PRIMER_COLORS.length],
+      visible: true,
+      notes: feature.tags?.note || '',
+    });
+  });
+
+  return { features: importedFeatures, primers: mergePrimersWithoutDuplicates(existingPrimers, importedPrimers) };
 }
 
 function parseFileContent(filename, content) {
@@ -255,9 +327,6 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeature
           const ma = l.ma;
           const la = l.labelAngle;
 
-          const fx = cx + (l.strand === -1 ? R - 8 : R + 8) * Math.cos(ma);
-          const fy = cy + (l.strand === -1 ? R - 8 : R + 8) * Math.sin(ma);
-
           const ex = cx + labelR * Math.cos(la);
           const ey = cy + labelR * Math.sin(la);
 
@@ -268,22 +337,95 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeature
           const rectX = lx - textW / 2; // Center the rectangle
           const rectY = ly - (FONT_SIZE / 2 + PADDING_Y);
           const rectHeight = FONT_SIZE + 2 * PADDING_Y;
+          const fill = l.color || '#e2e8f0';
+          const textColor = getReadableTextColor(fill);
+          const sx = cx + (R + FW + 4) * Math.cos(ma);
+          const sy = cy + (R + FW + 4) * Math.sin(ma);
+          const bendX = cx + (R + 28) * Math.cos(ma);
+          const bendY = cy + (R + 28) * Math.sin(ma);
+          const labelEdge = radialRectEdgePoint(cx, cy, lx, ly, textW, rectHeight);
           return (
             <g key={`l${l.index}`} style={{ pointerEvents: 'none' }}>
-              <polyline points={`${fx},${fy} ${ex},${ey} ${lx},${ly}`} fill="none" stroke="#94a3b8" strokeWidth="1" />
-              <rect x={rectX} y={rectY} width={textW} height={rectHeight} rx={3} fill={l.color || '#e2e8f0'} fillOpacity={1} stroke="#334155" strokeWidth="0.7" />
-              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={FONT_SIZE} fontWeight="700" style={{ textShadow: '0px 0px 0px rgba(0,0,0,0.4)' }}>{l.label}</text>
+              <polyline points={`${sx},${sy} ${bendX},${bendY} ${labelEdge.x},${labelEdge.y}`} fill="none" stroke="#8a8f98" strokeWidth="1" />
+              <rect x={rectX} y={rectY} width={textW} height={rectHeight} rx={4} fill={fill} fillOpacity={1} stroke="#6b7280" strokeWidth="0.8" />
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={textColor} fontSize={FONT_SIZE} fontWeight="700">{l.label}</text>
             </g>
           );
         });
       })()}
       {cutSites.map((site, i) => {
         const a = ang(site.pos);
-        return (<g key={`cs${i}`}>
-          <line x1={cx + (R - FW - 2) * Math.cos(a)} y1={cy + (R - FW - 2) * Math.sin(a)} x2={cx + (R + FW + 2) * Math.cos(a)} y2={cy + (R + FW + 2) * Math.sin(a)} stroke={site.color} strokeWidth="2" />
-          <text x={cx + (R + FW + 16) * Math.cos(a)} y={cy + (R + FW + 16) * Math.sin(a)} textAnchor={Math.cos(a) > 0 ? 'start' : 'end'} dominantBaseline="middle" fill={site.color} fontSize="9" fontStyle="italic">{site.name}</text>
-        </g>);
+        const markerColor = site.color || '#111827';
+        return (
+          <line
+            key={`cs-mark${i}`}
+            x1={cx + (R - FW - 2) * Math.cos(a)}
+            y1={cy + (R - FW - 2) * Math.sin(a)}
+            x2={cx + (R + FW + 2) * Math.cos(a)}
+            y2={cy + (R + FW + 2) * Math.sin(a)}
+            stroke={markerColor}
+            strokeWidth="2"
+          />
+        );
       })}
+      {(() => {
+        const enzymeLabelR = R + 96;
+        const enzymeLineR = R + 76;
+        const enzymeFontSize = 9;
+        const enzymePadX = 7;
+        const enzymeLabelH = 16;
+        const sortedSites = cutSites.map((site, i) => {
+          let ma = ang(site.pos);
+          while (ma < 0) ma += 2 * Math.PI;
+          return { ...site, index: i, ma, labelAngle: ma };
+        }).sort((a, b) => a.ma - b.ma);
+
+        const minAngDist = enzymeLabelH / enzymeLabelR;
+        for (let iter = 0; iter < 12; iter++) {
+          for (let i = 0; i < sortedSites.length; i++) {
+            const curr = sortedSites[i];
+            const next = sortedSites[(i + 1) % sortedSites.length];
+            let diff = next.labelAngle - curr.labelAngle;
+            if (diff < 0 && i === sortedSites.length - 1) diff += 2 * Math.PI;
+            if (diff < minAngDist) {
+              const push = (minAngDist - diff) / 2;
+              curr.labelAngle -= push;
+              next.labelAngle += push;
+            }
+          }
+        }
+
+        return sortedSites.sort((a, b) => a.index - b.index).map((site) => {
+          const siteAngle = ang(site.pos);
+          const labelAngle = site.labelAngle;
+          const sx = cx + (R + FW + 4) * Math.cos(siteAngle);
+          const sy = cy + (R + FW + 4) * Math.sin(siteAngle);
+          const bendX = cx + enzymeLineR * Math.cos(siteAngle);
+          const bendY = cy + enzymeLineR * Math.sin(siteAngle);
+          const lx = cx + enzymeLabelR * Math.cos(labelAngle);
+          const ly = cy + enzymeLabelR * Math.sin(labelAngle);
+          const isHighlighted = !!site.color;
+          const lineColor = isHighlighted ? site.color : '#8a8f98';
+          const textColor = isHighlighted ? '#111827' : '#111827';
+          const textW = site.name.length * 5.6 + 2 * enzymePadX + (isHighlighted ? 8 : 0);
+          const rectX = lx - textW / 2;
+          const rectY = ly - enzymeLabelH / 2;
+          const labelEdge = radialRectEdgePoint(cx, cy, lx, ly, textW, enzymeLabelH);
+
+          return (
+            <g key={`cs-label${site.index}`} style={{ pointerEvents: 'none' }}>
+              <polyline points={`${sx},${sy} ${bendX},${bendY} ${labelEdge.x},${labelEdge.y}`} fill="none" stroke={lineColor} strokeOpacity="0.9" strokeWidth="1" />
+              {isHighlighted && (
+                <>
+                  <rect x={rectX} y={rectY} width={textW} height={enzymeLabelH} rx={4} fill={site.color} fillOpacity="1" stroke="#4b5563" strokeWidth="0.8" />
+                  <circle cx={rectX + 7} cy={ly} r="2.2" fill={getReadableTextColor(site.color)} opacity="0.9" />
+                </>
+              )}
+              <text x={isHighlighted ? lx + 4 : lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={isHighlighted ? getReadableTextColor(site.color) : textColor} fontSize={enzymeFontSize} fontWeight="700" fontStyle="italic">{site.name}</text>
+            </g>
+          );
+        });
+      })()}
       <text x={cx} y={cy - 10} textAnchor="middle" fill="#475569" fontSize="13" fontWeight="700">{(name || 'Sequence').slice(0, 20)}</text>
       <text x={cx} y={cy + 9} textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="600">{totalLen.toLocaleString()} bp</text>
       {isCircular && <text x={cx} y={cy + 26} textAnchor="middle" fill="#94a3b8" fontSize="9">circular</text>}
@@ -294,8 +436,9 @@ function CircularMap({ seq, features, cutSites, selectedIdx, onSelect, onFeature
 // ── Linear Map ────────────────────────────────────────────────────────────────
 function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureClick, name }) {
   const totalLen = seq.length; if (!totalLen) return null;
-  const W = 800, H = 200, trackY = 90, FW = 16, ml = 30, mr = 770, mw = 740;
+  const W = 800, H = 230, trackY = 110, FW = 16, ml = 30, mr = 770, mw = 740;
   const FONT_SIZE = 9;
+  const rectHeight = FONT_SIZE + 6;
   const xOf = pos => ml + (pos / totalLen) * mw;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
@@ -326,9 +469,10 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureCl
           const textW = feat.label.length * 5.5 + 10;
 
           if (w >= textW + 4) {
+            const fill = feat.color || '#e2e8f0';
             return (
               <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
-                <text x={midX} y={feat.strand === -1 ? trackY + FW / 2 + 1 : trackY - FW / 2 + 1} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize={FONT_SIZE} fontWeight="700" style={{ textShadow: '0 0 2px rgba(0,0,0,0.5)' }}>{feat.label}</text>
+                <text x={midX} y={feat.strand === -1 ? trackY + FW / 2 + 1 : trackY - FW / 2 + 1} textAnchor="middle" dominantBaseline="middle" fill={getReadableTextColor(fill)} fontSize={FONT_SIZE} fontWeight="700">{feat.label}</text>
               </g>
             );
           }
@@ -349,22 +493,55 @@ function LinearMap({ seq, features, cutSites, selectedIdx, onSelect, onFeatureCl
           const offset = track * 16;
           const lineY2 = isTop ? yBase - offset + 6 : yBase + offset - 6;
           const rectY = isTop ? lineY2 - 14 : lineY2;
-          
+          const fill = feat.color || '#e2e8f0';
+          const labelEdgeY = isTop ? rectY + rectHeight : rectY;
 
           return (
             <g key={`linL${i}`} style={{ pointerEvents: 'none' }}>
-              <line x1={midX} y1={yBase} x2={midX} y2={lineY2} stroke="#94a3b8" strokeWidth="1" />
-              <rect x={rectX} y={rectY} width={textW} height={rectHeight} rx={3} fill={feat.color || '#e2e8f0'} fillOpacity={1} stroke="#334155" strokeWidth="0.7" />
-              <text x={midX} y={rectY + rectHeight / 2} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={FONT_SIZE} fontWeight="700" style={{ textShadow: '0px 0px 2px rgba(0,0,0,0.4)' }}>{feat.label}</text>
+              <line x1={midX} y1={yBase} x2={midX} y2={labelEdgeY} stroke="#8a8f98" strokeWidth="1" />
+              <rect x={rectX} y={rectY} width={textW} height={rectHeight} rx={4} fill={fill} fillOpacity={1} stroke="#6b7280" strokeWidth="0.8" />
+              <text x={midX} y={rectY + rectHeight / 2} textAnchor="middle" dominantBaseline="central" fill={getReadableTextColor(fill)} fontSize={FONT_SIZE} fontWeight="700">{feat.label}</text>
             </g>
           );
         });
       })()}
-      {cutSites.map((site, i) => {
-        const x = xOf(site.pos);
-        return (<g key={i}><line x1={x} y1={trackY - FW - 5} x2={x} y2={trackY + FW + 5} stroke={site.color} strokeWidth="1.5" strokeDasharray="3,2" /><text x={x} y={trackY - FW - 12} textAnchor="middle" fill={site.color} fontSize="9" fontStyle="italic">{site.name}</text></g>);
-      })}
-      <text x={ml} y={16} fill="#475569" fontSize="12" fontWeight="700">{name || 'Sequence'} — {totalLen.toLocaleString()} bp</text>
+      {(() => {
+        const placed = [];
+        return cutSites.map((site, i) => {
+          const x = xOf(site.pos);
+          const isHighlighted = !!site.color;
+          const lineColor = site.color || '#111827';
+          const labelW = site.name.length * 5.6 + (isHighlighted ? 24 : 10);
+          const clampedX = Math.max(ml + labelW / 2, Math.min(mr - labelW / 2, x));
+          const bounds = { x1: clampedX - labelW / 2 - 4, x2: clampedX + labelW / 2 + 4 };
+          let row = 0;
+          while (placed.some(p => p.row === row && !(bounds.x2 < p.x1 || bounds.x1 > p.x2))) {
+            row++;
+          }
+          placed.push({ row, x1: bounds.x1, x2: bounds.x2 });
+
+          const labelY = 22 + row * 18;
+          const labelH = 15;
+          const rectX = clampedX - labelW / 2;
+          const rectY = labelY - labelH / 2;
+          const labelEdgeY = labelY + labelH / 2;
+
+          return (
+            <g key={i}>
+              <line x1={x} y1={trackY - FW - 5} x2={x} y2={trackY + FW + 5} stroke={lineColor} strokeWidth="1.5" strokeDasharray="3,2" />
+              <polyline points={`${x},${trackY - FW - 5} ${x},${labelEdgeY + 7} ${clampedX},${labelEdgeY}`} fill="none" stroke={lineColor} strokeOpacity="0.85" strokeWidth="1" />
+              {isHighlighted && (
+                <>
+                  <rect x={rectX} y={rectY} width={labelW} height={labelH} rx={4} fill={site.color} fillOpacity="1" stroke="#4b5563" strokeWidth="0.8" />
+                  <circle cx={rectX + 8} cy={labelY} r="2.2" fill={getReadableTextColor(site.color)} opacity="0.9" />
+                </>
+              )}
+              <text x={isHighlighted ? clampedX + 4 : clampedX} y={labelY} textAnchor="middle" dominantBaseline="central" fill={isHighlighted ? getReadableTextColor(site.color) : '#111827'} fontSize="9" fontWeight="700" fontStyle="italic">{site.name}</text>
+            </g>
+          );
+        });
+      })()}
+      <text x={ml} y={H - 12} fill="#475569" fontSize="12" fontWeight="700">{name || 'Sequence'} — {totalLen.toLocaleString()} bp</text>
     </svg>
   );
 }
@@ -558,9 +735,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const switchToTab = (tabId) => {
     const tab = openTabs.find(t => t.id === tabId);
     if (!tab || tabId === activeTabId) return;
+    const cleanedTab = splitFeaturesAndPrimers({ sequence: tab.sequence, features: tab.features || [] }, tab.primers || []);
     // Save current tab state first
     setOpenTabs(prev => prev.map(t => t.id === activeTabId
       ? { ...t, seqName, sequence, rawInput, isCircular, features, primers, selectedEnzymes, viewMode, activeEntryId }
+      : t.id === tabId
+        ? { ...t, features: cleanedTab.features, primers: cleanedTab.primers }
       : t
     ));
     setActiveTabId(tabId);
@@ -568,8 +748,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSequence(tab.sequence);
     setRawInput(tab.rawInput || tab.sequence);
     setIsCircular(tab.isCircular);
-    setFeatures(tab.features);
-    setPrimers(tab.primers);
+    setFeatures(cleanedTab.features);
+    setPrimers(cleanedTab.primers);
     setSelectedEnzymes(tab.selectedEnzymes);
     setActiveEntryId(tab.activeEntryId || null);
     setViewMode(tab.viewMode || 'map');
@@ -600,8 +780,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         if (d.rawInput !== undefined) setRawInput(d.rawInput);
         if (d.sequence !== undefined) setSequence(d.sequence);
         if (d.isCircular !== undefined) setIsCircular(d.isCircular);
-        if (d.features !== undefined) setFeatures(d.features);
-        if (d.primers !== undefined) setPrimers(d.primers);
+        if (d.features !== undefined || d.primers !== undefined) {
+          const cleaned = splitFeaturesAndPrimers({ sequence: d.sequence || sequence, features: d.features || [] }, d.primers || []);
+          setFeatures(cleaned.features);
+          setPrimers(cleaned.primers);
+        }
         if (d.selectedEnzymes !== undefined) setSelectedEnzymes(d.selectedEnzymes);
         if (d.enzymeFilter !== undefined) setEnzymeFilter(d.enzymeFilter);
         if (d.enzymeSearch !== undefined) setEnzymeSearch(d.enzymeSearch);
@@ -717,14 +900,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     else parsed = { name: seqName || 'Sequence', sequence: text.toUpperCase().replace(/[^ATGCN\s]/g, '').replace(/\s/g, ''), features: [], isCircular };
 
     const name = seqName || parsed.name || 'Unnamed';
-    const featuresWithId = (parsed.features || []).map((f, i) => ({ ...f, id: `f_${Date.now()}_${i}`, visible: true }));
+    const imported = splitFeaturesAndPrimers(parsed);
+    const importId = Date.now();
+    const featuresWithId = imported.features.map((f, i) => ({ ...f, id: `f_${importId}_${i}`, visible: true }));
+    const primersWithId = imported.primers.map((p, i) => ({ ...p, id: `p_${importId}_${i}` }));
 
     setSeqName(name);
     setSequence(parsed.sequence);
     setFeatures(featuresWithId);
     if (parsed.isCircular !== undefined) setIsCircular(parsed.isCircular);
     setSelectedEnzymes({});
-    setPrimers([]);
+    setPrimers(primersWithId);
     setSelectedFeatureIdx(null);
 
     const parent = library.find(i => i.id === targetParentId);
@@ -737,7 +923,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       features: featuresWithId,
       isCircular: parsed.isCircular ?? isCircular,
       selectedEnzymes: {},
-      primers: [],
+      primers: primersWithId,
       dateAdded: new Date().toISOString(),
       dateEdited: new Date().toISOString(),
       parentId: targetParentId,
@@ -766,7 +952,13 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     ));
     // Open in new tab
     const tab = newEmptyTab(entry.name);
-    const feats = (entry.features || []).map(f => ({ ...f, visible: f.visible ?? true }));
+    const cleaned = splitFeaturesAndPrimers({ sequence: entry.sequence, features: entry.features || [] }, entry.primers || []);
+    const feats = cleaned.features.map(f => ({ ...f, visible: f.visible ?? true }));
+    const cleanedPrimers = cleaned.primers.map((p, i) => ({
+      ...p,
+      id: p.id || `p_${entry.id}_${i}`,
+      visible: p.visible ?? true,
+    }));
     const newTab = { 
       ...tab, 
       seqName: entry.name, 
@@ -775,10 +967,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       features: feats, 
       isCircular: entry.isCircular ?? true, 
       selectedEnzymes: entry.selectedEnzymes || {}, 
-      primers: entry.primers || [], 
+      primers: cleanedPrimers, 
       viewMode: 'map',
       activeEntryId: entry.id
     };
+    if (cleaned.features.length !== (entry.features || []).length || cleaned.primers.length !== (entry.primers || []).length) {
+      setLibrary(prev => {
+        const updated = prev.map(item => item.id === entry.id ? { ...item, features: feats, primers: cleanedPrimers, dateEdited: new Date().toISOString() } : item);
+        saveLib(updated);
+        return updated;
+      });
+    }
     setOpenTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
     setSeqName(entry.name);
@@ -786,7 +985,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRawInput(entry.sequence);
     setIsCircular(entry.isCircular ?? true);
     setFeatures(feats);
-    setPrimers(entry.primers || []);
+    setPrimers(cleanedPrimers);
     setSelectedEnzymes(entry.selectedEnzymes || {});
     setActiveEntryId(entry.id);
     setPhase('map');
@@ -1047,9 +1246,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSelectedEnzymes(prev => {
       if (prev[name] && color === undefined) { const { [name]: _, ...rest } = prev; return rest; }
       if (prev[name] && color !== undefined) return { ...prev, [name]: { ...prev[name], color } };
-      const usedColors = Object.values(prev).map(v => v.color);
-      const autoColor = RE_HIGHLIGHT_COLORS.find(c => !usedColors.includes(c)) || RE_HIGHLIGHT_COLORS[0];
-      return { ...prev, [name]: { color: color || autoColor } };
+      return { ...prev, [name]: { color: color || null } };
     });
   };
 
@@ -1115,6 +1312,15 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
   const exportGenBank = () => {
     const n = seqName || 'Sequence';
+    const primerFeatureLines = primers.flatMap((p) => {
+      const site = findPrimerSites(p.seq, seq, p.annealing || p.seq)[0];
+      if (!site) return [];
+      return [
+        `     ${'primer_bind'.padEnd(16)}${site.strand === -1 ? `complement(${site.start + 1}..${site.end})` : `${site.start + 1}..${site.end}`}`,
+        `                     /label="${p.name || 'Primer'}"`,
+        `                     /ApEinfo_fwdcolor="${p.color || '#6366f1'}"`
+      ];
+    });
     const lines = [
       `LOCUS       ${n.padEnd(16)} ${String(seq.length).padStart(6)} bp    DNA     ${isCircular ? 'circular' : 'linear  '} SYN`,
       'FEATURES             Location/Qualifiers',
@@ -1123,6 +1329,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         `                     /label="${f.label}"`,
         `                     /ApEinfo_fwdcolor="${f.color || '#6366f1'}"`
       ]),
+      ...primerFeatureLines,
       'ORIGIN',
       ...Array.from({ length: Math.ceil(seq.length / 60) }, (_, i) => {
         const chunk = seq.slice(i * 60, (i + 1) * 60);
@@ -1631,7 +1838,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           list.forEach(e => {
                             if (visible) {
                               if (!next[e.rawName]) {
-                                next[e.rawName] = { color: RE_HIGHLIGHT_COLORS[Object.keys(next).length % RE_HIGHLIGHT_COLORS.length] };
+                                next[e.rawName] = { color: null };
                               }
                             } else {
                               delete next[e.rawName];
@@ -1715,7 +1922,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                       <td className="py-2.5 px-1">
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); toggleEnzyme(enz.rawName); }}
-                                          className={`p-1 rounded-md transition-colors ${isSelected ? 'text-rose-600 bg-rose-50' : 'text-slate-300 hover:text-slate-400'}`}
+                                          className={`p-1 rounded-md transition-colors ${isSelected ? 'text-slate-900 bg-slate-100' : 'text-slate-300 hover:text-slate-400'}`}
                                         >
                                           {isSelected ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                                         </button>
@@ -1762,6 +1969,38 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                               </div>
                                             </div>
                                             <div className="space-y-2">
+                                              {isSelected && (
+                                                <div>
+                                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Map Label Style</p>
+                                                  <div className="flex items-center gap-1.5">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => toggleEnzyme(enz.rawName, null)}
+                                                      className={`h-6 px-2 rounded border text-[10px] font-semibold ${!selectedEnzymes[enz.rawName]?.color ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
+                                                    >
+                                                      Black
+                                                    </button>
+                                                    {RE_HIGHLIGHT_COLORS.slice(0, 6).map(c => (
+                                                      <button
+                                                        key={c}
+                                                        type="button"
+                                                        onClick={() => toggleEnzyme(enz.rawName, c)}
+                                                        className={`w-5 h-5 rounded-full border ${selectedEnzymes[enz.rawName]?.color === c ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
+                                                        style={{ background: c }}
+                                                      />
+                                                    ))}
+                                                    <label className="cursor-pointer" title="Custom color">
+                                                      <input
+                                                        type="color"
+                                                        value={selectedEnzymes[enz.rawName]?.color || RE_HIGHLIGHT_COLORS[0]}
+                                                        onChange={e => toggleEnzyme(enz.rawName, e.target.value)}
+                                                        className="w-6 h-6 rounded border border-slate-200 cursor-pointer p-0"
+                                                        style={{ WebkitAppearance: 'none' }}
+                                                      />
+                                                    </label>
+                                                  </div>
+                                                </div>
+                                              )}
                                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fragments {isCircular ? '(Circular)' : '(Linear)'}</p>
                                               {fragments.length > 0 ? (
                                                 <div className="flex flex-wrap gap-1.5">
@@ -2255,16 +2494,38 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               const color = isSel ? selectedEnzymes[name].color : null;
                               return (
                                 <tr key={name}
-                                  className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-rose-50' : 'hover:bg-slate-50'}`}>
+                                  className={`cursor-pointer border-b border-slate-50 transition-colors ${isSel ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
                                   <td className="py-1 px-2" onClick={() => toggleEnzyme(name)}>
-                                    <div className="flex items-center gap-1.5">
-                                      {isSel
-                                        ? <label onClick={e => e.stopPropagation()} className="cursor-pointer flex-shrink-0">
-                                          <input type="color" value={color} onChange={e => toggleEnzyme(name, e.target.value)}
-                                            className="w-4 h-4 rounded-full border-none cursor-pointer p-0" style={{ WebkitAppearance: 'none' }} />
-                                        </label>
-                                        : <div className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-300" />}
-                                      <span className={`font-medium ${isSel ? 'text-rose-700' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 border" style={{ background: isSel ? (color || '#111827') : '#cbd5e1', borderColor: isSel ? (color || '#111827') : '#cbd5e1' }} />
+                                        <span className={`font-medium ${isSel ? 'text-slate-900' : 'text-slate-700'}`}>{getEnzymeDisplayName(name)}</span>
+                                      </div>
+                                      {isSel && (
+                                        <div className="flex items-center gap-1 pl-4" onClick={e => e.stopPropagation()}>
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleEnzyme(name, null)}
+                                            className={`h-4 px-1.5 rounded border text-[9px] font-semibold ${!color ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}
+                                          >
+                                            black
+                                          </button>
+                                          {RE_HIGHLIGHT_COLORS.slice(0, 5).map(c => (
+                                            <button
+                                              key={c}
+                                              type="button"
+                                              onClick={() => toggleEnzyme(name, c)}
+                                              className={`w-4 h-4 rounded-full border ${color === c ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
+                                              style={{ background: c }}
+                                              title={`Use ${c}`}
+                                            />
+                                          ))}
+                                          <label className="cursor-pointer flex-shrink-0" title="Custom color">
+                                            <input type="color" value={color || RE_HIGHLIGHT_COLORS[0]} onChange={e => toggleEnzyme(name, e.target.value)}
+                                              className="w-4 h-4 rounded border border-slate-200 cursor-pointer p-0" style={{ WebkitAppearance: 'none' }} />
+                                          </label>
+                                        </div>
+                                      )}
                                     </div>
                                   </td>
                                   <td className="py-1 px-1 text-center" onClick={() => toggleEnzyme(name)}>
@@ -2293,7 +2554,13 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         <p className="text-xs font-medium text-slate-600 mb-1">On map:</p>
                         <div className="flex flex-wrap gap-1">
                           {Object.entries(selectedEnzymes).map(([name, { color }]) => (
-                            <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: color + '22', color, border: `1px solid ${color}55` }}>
+                            <span
+                              key={name}
+                              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border"
+                              style={color
+                                ? { background: color, color: getReadableTextColor(color), borderColor: '#4b5563' }
+                                : { background: '#ffffff', color: '#111827', borderColor: '#cbd5e1' }}
+                            >
                               {getEnzymeDisplayName(name)}<button onClick={() => toggleEnzyme(name)}><X className="w-2.5 h-2.5" /></button>
                             </span>
                           ))}
