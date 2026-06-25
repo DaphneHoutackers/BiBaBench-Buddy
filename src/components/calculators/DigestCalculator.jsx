@@ -12,7 +12,7 @@ import CopyTableButton from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
 import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
-import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
+import { getEnzymeDisplayName, getSelectableEnzymes } from '@/lib/enzymes';
 import { BiGame } from 'react-icons/bi';
 import { getDilutionSuggestion, generateDilutionWarning } from '@/utils/dilutionHelper';
 
@@ -185,31 +185,7 @@ export default function DigestCalculator({ externalTab, onTabChange, historyData
 
   // Filter enzymes based on selected enzyme type
   const getFilteredEnzymes = (type) => {
-    const result = {};
-
-    Object.entries(ENZYME_DB).forEach(([name, info]) => {
-      const displayName = getEnzymeDisplayName(name);
-
-      if (type === 'FastDigest' && info.fd) {
-        if (!result[displayName]) {
-          result[displayName] = { ...info, originalName: name };
-        }
-      } else if (type === 'HF' && name.endsWith('-HF')) {
-        if (!result[displayName]) {
-          result[displayName] = { ...info, originalName: name };
-        }
-      } else if (type === 'Standard' && !info.fd && !name.endsWith('-HF')) {
-        if (!result[displayName]) {
-          result[displayName] = { ...info, originalName: name };
-        }
-      } else if (type === 'All') {
-        if (!result[displayName]) {
-          result[displayName] = { ...info, originalName: name };
-        }
-      }
-    });
-
-    return result;
+    return getSelectableEnzymes(type);
   };
 
   const singleFilteredEnzymes = getFilteredEnzymes(enzymeType);

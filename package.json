@@ -25,7 +25,8 @@
         "app:mac": "rm -rf dist dist-electron release && vite build && electron-builder --mac dmg",
         "clean:node": "rm -rf node_modules",
         "clean:package": "rm -rf package-lock.json",
-        "analyze": "ANALYZE=true npm run app:mac"
+        "analyze": "ANALYZE=true npm run app:mac",
+        "update-enzymes": "node scripts/update-enzymes.js"
     },
     "dependencies": {
         "@hello-pangea/dnd": "^17.0.0",
@@ -59,6 +60,7 @@
         "@radix-ui/react-tooltip": "^1.1.8",
         "@supabase/supabase-js": "^2.108.2",
         "@tanstack/react-query": "^5.84.1",
+        "axios": "^1.18.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.0.0",

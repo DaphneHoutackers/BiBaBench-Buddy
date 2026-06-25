@@ -17,7 +17,7 @@ import html2canvas from 'html2canvas';
 import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
 import { useHistory } from '@/context/HistoryContext';
-import { ENZYME_DB, getEnzymeDisplayName } from '@/lib/enzymes';
+import { ENZYME_DB, getEnzymeDisplayName, getEnzymeVariants } from '@/lib/enzymes';
 import { makeId } from '@/utils/makeId';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#9fd4c3', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#d97063' };
@@ -37,6 +37,7 @@ const ENZYME_SUPPLIERS = [
   { id: 'takara', label: 'TaKaRa Bio' },
   { id: 'clontech', label: 'Clontech' },
   { id: 'promega', label: 'Promega' },
+  { id: 'sibenzyme', label: 'SibEnzyme' },
 ];
 const ENZYME_CUT_FILTERS = [
   { id: 'all', label: 'All cutters' },
@@ -53,11 +54,29 @@ const RE_DB = Object.entries(ENZYME_DB)
   .reduce((acc, [name, info]) => {
     const displayName = getEnzymeDisplayName(name);
     if (!acc[displayName]) {
-      acc[displayName] = { seq: info.seq, hasFD: false };
+      acc[displayName] = {
+        seq: info.seq,
+        hasFD: false,
+        supplierIds: [],
+        suppliers: [],
+        variants: [],
+      };
     }
     if (info.fd || name.toLowerCase().includes('fastdigest')) {
       acc[displayName].hasFD = true;
     }
+    acc[displayName].supplierIds = [...new Set([
+      ...acc[displayName].supplierIds,
+      ...(info.supplierIds || []),
+    ])];
+    acc[displayName].suppliers = [...new Set([
+      ...acc[displayName].suppliers,
+      ...(info.supplierLabels || []),
+    ])];
+    acc[displayName].variants = [...new Set([
+      ...acc[displayName].variants,
+      ...getEnzymeVariants(displayName),
+    ])];
     return acc;
   }, {});
 
@@ -193,6 +212,7 @@ function getEnzymeSupplierId(rawName) {
   if (name.includes('takara')) return 'takara';
   if (name.includes('clontech')) return 'clontech';
   if (name.includes('promega')) return 'promega';
+  if (name.includes('sibenzyme')) return 'sibenzyme';
   return 'neb';
 }
 
@@ -211,12 +231,14 @@ function getEnzymeMeta(rawName, details = {}) {
     typeIIS,
     goldenGate,
     cut: isBlunt ? 'Blunt' : 'Sticky',
-    supplier: getEnzymeSupplierId(rawName),
+    supplier: details.supplierIds?.[0] || getEnzymeSupplierId(rawName),
+    supplierIds: details.supplierIds || [getEnzymeSupplierId(rawName)],
+    variants: details.variants || [],
   };
 }
 
 function enzymeMatchesFilters(enzyme, cutFilter, supplierFilter) {
-  if (supplierFilter !== 'all' && enzyme.supplier !== supplierFilter) return false;
+  if (supplierFilter !== 'all' && enzyme.supplier !== supplierFilter && !enzyme.supplierIds?.includes(supplierFilter)) return false;
   if (cutFilter === 'unique') return enzyme.count === 1;
   if (cutFilter === 'double') return enzyme.count === 2;
   if (cutFilter === 'triple') return enzyme.count === 3;
@@ -2526,6 +2548,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           typeIIS: meta.typeIIS,
                           goldenGate: meta.goldenGate,
                           supplier: meta.supplier,
+                          supplierIds: meta.supplierIds,
                           count: sites.length,
                           locations: sites,
                           seq: details.seq,
@@ -3201,7 +3224,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                 return (seq.match(re) || []).length;
                               })() : 0;
                               const meta = getEnzymeMeta(name, details);
-                              return { name, count, cutType: meta.cut, motif, hasFD: details.hasFD, typeIIS: meta.typeIIS, goldenGate: meta.goldenGate, supplier: meta.supplier };
+                              return { name, count, cutType: meta.cut, motif, hasFD: details.hasFD, typeIIS: meta.typeIIS, goldenGate: meta.goldenGate, supplier: meta.supplier, supplierIds: meta.supplierIds };
                             });
 
                             const filtered = withCounts.filter((enzyme) => {
