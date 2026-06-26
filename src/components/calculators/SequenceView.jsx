@@ -326,12 +326,57 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
                     const aaEnd = Math.min(allAAs.length, Math.ceil((rowEnd - feat.start) / 3));
                     aaLine = allAAs.slice(aaStart, aaEnd).join('  ');
                   }
+                  const kind = feat.kind || (feat.type === 'primer' ? 'primer' : 'feature');
+                  const selected = isFeatureSelected(feat);
+
+                  if (kind === 'primer') {
+                    const color = feat.color || '#a855f7';
+                    const forward = feat.strand !== -1;
+                    const primerWidth = Math.max(width, 4);
+                    return (
+                      <div key={fi} style={{ marginBottom: 4 }}>
+                        <div
+                          onClick={(e) => onAnnotationClick?.(e, { kind, item: feat, start: feat.start, end: feat.end })}
+                          style={{
+                            userSelect: 'none',
+                            marginLeft: `${left}ch`,
+                            width: `${primerWidth}ch`,
+                            minWidth: 28,
+                            height: 24,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            outline: selected ? '2px solid #0f766e' : undefined,
+                            outlineOffset: selected ? 2 : undefined,
+                          }}
+                          title={`${feat.label} (${feat.start + 1}..${feat.end}) ${forward ? '→' : '←'}`}
+                        >
+                          <div
+                            style={{
+                              width: '100%',
+                              height: 16,
+                              border: `2px solid ${color}`,
+                              backgroundColor: '#ffffff',
+                              clipPath: forward
+                                ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)'
+                                : 'polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%)',
+                              boxShadow: selected ? '0 0 0 3px rgba(20,184,166,0.15)' : undefined,
+                            }}
+                          />
+                          <span style={{ color, fontSize: 10, fontWeight: 700, lineHeight: '12px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {feat.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div key={fi} style={{ marginBottom: 2 }}>
                       {aaLine && <div style={{ marginLeft: `${left}ch`, fontSize: 10, color: feat.color || '#6366f1', whiteSpace: 'pre', overflow: 'hidden', width: `${width}ch` }}>{aaLine}</div>}
                       <div
-                        onClick={(e) => onAnnotationClick?.(e, { kind: feat.kind || (feat.type === 'primer' ? 'primer' : 'feature'), item: feat, start: feat.start, end: feat.end })}
+                        onClick={(e) => onAnnotationClick?.(e, { kind, item: feat, start: feat.start, end: feat.end })}
                         style={{
                           userSelect: 'none',
                           marginLeft: `${left}ch`,
@@ -339,15 +384,15 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
                           height: 14,
                           backgroundColor: feat.color || '#6366f1',
                           borderRadius: 3,
-                          opacity: isFeatureSelected(feat) ? 1 : 0.85,
+                          opacity: selected ? 1 : 0.85,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           overflow: 'hidden',
                           cursor: 'pointer',
-                          outline: isFeatureSelected(feat) ? '2px solid #0f766e' : undefined,
-                          outlineOffset: isFeatureSelected(feat) ? 1 : undefined,
-                          boxShadow: isFeatureSelected(feat) ? '0 0 0 3px rgba(20,184,166,0.18)' : undefined,
+                          outline: selected ? '2px solid #0f766e' : undefined,
+                          outlineOffset: selected ? 1 : undefined,
+                          boxShadow: selected ? '0 0 0 3px rgba(20,184,166,0.18)' : undefined,
                         }}
                         title={`${feat.label} (${feat.start + 1}..${feat.end}) ${feat.strand === 1 ? '→' : '←'}`}
                       >

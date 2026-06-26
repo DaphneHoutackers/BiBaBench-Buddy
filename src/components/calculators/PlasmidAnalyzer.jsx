@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import {
-  Upload, Download, Plus, Trash2, Edit3, X, Check,
+  Upload, Download, Plus, Trash2, Edit3, X,
   Eye, EyeOff, Save, Library, Info,
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ArrowUpDown, Search, Palette,
   Undo2, Redo2, MoreVertical, ExternalLink, Paperclip, Copy, ZoomIn, ZoomOut
@@ -28,6 +28,7 @@ import { makeId } from '@/utils/makeId';
 const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#fff81f', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#e92542' };
 const RE_HIGHLIGHT_COLORS = ['#e4a72d', '#4a90d9', '#68a357', '#d16565', '#8a6fd1', '#5aa6a6', '#c9823b', '#7a8794', '#ef4444', '#14b8a6'];
 const PRIMER_COLORS = ['#ff001f', '#00a42b', '#ff9100', '#b800f8', '#3d65ff', '#b5b5b5', '#c9823b', '#7a8794'];
+const PRIMER_MIN_ANNEALING = 14;
 // Change map label fonts here.
 const MAP_LABEL_FONT_FAMILY = 'Verdana, Geneva, sans-serif';
 // Change library file/folder font here.
@@ -60,6 +61,7 @@ const SEQUENCE_CLASSES = [
   'HTG - high-throughput genomic', 'HTC - high-throughput cDNA', 'ENV - environmental sampling',
   'CON - contig assembly instructions'
 ];
+const RESISTANCE_MARKERS = ['', 'Ampicillin', 'Kanamycin', 'Chloramphenicol', 'Spectinomycin', 'Tetracycline', 'Gentamicin', 'Zeocin', 'Hygromycin', 'Puromycin', 'Blasticidin'];
 const ENZYME_SUPPLIERS = [
   { id: 'all', label: 'All Suppliers' },
   { id: 'neb', label: 'New England Biolabs' },
@@ -91,18 +93,20 @@ const ENZYME_CUT_FILTERS = [
 ];
 const LIBRARY_OVERVIEW_COLUMNS = [
   { id: 'name', label: 'Name', defaultVisible: true, width: 260 },
-  { id: 'file', label: 'File', defaultVisible: false, width: 72 },
-  { id: 'codeNumber', label: 'Code Number', defaultVisible: true, width: 118 },
-  { id: 'confirmed', label: 'Confirmed Experimentally', icon: VscPassFilled, defaultVisible: true, width: 54 },
+  { id: 'tags', label: 'Labels', defaultVisible: true, width: 170 },
+  { id: 'resistance', label: 'Resistance', defaultVisible: true, width: 120 },
+  { id: 'codeNumber', label: 'Code Number', defaultVisible: true, width: 116 },
+  { id: 'confirmed', label: 'Confirmed Experimentally', icon: VscPassFilled, defaultVisible: true, width: 38, fixed: true },
+  { id: 'sequenced', label: 'Sequenced', defaultVisible: true, width: 72 },
   { id: 'modified', label: 'Modified', defaultVisible: true, width: 104 },
+  { id: 'description', label: 'Description', defaultVisible: true, width: 240 },
   { id: 'created', label: 'Created', defaultVisible: false, width: 104 },
   { id: 'sequenceLength', label: 'Sequence Length', defaultVisible: false, width: 112 },
-  { id: 'description', label: 'Description', defaultVisible: false, width: 220 },
   { id: 'fileSize', label: 'File Size', defaultVisible: false, width: 86 },
+  { id: 'dnaType', label: 'DNA Type', defaultVisible: false, width: 112 },
   { id: 'transformationStrain', label: 'Bacterial Transformation Strain', defaultVisible: false, width: 170 },
   { id: 'laboratoryHost', label: 'Laboratory Host', defaultVisible: false, width: 160 },
   { id: 'methylation', label: 'Methylation', defaultVisible: false, width: 130 },
-  { id: 'product', label: 'Product', defaultVisible: false, width: 120 },
   { id: 'sequenceAuthor', label: 'Sequence Author', defaultVisible: false, width: 150 },
   { id: 'sequenceClass', label: 'Sequence Class', defaultVisible: false, width: 150 },
   { id: 'strandedness', label: 'Strandedness', defaultVisible: false, width: 116 },
@@ -198,6 +202,8 @@ const formatBytes = (bytes = 0) => {
 };
 const defaultPlasmidMetadata = () => ({
   confirmedExperimentally: false,
+  sequenced: false,
+  sequencingUrl: '',
   dnaOrigin: 'synthetic',
   topology: 'circular',
   laboratoryHost: 'Escherichia coli',
@@ -206,10 +212,12 @@ const defaultPlasmidMetadata = () => ({
   methylations: ['Dam+', 'Dcm+', 'EcoKI+'],
   description: '',
   codeNumber: '',
+  resistanceMarker: '',
   sequenceAuthor: '',
   comments: '',
   references: [],
   embeddedFiles: [],
+  tags: [],
 });
 
 const loadExpState = (key) => { try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); } };
@@ -409,19 +417,178 @@ function findPrimerSites(primerSeq, dnaSeq, annealingSeq) {
 
 // Auto-detect annealing region: try successively shorter suffixes of full primer against the target DNA
 function detectAnnealing(fullSeq, dnaSeq) {
-  if (!fullSeq || !dnaSeq || dnaSeq.length < 10) return { overhang: '', annealing: fullSeq.toUpperCase() };
-  const p = fullSeq.toUpperCase().replace(/[^ATGCN]/g, '');
+  const p = String(fullSeq || '').toUpperCase().replace(/[^ATGCN]/g, '');
+  if (!p) return { overhang: '', annealing: '', matched: false };
+  if (!dnaSeq || dnaSeq.length < 10) return { overhang: '', annealing: p, matched: false };
   const s = dnaSeq.toUpperCase();
-  const MIN = 14;
-  for (let start = 0; start <= p.length - MIN; start++) {
+  const circular = s + s.slice(0, Math.max(0, p.length - 1));
+  const minAnnealing = Math.min(PRIMER_MIN_ANNEALING, p.length);
+  for (let start = 0; start <= p.length - minAnnealing; start++) {
     const candidate = p.slice(start);
     const rcCandidate = revComp(candidate);
-    if (s.includes(candidate) || s.includes(rcCandidate)) {
-      return { overhang: p.slice(0, start).toLowerCase(), annealing: candidate };
+    if (circular.includes(candidate) || circular.includes(rcCandidate)) {
+      return { overhang: p.slice(0, start).toLowerCase(), annealing: candidate, matched: true };
     }
   }
   // No match found — treat whole primer as annealing (no overhang detected)
-  return { overhang: '', annealing: p };
+  return { overhang: '', annealing: p, matched: false };
+}
+
+function normalizePrimerAgainstSequence(primer, dnaSeq) {
+  const rawSeq = String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`).toUpperCase().replace(/[^ATGCN]/g, '');
+  const detection = detectAnnealing(rawSeq || primer.annealing || '', dnaSeq);
+  const savedAnnealing = String(primer.annealing || '').toUpperCase().replace(/[^ATGCN]/g, '');
+  const savedOverhang = String(primer.overhang || '').toLowerCase().replace(/[^atgcn]/g, '');
+  const annealing = detection.matched ? detection.annealing : savedAnnealing || detection.annealing || rawSeq;
+  const overhang = detection.matched
+    ? detection.overhang
+    : savedOverhang || (rawSeq && annealing && rawSeq.endsWith(annealing) ? rawSeq.slice(0, -annealing.length).toLowerCase() : '');
+  const seq = `${overhang}${annealing}`;
+  return {
+    ...primer,
+    seq,
+    overhang,
+    annealing,
+  };
+}
+
+function normalizePrimersAgainstSequence(primers = [], dnaSeq = '') {
+  return primers.map(primer => normalizePrimerAgainstSequence(primer, dnaSeq));
+}
+
+function PrimerColorControl({ value, onChange, compact = false }) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef(null);
+  const color = value || PRIMER_COLORS[0];
+  useEffect(() => {
+    if (!open) return;
+    const close = (event) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  return (
+    <div ref={pickerRef} className="relative flex items-center gap-1.5" onClick={event => event.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`${compact ? 'h-5 w-5' : 'h-7 w-7'} flex flex-shrink-0 items-center justify-center rounded-sm border border-black p-0 shadow-sm`}
+        title="Primer color"
+      >
+        <span className="h-full w-full rounded-[2px]" style={{ backgroundColor: color }} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 z-[220] w-36 rounded-lg border border-slate-200 bg-white p-2 shadow-2xl">
+          <div className="grid grid-cols-4 gap-1">
+            {PRIMER_COLORS.map(preset => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => { onChange?.(preset); setOpen(false); }}
+                className={`h-5 w-5 rounded-sm border ${color === preset ? 'border-black' : 'border-slate-200'}`}
+                style={{ backgroundColor: preset }}
+                title={preset}
+              />
+            ))}
+          </div>
+          <label className="mt-2 flex h-7 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-[10px] font-semibold text-slate-600 hover:bg-slate-50">
+            Custom color
+            <input
+              type="color"
+              value={color}
+              onChange={(event) => { onChange?.(event.target.value); setOpen(false); }}
+              className="absolute h-0 w-0 opacity-0"
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const effectivePrimerStrand = (primer, sites = []) => primer.strand === 1 || primer.strand === -1 ? primer.strand : sites[0]?.strand || 1;
+const reverseStrand = (strand) => strand === -1 ? 1 : strand === 1 ? -1 : strand;
+const primerTm = (seq = '') => {
+  const annealing = String(seq || '').toUpperCase().replace(/[^ATGCN]/g, '');
+  if (!annealing) return '-';
+  if (annealing.length < 14) {
+    const gc = (annealing.match(/[GC]/g) || []).length;
+    const at = (annealing.match(/[AT]/g) || []).length;
+    return Math.round(4 * gc + 2 * at);
+  }
+  const gc = (annealing.match(/[GC]/g) || []).length;
+  return Math.round(64.9 + 41 * (gc - 16.4) / annealing.length);
+};
+const gcPercent = (seq = '') => {
+  const s = String(seq || '').toUpperCase().replace(/[^ATGC]/g, '');
+  if (!s) return '-';
+  return `${Math.round(((s.match(/[GC]/g) || []).length / s.length) * 100)}%`;
+};
+const findSequenceMatches = (needle, dnaSeq) => {
+  const query = String(needle || '').toUpperCase().replace(/[^ATGCN]/g, '');
+  const dna = String(dnaSeq || '').toUpperCase().replace(/[^ATGCN]/g, '');
+  if (!query || !dna || query.length > dna.length) return [];
+  const rcQuery = revComp(query);
+  const matches = [];
+  const addMatches = (target, strand) => {
+    let from = 0;
+    while (from <= dna.length - target.length) {
+      const index = dna.indexOf(target, from);
+      if (index === -1) break;
+      matches.push({ start: index, end: index + target.length, strand, sequence: target });
+      from = index + 1;
+    }
+  };
+  addMatches(query, 1);
+  if (rcQuery !== query) addMatches(rcQuery, -1);
+  return matches.sort((a, b) => a.start - b.start || a.strand - b.strand);
+};
+const tagStyle = (color = '#4a90d9') => ({
+  backgroundColor: color,
+  color: getReadableTextColor(color),
+  border: `1px solid ${shadeHex(color, 0.85)}`,
+});
+
+function FeatureColorControl({ value, onChange, compact = true }) {
+  return (
+    <MacColorPicker
+      value={value || '#6366f1'}
+      onChange={onChange}
+      buttonClassName={`${compact ? 'h-5 w-5' : 'h-7 w-7'} flex flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 p-0 shadow-sm`}
+      title="Change feature color"
+    >
+      <span className="h-full w-full rounded-[2px]" style={{ background: value || '#6366f1' }} />
+    </MacColorPicker>
+  );
+}
+
+function ColoredPrimerSequence({ primer, onChange, className = '' }) {
+  const overhang = primer.overhang || '';
+  const annealing = primer.annealing || primer.seq || '';
+  const fullSeq = `${overhang}${annealing}`.toUpperCase();
+  return (
+    <div className="relative">
+      <span className="absolute left-2 top-1/2 z-10 -translate-y-1/2 text-[10px] font-bold text-slate-400">5&apos;</span>
+      <div
+        contentEditable
+        suppressContentEditableWarning
+        spellCheck={false}
+        className={`min-h-10 rounded-md border border-slate-200 bg-white px-6 py-2 font-mono text-xs leading-relaxed outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-200 ${className}`}
+        onBlur={(event) => onChange?.(event.currentTarget.innerText)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+      >
+        {overhang && <span className="text-red-500">{overhang.toLowerCase()}</span>}
+        <span className="font-semibold text-emerald-700">{fullSeq.slice(overhang.length)}</span>
+      </div>
+      <span className="absolute right-2 top-1/2 z-10 -translate-y-1/2 text-[10px] font-bold text-slate-400">3&apos;</span>
+    </div>
+  );
 }
 
 function parseFasta(text) {
@@ -944,18 +1111,33 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [selectedRange, setSelectedRange] = useState(null);
   const [rangeColor, setRangeColor] = useState('#4a90d9');
   const [showRangeColorTools, setShowRangeColorTools] = useState(false);
+  const [showMapSearch, setShowMapSearch] = useState(false);
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [mapSearchMatches, setMapSearchMatches] = useState([]);
+  const [activeMapSearchIndex, setActiveMapSearchIndex] = useState(0);
+  const [mapLayerVisibility, setMapLayerVisibility] = useState({
+    enzymes: true,
+    features: true,
+    primers: true,
+    translations: true,
+    orfs: false,
+    dnaColor: true,
+  });
   const [expandedFeatures, setExpandedFeatures] = useState(() => loadExpState(EXP_FEATURES_KEY));
   const [expandedPrimers, setExpandedPrimers] = useState(() => loadExpState(EXP_PRIMERS_KEY));
   const [editingFeatureIdx, setEditingFeatureIdx] = useState(null);
   const [editingFeatureLabelIdx, setEditingFeatureLabelIdx] = useState(null);
   const [featureLabelDraft, setFeatureLabelDraft] = useState('');
   const [editingPrimerIdx, setEditingPrimerIdx] = useState(null);
+  const [editingPrimerLabelId, setEditingPrimerLabelId] = useState(null);
+  const [primerLabelDraft, setPrimerLabelDraft] = useState('');
   const [expandedFolders, setExpandedFolders] = useState(() => loadExpState(EXP_FOLDERS_KEY));
   const [showFolderColorPickerId, setShowFolderColorPickerId] = useState(null);
   const [renamingId, setRenamingId] = useState(null);
   const [renamingName, setRenamingName] = useState('');
   const [targetParentId, setTargetParentId] = useState(null);
   const [activeEntryId, setActiveEntryId] = useState(null);
+  const [infoEntryId, setInfoEntryId] = useState(null);
   const [showMethylationEditor, setShowMethylationEditor] = useState(false);
   const [showReferenceDialog, setShowReferenceDialog] = useState(false);
   const [referenceDraft, setReferenceDraft] = useState({ type: 'doi', doi: '', url: '', title: '', authors: '' });
@@ -974,6 +1156,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [otherFileContextMenu, setOtherFileContextMenu] = useState(null);
   const [featureContextMenu, setFeatureContextMenu] = useState(null);
   const [featureContextPanel, setFeatureContextPanel] = useState(null);
+  const [primerContextMenu, setPrimerContextMenu] = useState(null);
   const [enzymeHighlightMenu, setEnzymeHighlightMenu] = useState(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
@@ -982,11 +1165,21 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [showLineWidthMenu, setShowLineWidthMenu] = useState(false);
   const [libraryOverviewColumns, setLibraryOverviewColumns] = useState(DEFAULT_LIBRARY_OVERVIEW_COLUMNS);
   const [libraryColumnWidths, setLibraryColumnWidths] = useState(DEFAULT_LIBRARY_COLUMN_WIDTHS);
+  const [overviewTableColumnWidths, setOverviewTableColumnWidths] = useState({});
   const [librarySort, setLibrarySort] = useState({ key: 'name', direction: 'asc' });
   const [showLibraryColumnMenu, setShowLibraryColumnMenu] = useState(false);
+  const [tagDraft, setTagDraft] = useState('');
+  const [tagColorDraft, setTagColorDraft] = useState('#4a90d9');
+  const [tagMenuOpen, setTagMenuOpen] = useState(false);
+  const [tagMenuMode, setTagMenuMode] = useState(null);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState([]);
+  const [lastSelectedLibraryId, setLastSelectedLibraryId] = useState(null);
+  const [primerViewMenuKey, setPrimerViewMenuKey] = useState(null);
   const hoverTimerRef = useRef(null);
   const featureLabelInputRef = useRef(null);
+  const primerLabelInputRef = useRef(null);
   const libraryColumnResizeRef = useRef(null);
+  const overviewColumnResizeRef = useRef(null);
   const undoHistoryRef = useRef([]);
   const undoIndexRef = useRef(-1);
   const skipUndoRecordRef = useRef(false);
@@ -1045,6 +1238,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSelectedRange(null);
     setTargetParentId(parentId);
     setActiveEntryId(null);
+    setInfoEntryId(null);
     setViewMode('sequence');
     setPhase('input');
     setOpenTabs(prev => [
@@ -1068,6 +1262,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       const item = prev[idx];
       // Only update if something actually changed
       const hasChanged = 
+        item.sequence !== sequence ||
         JSON.stringify(item.features) !== JSON.stringify(features) ||
         JSON.stringify(item.primers) !== JSON.stringify(primers) ||
         JSON.stringify(item.sequenceColors || []) !== JSON.stringify(sequenceColors) ||
@@ -1079,6 +1274,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
       const updatedItem = {
         ...item,
+        sequence,
         features,
         primers,
         sequenceColors,
@@ -1095,8 +1291,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     });
   }, [features, primers, sequenceColors, selectedEnzymes, isCircular, seqName, activeEntryId, phase, user?.id]);
   const [showAddFeature, setShowAddFeature] = useState(false);
+  const [addFeatureSurface, setAddFeatureSurface] = useState('side');
+  const [showFeatureImport, setShowFeatureImport] = useState(false);
   const [newFeature, setNewFeature] = useState({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   const [showAddPrimer, setShowAddPrimer] = useState(false);
+  const [addPrimerSurface, setAddPrimerSurface] = useState('side');
+  const [showPrimerImport, setShowPrimerImport] = useState(false);
   const [newPrimerName, setNewPrimerName] = useState('');
   const [newPrimerRaw, setNewPrimerRaw] = useState('');
   const [newPrimerColor, setNewPrimerColor] = useState(PRIMER_COLORS[0]);
@@ -1122,7 +1322,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     () => library.find(item => item.id === activeEntryId && item.type !== 'folder') || null,
     [library, activeEntryId]
   );
-  const activeMetadata = activeLibraryEntry?.metadata || defaultPlasmidMetadata();
+  const infoLibraryEntry = useMemo(
+    () => library.find(item => item.id === (infoEntryId || activeEntryId) && item.type !== 'folder') || null,
+    [library, infoEntryId, activeEntryId]
+  );
+  const activeMetadata = infoLibraryEntry?.metadata || defaultPlasmidMetadata();
 
   useEffect(() => {
     libraryHydratedRef.current = !user;
@@ -1202,9 +1406,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       setOtherFileContextMenu(null);
       setFeatureContextMenu(null);
       setFeatureContextPanel(null);
+      setPrimerContextMenu(null);
       setEnzymeHighlightMenu(null);
       setShowLineWidthMenu(false);
       setShowLibraryColumnMenu(false);
+      setTagMenuOpen(false);
+      setTagMenuMode(null);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -1213,12 +1420,19 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   useEffect(() => {
     const handleMove = (event) => {
       const resize = libraryColumnResizeRef.current;
-      if (!resize) return;
-      const nextWidth = Math.max(54, resize.startWidth + event.clientX - resize.startX);
-      setLibraryColumnWidths(prev => ({ ...prev, [resize.columnId]: nextWidth }));
+      if (resize) {
+        const nextWidth = Math.max(resize.columnId === 'confirmed' ? 38 : 54, resize.startWidth + event.clientX - resize.startX);
+        setLibraryColumnWidths(prev => ({ ...prev, [resize.columnId]: nextWidth }));
+      }
+      const overviewResize = overviewColumnResizeRef.current;
+      if (overviewResize) {
+        const nextWidth = Math.max(36, overviewResize.startWidth + event.clientX - overviewResize.startX);
+        setOverviewTableColumnWidths(prev => ({ ...prev, [overviewResize.columnId]: nextWidth }));
+      }
     };
     const handleUp = () => {
       libraryColumnResizeRef.current = null;
+      overviewColumnResizeRef.current = null;
     };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
@@ -1233,6 +1447,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     featureLabelInputRef.current?.focus();
     featureLabelInputRef.current?.select();
   }, [editingFeatureLabelIdx]);
+
+  useEffect(() => {
+    if (editingPrimerLabelId === null) return;
+    primerLabelInputRef.current?.focus();
+    primerLabelInputRef.current?.select();
+  }, [editingPrimerLabelId]);
 
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -1251,10 +1471,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRawInput(tab.rawInput || tab.sequence);
     setIsCircular(tab.isCircular);
     setFeatures(tab.features);
-    setPrimers(tab.primers);
+    setPrimers(normalizePrimersAgainstSequence(tab.primers, tab.sequence));
     setSequenceColors(tab.sequenceColors || []);
     setSelectedEnzymes(tab.selectedEnzymes);
     setActiveEntryId(tab.activeEntryId || null);
+    setInfoEntryId(tab.activeEntryId || null);
     setViewMode(tab.viewMode || 'map');
     setSelectedFeatureIdx(null);
     setSelectedMapItem(null);
@@ -1286,7 +1507,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         if (d.sequence !== undefined) setSequence(d.sequence);
         if (d.isCircular !== undefined) setIsCircular(d.isCircular);
         if (d.features !== undefined) setFeatures(d.features);
-        if (d.primers !== undefined) setPrimers(d.primers);
+        if (d.primers !== undefined) setPrimers(normalizePrimersAgainstSequence(d.primers, d.sequence || sequence));
         if (d.sequenceColors !== undefined) setSequenceColors(d.sequenceColors);
         if (d.selectedEnzymes !== undefined) setSelectedEnzymes(d.selectedEnzymes);
         if (d.enzymeFilter !== undefined) setEnzymeFilter(normalizeEnzymeFilter(d.enzymeFilter));
@@ -1366,7 +1587,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSequence(snapshot.sequence || '');
     setIsCircular(snapshot.isCircular ?? true);
     setFeatures(snapshot.features || []);
-    setPrimers(snapshot.primers || []);
+    setPrimers(normalizePrimersAgainstSequence(snapshot.primers || [], snapshot.sequence || ''));
     setSequenceColors(snapshot.sequenceColors || []);
     setSelectedEnzymes(snapshot.selectedEnzymes || {});
     setSelectedMapItem(null);
@@ -1401,6 +1622,57 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setUndoVersion(v => v + 1);
   };
 
+  const copySelectedRange = async () => {
+    if (!selectedRange || selectedRange.end <= selectedRange.start) return;
+    const selectedSeq = sequence.slice(selectedRange.start, selectedRange.end);
+    try {
+      await navigator.clipboard.writeText(selectedSeq);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = selectedSeq;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+  };
+
+  const runMapSequenceSearch = () => {
+    const matches = findSequenceMatches(mapSearchQuery, seq);
+    setMapSearchMatches(matches);
+    setActiveMapSearchIndex(0);
+    if (matches[0]) {
+      setSelectedRange({ start: matches[0].start, end: matches[0].end });
+      setRangeColor('#facc15');
+      setSelectedMapItem(null);
+    }
+  };
+
+  const focusMapSearchMatch = (direction = 1) => {
+    if (!mapSearchMatches.length) return;
+    const nextIndex = (activeMapSearchIndex + direction + mapSearchMatches.length) % mapSearchMatches.length;
+    const match = mapSearchMatches[nextIndex];
+    setActiveMapSearchIndex(nextIndex);
+    setSelectedRange({ start: match.start, end: match.end });
+    setRangeColor('#facc15');
+    setSelectedMapItem(null);
+  };
+
+  const selectedRangeSummary = useMemo(() => {
+    if (!selectedRange || selectedRange.end <= selectedRange.start) return '';
+    const length = selectedRange.end - selectedRange.start;
+    const selectedSeq = sequence.slice(selectedRange.start, selectedRange.end);
+    const gc = gcPercent(selectedSeq);
+    const anchors = selectedRange.anchors || [];
+    const sameKind = anchors.length === 2 && anchors[0]?.kind && anchors[0].kind === anchors[1]?.kind;
+    const kindLabel = sameKind && anchors[0].kind === 'primer'
+      ? '2 primers '
+      : sameKind && anchors[0].kind === 'feature'
+        ? '2 features '
+        : '';
+    return `Selected: ${kindLabel}(${selectedRange.start + 1} .. ${selectedRange.end} = ${length} bp) [${gc} GC]`;
+  }, [selectedRange, sequence]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const target = e.target;
@@ -1414,6 +1686,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         setPopupData(null);
         return;
       }
+      if (key === 'c' && selectedRange && selectedRange.end > selectedRange.start) {
+        e.preventDefault();
+        copySelectedRange();
+        return;
+      }
       if (key !== 'z') return;
       e.preventDefault();
       if (e.shiftKey) redoChange();
@@ -1421,7 +1698,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [phase, sequence, viewMode]);
+  }, [phase, sequence, viewMode, selectedRange]);
 
 
 
@@ -1445,26 +1722,64 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   }, [allCutSites, enzymeFilter, enzymeSearch, enzymeSupplierFilter]);
 
   const activeCutSites = useMemo(() => {
+    if (!mapLayerVisibility.enzymes) return [];
     const res = [];
     Object.entries(selectedEnzymes).forEach(([name, { color }]) => {
       (allCutSites[name] || []).forEach(pos => res.push({ name, pos, color: color || null }));
     });
     return res;
-  }, [selectedEnzymes, allCutSites]);
+  }, [selectedEnzymes, allCutSites, mapLayerVisibility.enzymes]);
 
   const mapFeatures = useMemo(() => {
-    const visibleFeats = features
+    const visibleFeats = mapLayerVisibility.features ? features
       .map((f, index) => ({ ...f, kind: 'feature', sourceIndex: index }))
-      .filter(f => f.visible !== false && normalizedFeatureType(f.type) !== 'source' && normalizedFeatureType(f.type) !== 'primer_bind');
-    const primerFeats = primers
+      .filter(f => f.visible !== false && normalizedFeatureType(f.type) !== 'source' && normalizedFeatureType(f.type) !== 'primer_bind')
+      : [];
+    const primerFeats = mapLayerVisibility.primers ? primers
       .map((p, primerIndex) => ({ p, primerIndex }))
       .filter(({ p }) => p.visible !== false && p.seq && seq)
       .flatMap(({ p, primerIndex }) => {
         const sites = findPrimerSites(p.seq, seq, p.annealing || p.seq);
         return sites.map(s => ({ label: p.name, start: s.start, end: s.end, strand: s.strand, color: p.color, type: 'primer', kind: 'primer', sourceIndex: primerIndex, primerId: p.id, primerIndex }));
-      });
+      }) : [];
     return [...visibleFeats, ...primerFeats];
-  }, [features, primers, seq]);
+  }, [features, primers, seq, mapLayerVisibility.features, mapLayerVisibility.primers]);
+
+  const libraryFeatureOptions = useMemo(() => {
+    const currentKeys = new Set(features.map(f => `${String(f.label || '').toLowerCase()}|${f.start}|${f.end}|${f.type || ''}`));
+    return library
+      .filter(entry => entry.type !== 'folder' && entry.id !== activeEntryId)
+      .flatMap(entry => (entry.features || []).flatMap((feature, index) => {
+        const featureSeq = String(entry.sequence || '').slice(feature.start, feature.end);
+        return findSequenceMatches(featureSeq, seq).map((match, matchIndex) => {
+          const strand = match.strand === -1 ? reverseStrand(feature.strand) : feature.strand;
+          return {
+            entry,
+            sourceFeature: feature,
+            index,
+            matchIndex,
+            feature: {
+              ...feature,
+              start: match.start,
+              end: match.end,
+              strand,
+            },
+            match,
+          };
+        });
+      }))
+      .filter(({ feature }) => !currentKeys.has(`${String(feature.label || '').toLowerCase()}|${feature.start}|${feature.end}|${feature.type || ''}`))
+      .slice(0, 80);
+  }, [library, features, activeEntryId, seq]);
+
+  const libraryPrimerOptions = useMemo(() => {
+    const currentKeys = new Set(primers.map(p => `${String(p.name || '').toLowerCase()}|${String(p.seq || '').toUpperCase()}`));
+    return library
+      .filter(entry => entry.type !== 'folder' && entry.id !== activeEntryId)
+      .flatMap(entry => (entry.primers || []).map((primer, index) => ({ entry, primer, index })))
+      .filter(({ primer }) => !currentKeys.has(`${String(primer.name || '').toLowerCase()}|${String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`).toUpperCase()}`))
+      .slice(0, 80);
+  }, [library, primers, activeEntryId]);
 
   const sequenceFocusRange = useMemo(() => {
     if (selectedRange) return selectedRange;
@@ -1485,10 +1800,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     const split = splitFeaturesAndPrimers(parsed, existingPrimers);
     const featureStamp = Date.now();
     const primerStamp = Date.now();
+    const normalizedPrimers = normalizePrimersAgainstSequence(split.primers, parsed.sequence);
     return {
       ...parsed,
       features: split.features.map((f, i) => ({ ...f, id: f.id || `f_${featureStamp}_${i}`, visible: f.visible ?? true })),
-      primers: split.primers.map((p, i) => ({ ...p, id: p.id || `p_${primerStamp}_${i}`, visible: p.visible ?? true })),
+      primers: normalizedPrimers.map((p, i) => ({ ...p, id: p.id || `p_${primerStamp}_${i}`, visible: p.visible ?? true })),
     };
   };
 
@@ -1578,7 +1894,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
   const handleSave = () => {
     const text = rawInput.trim(); if (!text) return;
-    const currentEntry = activeLibraryEntry;
+    const currentEntry = library.find(item => item.id === activeEntryId && item.type !== 'folder') || null;
     const normalizedInputSequence = text.toUpperCase().replace(/[^ATGCN\s]/g, '').replace(/\s/g, '');
     let parsed;
     if (text.startsWith('>')) parsed = parseFasta(text);
@@ -1592,7 +1908,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     const parsedHasPrimers = (split.primers || []).length > 0;
     const featuresWithId = (sequenceUnchanged && !parsedHasFeatures ? features : (split.features || []))
       .map((f, i) => ({ ...f, id: f.id || `f_${Date.now()}_${i}`, visible: f.visible ?? true }));
-    const primersWithId = (sequenceUnchanged && !parsedHasPrimers ? primers : (split.primers || []))
+    const rawPrimers = sequenceUnchanged && !parsedHasPrimers ? primers : (split.primers || []);
+    const primersWithId = normalizePrimersAgainstSequence(rawPrimers, parsed.sequence)
       .map((p, i) => ({ ...p, id: p.id || `p_${Date.now()}_${i}`, visible: p.visible ?? true }));
     const nextSequenceColors = sequenceUnchanged ? sequenceColors : [];
     const nextSelectedEnzymes = sequenceUnchanged ? selectedEnzymes : (currentEntry?.selectedEnzymes || {});
@@ -1630,6 +1947,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       type: 'file'
     };
     setActiveEntryId(entry.id);
+    setInfoEntryId(entry.id);
     setLibrary(prev => {
       const updated = currentEntry
         ? prev.map(item => item.id === currentEntry.id ? entry : item)
@@ -1663,7 +1981,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       sequenceColors: entry.sequenceColors || [],
       isCircular: entry.isCircular ?? true, 
       selectedEnzymes: entry.selectedEnzymes || {}, 
-      primers: entry.primers || [], 
+      primers: normalizePrimersAgainstSequence(entry.primers || [], entry.sequence),
       viewMode: 'map',
       activeEntryId: entry.id
     };
@@ -1674,10 +1992,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRawInput(entry.sequence);
     setIsCircular(entry.isCircular ?? true);
     setFeatures(feats);
-    setPrimers(entry.primers || []);
+    setPrimers(normalizePrimersAgainstSequence(entry.primers || [], entry.sequence));
     setSequenceColors(entry.sequenceColors || []);
     setSelectedEnzymes(entry.selectedEnzymes || {});
     setActiveEntryId(entry.id);
+    setInfoEntryId(entry.id);
     setSelectedMapItem(null);
     setSelectedRange(null);
     setPhase('map');
@@ -1700,7 +2019,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       sequenceColors: tempEntry.sequenceColors || [],
       isCircular: tempEntry.isCircular ?? true,
       selectedEnzymes: tempEntry.selectedEnzymes || {},
-      primers: tempEntry.primers || [],
+      primers: normalizePrimersAgainstSequence(tempEntry.primers || [], tempEntry.sequence),
       viewMode: 'map',
       activeEntryId: null,
       temporaryId: tempEntry.id,
@@ -1712,7 +2031,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRawInput(tab.rawInput);
     setIsCircular(tab.isCircular);
     setFeatures(tab.features);
-    setPrimers(tab.primers);
+    setPrimers(normalizePrimersAgainstSequence(tab.primers, tab.sequence));
     setSequenceColors(tab.sequenceColors);
     setSelectedEnzymes(tab.selectedEnzymes);
     setActiveEntryId(null);
@@ -1781,6 +2100,14 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     saveUserLib(user?.id, next);
     setMovingItemId(null);
   };
+  const moveLibraryItems = (itemIds, newParentId) => {
+    const ids = new Set(itemIds);
+    const now = new Date().toISOString();
+    const next = library.map(item => ids.has(item.id) ? { ...item, parentId: newParentId, dateEdited: now } : item);
+    setLibrary(next);
+    saveUserLib(user?.id, next);
+    setMovingItemId(null);
+  };
   const startRenamingLibraryItem = (item) => {
     setRenamingId(item.id);
     setRenamingName(item.name);
@@ -1810,14 +2137,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     saveUserLib(user?.id, next);
   };
   const updateActiveLibraryItem = (updates) => {
-    if (!activeEntryId) return;
-    if (updates.name !== undefined) setSeqName(updates.name);
-    updateLibraryItem(activeEntryId, updates);
+    const targetId = infoEntryId || activeEntryId;
+    if (!targetId) return;
+    if (targetId === activeEntryId && updates.name !== undefined) setSeqName(updates.name);
+    updateLibraryItem(targetId, updates);
   };
   const updateActiveMetadata = (updates) => {
-    if (!activeEntryId) return;
-    const current = activeLibraryEntry?.metadata || defaultPlasmidMetadata();
-    updateLibraryItem(activeEntryId, { metadata: { ...current, ...updates } });
+    const targetId = infoEntryId || activeEntryId;
+    if (!targetId) return;
+    const targetEntry = library.find(item => item.id === targetId);
+    const current = targetEntry?.metadata || defaultPlasmidMetadata();
+    updateLibraryItem(targetId, { metadata: { ...current, ...updates } });
   };
   const addReference = () => {
     const type = referenceDraft.type;
@@ -1945,6 +2275,34 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     return [...children.map(c => c.id), ...children.flatMap(c => getChildrenIds(c.id))];
   };
 
+  const applyColorToFolderFiles = (folderId, color) => {
+    const ids = new Set(getChildrenIds(folderId));
+    const now = new Date().toISOString();
+    const next = library.map(item => ids.has(item.id) && item.type !== 'folder' ? { ...item, color, dateEdited: now } : item);
+    setLibrary(next);
+    saveUserLib(user?.id, next);
+  };
+
+  const updateLibraryItemsColor = (itemIds, color) => {
+    const ids = new Set(itemIds);
+    const now = new Date().toISOString();
+    const next = library.map(item => ids.has(item.id) ? { ...item, color, dateEdited: now } : item);
+    setLibrary(next);
+    saveUserLib(user?.id, next);
+  };
+
+  const deleteLibraryItems = (itemIds) => {
+    const ids = new Set(itemIds);
+    itemIds.forEach(id => {
+      const item = library.find(entry => entry.id === id);
+      if (item?.type === 'folder') getChildrenIds(id).forEach(childId => ids.add(childId));
+    });
+    const next = library.filter(entry => !ids.has(entry.id));
+    setLibrary(next);
+    saveUserLib(user?.id, next);
+    setSelectedLibraryIds(prev => prev.filter(id => !ids.has(id)));
+  };
+
   const duplicateLibraryItem = (id) => {
     const source = library.find(item => item.id === id);
     if (!source) return;
@@ -1997,6 +2355,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const openLibraryContextMenu = (event, item) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!selectedLibraryIds.includes(item.id)) {
+      setSelectedLibraryIds([item.id]);
+      setLastSelectedLibraryId(item.id);
+    }
     setPopupData(null);
     setMovingItemId(null);
     setLibraryContextMenu({ itemId: item.id, x: event.clientX, y: event.clientY });
@@ -2045,8 +2407,79 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setShowAddFeature(false);
     setNewFeature({ label: 'New Feature', type: 'misc_feature', color: '#3b82f6', start: '1', end: '100', strand: '1' });
   };
+  const openAddFeature = (surface = 'side') => {
+    setAddFeatureSurface(surface);
+    setShowFeatureImport(false);
+    setShowAddFeature(true);
+    if (surface === 'side') setActivePanel('features');
+  };
+  const importFeatureFromLibrary = (feature) => {
+    if (!feature) return;
+    setFeatures(prev => [...prev, { ...feature, id: `f_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, visible: feature.visible ?? true }]);
+  };
   const updateFeature = (idx, updates) => setFeatures(prev => prev.map((f, i) => i === idx ? { ...f, ...updates } : f));
   const updatePrimer = (idx, updates) => setPrimers(prev => prev.map((p, i) => i === idx ? { ...p, ...updates } : p));
+  const addTagToLibraryEntry = (entryId) => {
+    const existingLabels = allLibraryTags.map(tag => tag.label).join(', ');
+    const label = window.prompt(existingLabels ? `Tag label (existing: ${existingLabels})` : 'Tag label');
+    if (!label?.trim()) return;
+    const existing = allLibraryTags.find(tag => String(tag.label).toLowerCase() === label.trim().toLowerCase());
+    const color = existing?.color || window.prompt('Tag color', '#4a90d9') || '#4a90d9';
+    setLibrary(prev => {
+      const next = prev.map(item => {
+        if (item.id !== entryId || item.type === 'folder') return item;
+        const metadata = { ...defaultPlasmidMetadata(), ...(item.metadata || {}) };
+        return {
+          ...item,
+          metadata: {
+            ...metadata,
+            tags: [...(metadata.tags || []), { id: `tag_${Date.now()}`, label: label.trim(), color }],
+          },
+          dateEdited: new Date().toISOString(),
+        };
+      });
+      saveUserLib(user?.id, next);
+      return next;
+    });
+  };
+  const allLibraryTags = useMemo(() => {
+    const map = new Map();
+    library.forEach(item => (item.metadata?.tags || []).forEach(tag => {
+      const key = String(tag.label || '').trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, tag);
+    }));
+    return [...map.values()];
+  }, [library]);
+  const editTagOnEntry = (entryId, tag) => {
+    const nextLabel = window.prompt('Tag label', tag.label);
+    if (!nextLabel?.trim()) return;
+    const nextColor = window.prompt('Tag color', tag.color || '#4a90d9') || tag.color || '#4a90d9';
+    setLibrary(prev => {
+      const next = prev.map(item => {
+        if (item.id !== entryId) return item;
+        const metadata = { ...defaultPlasmidMetadata(), ...(item.metadata || {}) };
+        return {
+          ...item,
+          metadata: {
+            ...metadata,
+            tags: (metadata.tags || []).map(t => (t.id || t.label) === (tag.id || tag.label) ? { ...t, label: nextLabel.trim(), color: nextColor } : t),
+          },
+          dateEdited: new Date().toISOString(),
+        };
+      });
+      saveUserLib(user?.id, next);
+      return next;
+    });
+  };
+  const addExistingTagToActiveEntry = (tag) => {
+    const targetId = infoEntryId || activeEntryId;
+    if (!tag || !targetId) return;
+    const targetEntry = library.find(item => item.id === targetId);
+    const current = targetEntry?.metadata || defaultPlasmidMetadata();
+    const exists = (current.tags || []).some(t => String(t.label).toLowerCase() === String(tag.label).toLowerCase());
+    if (exists) return;
+    updateActiveMetadata({ tags: [...(current.tags || []), { ...tag, id: `tag_${Date.now()}` }] });
+  };
   const strandToSymbol = (strand) => strand === 1 ? '→' : strand === -1 ? '←' : strand === 0 ? '↔' : '–';
   const symbolToStrand = (symbol) => symbol === '→' ? 1 : symbol === '←' ? -1 : symbol === '↔' ? 0 : null;
   const startFeatureLabelEdit = (idx) => {
@@ -2067,6 +2500,49 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     if (selectedFeatureIdx === idx) setSelectedFeatureIdx(null);
   };
   const deletePrimer = (idx) => setPrimers(prev => prev.filter((_, i) => i !== idx));
+  const startPrimerLabelEdit = (primer) => {
+    if (!primer) return;
+    setEditingPrimerLabelId(primer.id);
+    setPrimerLabelDraft(primer.name || '');
+  };
+  const finishPrimerLabelEdit = (commit = true) => {
+    if (commit && editingPrimerLabelId !== null && primerLabelDraft.trim()) {
+      setPrimers(prev => prev.map(p => p.id === editingPrimerLabelId ? { ...p, name: primerLabelDraft.trim() } : p));
+    }
+    setEditingPrimerLabelId(null);
+  };
+  const updatePrimerSequence = (idx, rawSequence) => {
+    const next = normalizePrimerAgainstSequence({ ...primers[idx], seq: rawSequence }, seq);
+    updatePrimer(idx, next);
+  };
+  const reverseComplementPrimer = (idx) => {
+    const primer = primers[idx];
+    if (!primer) return;
+    const rc = revComp(String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`).toUpperCase().replace(/[^ATGCN]/g, ''));
+    const normalized = normalizePrimerAgainstSequence({ ...primer, seq: rc, strand: reverseStrand(effectivePrimerStrand(primer)) }, seq);
+    updatePrimer(idx, normalized);
+  };
+  const viewFeatureInSequence = (idx) => {
+    const feat = features[idx];
+    if (!feat) return;
+    setSelectedRange({ start: feat.start, end: feat.end });
+    setSelectedMapItem({ kind: 'feature', index: idx, start: feat.start, end: feat.end, strand: feat.strand });
+    setViewMode('sequence');
+  };
+  const viewFeatureInMap = (idx) => {
+    const feat = features[idx];
+    if (!feat) return;
+    setSelectedRange(null);
+    setSelectedMapItem({ kind: 'feature', index: idx, start: feat.start, end: feat.end, strand: feat.strand });
+    setViewMode('map');
+  };
+  const viewPrimerSite = (idx, site, targetView = 'map') => {
+    const primer = primers[idx];
+    if (!primer || !site) return;
+    setSelectedRange({ start: site.start, end: site.end });
+    setSelectedMapItem({ kind: 'primer', index: idx, start: site.start, end: site.end, strand: site.strand, primerId: primer.id });
+    setViewMode(targetView);
+  };
 
   const handleDeleteRegion = (start, end) => {
     if (start >= end) return;
@@ -2094,9 +2570,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   };
 
   const handleAddFeatureFromSelection = (start, end) => {
-    setActivePanel('features');
     setNewFeature({ label: 'Nieuwe Feature', type: 'misc_feature', color: '#3b82f6', start: start + 1, end: end, strand: 1 });
-    setShowAddFeature(true);
+    openAddFeature('side');
   };
 
   const colorSequenceRegion = (start, end, strand = 0, color = rangeColor) => {
@@ -2110,11 +2585,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     kind,
     index,
     name: item.name || item.label,
+    strand: item.strand,
+    primerId: item.primerId,
     pos: kind === 'enzyme' || kind === 'position' ? item.pos : Math.round(((item.start || 0) + (item.end || 0)) / 2),
   });
 
   const selectRangeFromAnchors = (first, second) => {
     if (!first || !second || !seq.length) return null;
+    if (first.kind === 'primer' && second.kind === 'primer' && first.strand === second.strand) {
+      setSelectedRange(null);
+      return null;
+    }
     const a = Math.max(0, Math.min(seq.length, first.pos));
     const b = Math.max(0, Math.min(seq.length, second.pos));
     if (a === b) return null;
@@ -2129,12 +2610,14 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setPopupData(null);
     const next = kind === 'enzyme'
       ? { kind, name: item.name, pos: item.pos, index }
-      : { kind, index: item.sourceIndex ?? index };
+      : { kind, index: item.sourceIndex ?? index, start: item.start, end: item.end, strand: item.strand, primerId: item.primerId };
 
     if (e.shiftKey && selectedMapItem) {
       const firstItem = selectedMapItem.kind === 'enzyme'
         ? { name: selectedMapItem.name, pos: selectedMapItem.pos }
-        : mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index) || item;
+        : selectedMapItem.start !== undefined
+          ? selectedMapItem
+          : mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index) || item;
       selectRangeFromAnchors(itemAnchor(selectedMapItem.kind, firstItem, selectedMapItem.index), itemAnchor(kind, item, index));
       setSelectedMapItem(next);
       return;
@@ -2155,7 +2638,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     if (e.shiftKey && selectedMapItem) {
       const firstItem = selectedMapItem.kind === 'enzyme' || selectedMapItem.kind === 'position'
         ? { name: selectedMapItem.name, pos: selectedMapItem.pos }
-        : mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index) || positionItem;
+        : selectedMapItem.start !== undefined
+          ? selectedMapItem
+          : mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index) || positionItem;
       selectRangeFromAnchors(itemAnchor(selectedMapItem.kind, firstItem, selectedMapItem.index), itemAnchor('position', positionItem, null));
       setSelectedMapItem(next);
       return;
@@ -2189,13 +2674,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     if (data.kind === 'feature') {
       setActivePanel('features');
       setExpandedFeatures(new Set([data.idx]));
-      setEditingFeatureIdx(data.idx);
     } else if (data.kind === 'primer') {
       setActivePanel('primers');
       const primer = primers[data.idx];
       if (primer) {
         setExpandedPrimerId(primer.id);
-        setEditingPrimerIdx(data.idx);
       }
     } else if (data.kind === 'enzyme') {
       setActivePanel('enzymes');
@@ -2251,7 +2734,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   };
 
   const renderInfoView = () => {
-    if (!activeLibraryEntry) {
+    if (!infoLibraryEntry) {
       return (
         <div className="flex h-full items-center justify-center text-center text-sm text-slate-400">
           <div>
@@ -2263,8 +2746,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       );
     }
 
-    const metadata = { ...defaultPlasmidMetadata(), ...(activeLibraryEntry.metadata || {}) };
+    const metadata = { ...defaultPlasmidMetadata(), ...(infoLibraryEntry.metadata || {}) };
     const embeddedFiles = metadata.embeddedFiles || [];
+    const tags = metadata.tags || [];
 
     const authorOptions = [...new Set(library.map(item => item.metadata?.sequenceAuthor).filter(Boolean))];
 
@@ -2273,7 +2757,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         <section className="border-b border-slate-200 pb-4">
           <div className="flex items-end gap-2">
             <MacColorPicker
-              value={activeLibraryEntry.color || '#475569'}
+              value={infoLibraryEntry.color || '#475569'}
               onChange={color => updateActiveLibraryItem({ color })}
               buttonClassName="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-slate-200 bg-white p-1 hover:bg-slate-50"
               swatchClassName="h-6 w-6 rounded"
@@ -2281,30 +2765,128 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             />
             <label className="min-w-0 flex-1 space-y-1">
               <span className="text-[10px] font-bold uppercase text-slate-400">Plasmid name</span>
-              <Input value={activeLibraryEntry.name || ''} onChange={e => updateActiveLibraryItem({ name: e.target.value })} className="h-9 text-sm" />
+              <Input value={infoLibraryEntry.name || ''} onChange={e => updateActiveLibraryItem({ name: e.target.value })} className="h-9 text-sm" />
             </label>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
             <div>
               <div className="text-[10px] font-bold uppercase text-slate-400">Created</div>
-              <div className="mt-0.5 text-slate-700">{toDateInputValue(activeLibraryEntry.dateAdded) || '-'}</div>
+              <div className="mt-0.5 text-slate-700">{toDateInputValue(infoLibraryEntry.dateAdded) || '-'}</div>
             </div>
             <div>
               <div className="text-[10px] font-bold uppercase text-slate-400">Modified</div>
-              <div className="mt-0.5 text-slate-700">{toDateInputValue(activeLibraryEntry.dateEdited) || '-'}</div>
+              <div className="mt-0.5 text-slate-700">{toDateInputValue(infoLibraryEntry.dateEdited) || '-'}</div>
             </div>
           </div>
-          <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
-            <input type="checkbox" checked={!!metadata.confirmedExperimentally} onChange={e => updateActiveMetadata({ confirmedExperimentally: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-teal-600" />
-            Confirmed experimentally
-          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              <input type="checkbox" checked={!!metadata.confirmedExperimentally} onChange={e => updateActiveMetadata({ confirmedExperimentally: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-teal-600" />
+              Confirmed experimentally
+            </label>
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={!!metadata.sequenced}
+                onChange={e => {
+                  if (e.target.checked) {
+                    const sequencingUrl = metadata.sequencingUrl || window.prompt('Sequencing results URL', '') || '';
+                    updateActiveMetadata({ sequenced: true, sequencingUrl });
+                  } else {
+                    updateActiveMetadata({ sequenced: false });
+                  }
+                }}
+                className="h-4 w-4 rounded border-slate-300 text-teal-600"
+              />
+              Sequenced
+            </label>
+          </div>
+          {metadata.sequenced && (
+            <label className="mt-2 block space-y-1">
+              <span className="text-[10px] font-bold uppercase text-slate-400">Sequencing results URL</span>
+              <Input value={metadata.sequencingUrl || ''} onChange={e => updateActiveMetadata({ sequencingUrl: e.target.value })} placeholder="https://..." className="h-8 text-xs" />
+            </label>
+          )}
+        </section>
+
+        <section className="border-b border-slate-200 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Tags</span>
+            <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+              {tags.map(tag => (
+                <span
+                  key={tag.id || tag.label}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-bold leading-tight"
+                  style={tagStyle(tag.color)}
+                  onClick={() => editTagOnEntry(infoLibraryEntry.id, tag)}
+                  onContextMenu={(e) => { e.preventDefault(); editTagOnEntry(infoLibraryEntry.id, tag); }}
+                >
+                  {tag.label}
+                  <button onClick={(e) => { e.stopPropagation(); updateActiveMetadata({ tags: tags.filter(t => (t.id || t.label) !== (tag.id || tag.label)) }); }} className="rounded hover:bg-white/50"><X className="h-2.5 w-2.5" /></button>
+                </span>
+              ))}
+              {tags.length === 0 && <span className="text-xs text-slate-400">No tags</span>}
+            </div>
+            <div className="relative">
+              <button
+                onClick={(e) => { e.stopPropagation(); setTagMenuOpen(v => !v); setTagMenuMode(null); }}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-teal-700"
+                title="Add tag"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+              {tagMenuOpen && (
+                <div className="absolute right-0 top-8 z-[220] w-64 rounded-xl border border-slate-200 bg-white p-2 text-xs shadow-2xl" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                  {!tagMenuMode && (
+                    <div className="space-y-1">
+                      <button onClick={() => setTagMenuMode('new')} className="w-full rounded-lg px-2 py-1.5 text-left font-semibold text-slate-700 hover:bg-slate-50">New tag</button>
+                      <button onClick={() => setTagMenuMode('choose')} className="w-full rounded-lg px-2 py-1.5 text-left font-semibold text-slate-700 hover:bg-slate-50">Choose tag</button>
+                    </div>
+                  )}
+                  {tagMenuMode === 'new' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <MacColorPicker value={tagColorDraft} onChange={setTagColorDraft} buttonClassName="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 bg-white p-0" swatchClassName="h-full w-full rounded-sm" />
+                        <Input value={tagDraft} onChange={e => setTagDraft(e.target.value)} placeholder="Tag label" className="h-7 text-xs" />
+                      </div>
+                      <button
+                        onClick={() => {
+                          const label = tagDraft.trim();
+                          if (!label) return;
+                          updateActiveMetadata({ tags: [...tags, { id: `tag_${Date.now()}`, label, color: tagColorDraft }] });
+                          setTagDraft('');
+                          setTagMenuOpen(false);
+                          setTagMenuMode(null);
+                        }}
+                        className="h-7 w-full rounded-md bg-teal-600 px-2 text-xs font-semibold text-white hover:bg-teal-700"
+                      >
+                        Add tag
+                      </button>
+                    </div>
+                  )}
+                  {tagMenuMode === 'choose' && (
+                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                      {allLibraryTags.map(tag => (
+                        <button key={tag.id || tag.label} onClick={() => { addExistingTagToActiveEntry(tag); setTagMenuOpen(false); setTagMenuMode(null); }} className="inline-flex w-full items-center rounded-sm px-1.5 py-1 text-left text-[11px] font-bold leading-tight" style={tagStyle(tag.color)}>{tag.label}</button>
+                      ))}
+                      {allLibraryTags.length === 0 && <div className="px-2 py-2 text-slate-400">No existing tags</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         <section className="border-b border-slate-200 pb-4">
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1">
               <span className="text-[10px] font-bold uppercase text-slate-400">DNA type</span>
-              <select value={metadata.dnaOrigin || 'synthetic'} onChange={e => updateActiveMetadata({ dnaOrigin: e.target.value })} className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700">
+              <select value={metadata.dnaOrigin || 'synthetic'} onChange={e => {
+                const dnaOrigin = e.target.value;
+                updateActiveMetadata(dnaOrigin === 'natural'
+                  ? { dnaOrigin, transformationStrain: '', methylations: [] }
+                  : { dnaOrigin, sequenceClass: '' });
+              }} className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700">
                 <option value="synthetic">Synthetic DNA</option>
                 <option value="natural">Natural DNA</option>
               </select>
@@ -2371,6 +2953,24 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             <label className="space-y-1">
               <span className="text-[10px] font-bold uppercase text-slate-400">Code Number</span>
               <Input value={metadata.codeNumber || ''} onChange={e => updateActiveMetadata({ codeNumber: e.target.value })} className="h-9 text-xs" />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] font-bold uppercase text-slate-400">Resistance marker</span>
+              <select
+                value={RESISTANCE_MARKERS.includes(metadata.resistanceMarker || '') ? (metadata.resistanceMarker || '') : 'custom'}
+                onChange={e => {
+                  if (e.target.value === 'custom') {
+                    const custom = window.prompt('Custom resistance marker', metadata.resistanceMarker || '');
+                    if (custom?.trim()) updateActiveMetadata({ resistanceMarker: custom.trim() });
+                    return;
+                  }
+                  updateActiveMetadata({ resistanceMarker: e.target.value });
+                }}
+                className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
+              >
+                {RESISTANCE_MARKERS.map(marker => <option key={marker || 'none'} value={marker}>{marker || 'None'}</option>)}
+                <option value="custom">Custom...</option>
+              </select>
             </label>
             <label className="space-y-1">
               <span className="text-[10px] font-bold uppercase text-slate-400">Sequence Author</span>
@@ -2460,6 +3060,85 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
 
 
+  const renderPrimerName = (p, idx, className = 'text-xs font-medium text-slate-700 truncate') => (
+    editingPrimerLabelId === p.id ? (
+      <Input
+        ref={primerLabelInputRef}
+        value={primerLabelDraft}
+        onChange={e => setPrimerLabelDraft(e.target.value)}
+        onClick={e => e.stopPropagation()}
+        onBlur={() => finishPrimerLabelEdit(true)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') finishPrimerLabelEdit(true);
+          if (e.key === 'Escape') finishPrimerLabelEdit(false);
+        }}
+        className="h-6 min-w-0 flex-1 border-teal-300 bg-white text-xs font-semibold"
+      />
+    ) : (
+      <span className={className} onDoubleClick={(e) => { e.stopPropagation(); startPrimerLabelEdit(p); }}>{p.name}</span>
+    )
+  );
+
+  const renderPrimerDetails = (p, idx, sites = [], options = {}) => {
+    const { showSiteSummary = true } = options;
+    const annealingSeq = p.annealing || p.seq || '';
+    const fullSeq = String(p.seq || `${p.overhang || ''}${p.annealing || ''}`).toUpperCase().replace(/[^ATGCN]/g, '');
+    const sequenceRows = sites.length ? sites : [null];
+    return (
+      <div className="space-y-2" onClick={e => e.stopPropagation()}>
+        <div className="space-y-2">
+          {sequenceRows.map((site, siteIdx) => (
+            <div key={site ? `${site.start}-${site.end}-${site.strand}-${siteIdx}` : 'no-site'} className="space-y-1.5">
+              {showSiteSummary && (
+                <div className="flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-600">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 shadow-sm">
+                      {site ? `${site.start + 1}..${site.end}` : 'No annealing'}
+                    </span>
+                    <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 shadow-sm">{fullSeq.length}-mer</span>
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-1.5 text-slate-500">
+                    <span title="Tm voor het annealed sequence deel">{primerTm(annealingSeq)}℃</span>
+                    {p.overhang && (
+                      <>
+                        <span className="text-slate-300">|</span>
+                        <span title="Tm voor de volledige primersequentie">{primerTm(fullSeq)}℃</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              <ColoredPrimerSequence primer={p} onChange={value => updatePrimerSequence(idx, value)} className="min-h-9" />
+              <div className="flex gap-1.5">
+                <button onClick={() => reverseComplementPrimer(idx)} className="rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50">Reverse complement</button>
+                <div className="relative">
+                  <button disabled={!site} onClick={() => setPrimerViewMenuKey(primerViewMenuKey === `${idx}-${siteIdx}` ? null : `${idx}-${siteIdx}`)} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 disabled:text-slate-300">
+                    <ExternalLink className="h-3 w-3" /> View in
+                  </button>
+                  {site && primerViewMenuKey === `${idx}-${siteIdx}` && (
+                    <div className="absolute left-0 top-7 z-[220] w-32 rounded-lg border border-slate-200 bg-white p-1 text-[10px] shadow-xl">
+                      <button onClick={() => { viewPrimerSite(idx, site, 'map'); setPrimerViewMenuKey(null); }} className="w-full rounded px-2 py-1.5 text-left hover:bg-slate-50">Map</button>
+                      <button onClick={() => { viewPrimerSite(idx, site, 'sequence'); setPrimerViewMenuKey(null); }} className="w-full rounded px-2 py-1.5 text-left hover:bg-slate-50">Sequence</button>
+                      <button onClick={() => { setViewMode('primers'); setExpandedPrimers(new Set([p.id || idx])); setPrimerViewMenuKey(null); }} className="w-full rounded px-2 py-1.5 text-left hover:bg-slate-50">Primers</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const resizeHeaderProps = (columnId, width = 100) => ({
+    style: { width: overviewTableColumnWidths[columnId] || width },
+  });
+
+  const renderOverviewResizeHandle = () => (
+    null
+  );
+
   const addPrimer = () => {
     if (!newPrimerName || !newPrimerRaw) return;
     const { overhang, annealing } = newPrimerDetected;
@@ -2473,6 +3152,21 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setNewPrimerRaw('');
     setNewPrimerColor(PRIMER_COLORS[(primers.length + 1) % PRIMER_COLORS.length]);
     setShowAddPrimer(false);
+  };
+  const openAddPrimer = (surface = 'side') => {
+    setAddPrimerSurface(surface);
+    setShowPrimerImport(false);
+    setShowAddPrimer(true);
+    if (surface === 'side') setActivePanel('primers');
+  };
+  const importPrimerFromLibrary = (primer) => {
+    if (!primer) return;
+    const normalized = normalizePrimerAgainstSequence({
+      ...primer,
+      id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      visible: primer.visible ?? true,
+    }, seq);
+    setPrimers(prev => [...prev, normalized]);
   };
 
   const exportFasta = () => {
@@ -2532,20 +3226,23 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const getLibraryOverviewValue = (entry, columnId) => {
     const metadata = { ...defaultPlasmidMetadata(), ...(entry.metadata || {}) };
     if (columnId === 'name') return entry.name || '';
-    if (columnId === 'file') return entry.type === 'folder' ? 'Folder' : 'Sequence';
+    if (entry.type === 'folder') return '';
+    if (columnId === 'tags') return metadata.tags || [];
     if (columnId === 'confirmed') return Boolean(metadata.confirmedExperimentally);
+    if (columnId === 'sequenced') return Boolean(metadata.sequenced);
     if (columnId === 'modified') return entry.dateEdited || entry.dateAdded || '';
     if (columnId === 'created') return entry.dateAdded || '';
     if (columnId === 'codeNumber') return metadata.codeNumber || '';
+    if (columnId === 'resistance') return metadata.resistanceMarker || '';
     if (columnId === 'sequenceLength') return entry.type === 'file' ? (entry.sequence?.length || 0) : '';
     if (columnId === 'description') return metadata.description || '';
     if (columnId === 'fileSize') return entry.type === 'file' ? JSON.stringify(entry).length : '';
-    if (columnId === 'transformationStrain') return metadata.transformationStrain || '';
+    if (columnId === 'dnaType') return metadata.dnaOrigin === 'natural' ? 'Natural DNA' : 'Synthetic DNA';
+    if (columnId === 'transformationStrain') return metadata.dnaOrigin === 'natural' ? '' : metadata.transformationStrain || '';
     if (columnId === 'laboratoryHost') return metadata.laboratoryHost || '';
     if (columnId === 'methylation') return (metadata.methylations || []).join(', ');
-    if (columnId === 'product') return metadata.product || '';
     if (columnId === 'sequenceAuthor') return metadata.sequenceAuthor || '';
-    if (columnId === 'sequenceClass') return metadata.sequenceClass || '';
+    if (columnId === 'sequenceClass') return metadata.dnaOrigin === 'natural' ? metadata.sequenceClass || '' : '';
     if (columnId === 'strandedness') return metadata.strandedness || 'Double stranded';
     if (columnId === 'topology') return metadata.topology || (entry.isCircular === false ? 'linear' : 'circular');
     return '';
@@ -2578,26 +3275,88 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       });
   };
 
+  const handleLibraryItemClick = (event, entry, openOnPlainClick = true) => {
+    const rowIds = getLibraryOverviewRows().map(row => row.entry.id);
+    if (event.shiftKey && lastSelectedLibraryId) {
+      const from = rowIds.indexOf(lastSelectedLibraryId);
+      const to = rowIds.indexOf(entry.id);
+      if (from >= 0 && to >= 0) {
+        const [start, end] = from < to ? [from, to] : [to, from];
+        setSelectedLibraryIds(rowIds.slice(start, end + 1));
+      }
+      return;
+    }
+    if (event.metaKey || event.ctrlKey) {
+      setSelectedLibraryIds(prev => prev.includes(entry.id) ? prev.filter(id => id !== entry.id) : [...prev, entry.id]);
+      setLastSelectedLibraryId(entry.id);
+      return;
+    }
+    setSelectedLibraryIds([entry.id]);
+    setLastSelectedLibraryId(entry.id);
+    if (openOnPlainClick) openLibraryItem(entry);
+  };
+
   const formatLibraryOverviewValue = (entry, columnId) => {
     const value = getLibraryOverviewValue(entry, columnId);
-    if (columnId === 'confirmed') return value ? <VscPassFilled className="h-4 w-4 text-emerald-600" /> : null;
+    if (entry.type === 'folder' && columnId !== 'name') return '';
+    if (columnId === 'tags') {
+      const tags = Array.isArray(value) ? value : [];
+      return (
+        <div className="flex flex-wrap gap-1">
+          {tags.map(tag => (
+            <span
+              key={tag.id || tag.label}
+              className="cursor-pointer rounded-sm px-1.5 py-0.5 text-[11px] font-bold leading-tight"
+              style={tagStyle(tag.color)}
+              onDoubleClick={(e) => { e.stopPropagation(); editTagOnEntry(entry.id, tag); }}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); editTagOnEntry(entry.id, tag); }}
+            >
+              {tag.label}
+            </span>
+          ))}
+        </div>
+      );
+    }
+    if (columnId === 'confirmed' || columnId === 'sequenced') return value ? <VscPassFilled className="h-4 w-4 text-emerald-600" /> : null;
     if (columnId === 'modified' || columnId === 'created') return formatLibraryDate(value);
-    if (columnId === 'sequenceLength') return value ? `${Number(value).toLocaleString()} bp` : '-';
+    if (columnId === 'sequenceLength') return value ? `${Number(value).toLocaleString()} bp` : '';
     if (columnId === 'fileSize') return formatBytes(value);
-    if (columnId === 'topology') return value ? String(value).replace('circular', 'Circular').replace('linear', 'Linear') : '-';
-    return value || '-';
+    if (columnId === 'topology') return value ? String(value).replace('circular', 'Circular').replace('linear', 'Linear') : '';
+    return value || '';
   };
 
   const renderLibraryOverview = () => {
     const rows = getLibraryOverviewRows();
     const totalWidth = visibleLibraryOverviewColumns.reduce((sum, column) => sum + (libraryColumnWidths[column.id] || column.width), 0);
+    const handleLibraryOverviewRowClick = (event, entry) => {
+      const rowIds = rows.map(row => row.entry.id);
+      if (event.shiftKey && lastSelectedLibraryId) {
+        const from = rowIds.indexOf(lastSelectedLibraryId);
+        const to = rowIds.indexOf(entry.id);
+        if (from >= 0 && to >= 0) {
+          const [start, end] = from < to ? [from, to] : [to, from];
+          setSelectedLibraryIds(rowIds.slice(start, end + 1));
+        }
+      } else if (event.metaKey || event.ctrlKey) {
+        setSelectedLibraryIds(prev => prev.includes(entry.id) ? prev.filter(id => id !== entry.id) : [...prev, entry.id]);
+        setLastSelectedLibraryId(entry.id);
+      } else {
+        setSelectedLibraryIds([entry.id]);
+        setLastSelectedLibraryId(entry.id);
+      }
+      if (entry.type !== 'folder') {
+        setInfoEntryId(entry.id);
+        setRightPanelCollapsed(false);
+        setActivePanel('info');
+      }
+    };
     return (
       <div className="h-full min-h-0 overflow-hidden p-3">
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex h-11 flex-shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-3">
-            <div>
+            <div className="flex items-center gap-3">
               <h3 className="text-sm font-bold text-slate-800">Library overview</h3>
-              <p className="text-[11px] text-slate-500">{library.filter(item => item.type !== 'folder').length} sequences · {library.filter(item => item.type === 'folder').length} folders</p>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">{library.filter(item => item.type !== 'folder').length} sequences · {library.filter(item => item.type === 'folder').length} folders</span>
             </div>
             <div className="relative">
               <button
@@ -2648,14 +3407,16 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           {Icon ? <Icon className="h-4 w-4 flex-shrink-0" /> : <span className="truncate">{column.label}</span>}
                           {librarySort.key === column.id && <span className="ml-auto text-[10px]">{librarySort.direction === 'asc' ? '↑' : '↓'}</span>}
                         </button>
-                        <span
-                          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-teal-400"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            libraryColumnResizeRef.current = { columnId: column.id, startX: e.clientX, startWidth: libraryColumnWidths[column.id] || column.width };
-                          }}
-                        />
+                        {!column.fixed && (
+                          <span
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-teal-400"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              libraryColumnResizeRef.current = { columnId: column.id, startX: e.clientX, startWidth: libraryColumnWidths[column.id] || column.width };
+                            }}
+                          />
+                        )}
                       </th>
                     );
                   })}
@@ -2666,16 +3427,19 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   const isFolder = entry.type === 'folder';
                   const isExpanded = expandedFolders.has(entry.id);
                   const itemColor = entry.color || '#475569';
+                  const isSelected = selectedLibraryIds.includes(entry.id);
                   return (
                     <tr
                       key={entry.id}
-                      className={`border-b border-slate-100 ${activeEntryId === entry.id ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}
+                      className={`border-b border-slate-100 ${isSelected ? 'bg-slate-100' : activeEntryId === entry.id ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}
+                      onClick={(event) => handleLibraryOverviewRowClick(event, entry)}
                       onDoubleClick={() => { if (!isFolder) loadFromLibrary(entry); }}
+                      onContextMenu={(event) => openLibraryContextMenu(event, entry)}
                     >
                       {visibleLibraryOverviewColumns.map(column => (
                         <td key={column.id} className="border-r border-slate-50 px-2 py-2 align-middle text-slate-700 last:border-r-0">
                           {column.id === 'name' ? (
-                            <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 18 }}>
+                            <div className="relative flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 18 }}>
                               {isFolder ? (
                                 <button
                                   onClick={e => { e.stopPropagation(); toggleLibraryFolder(entry.id); }}
@@ -2687,13 +3451,78 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               ) : (
                                 <span className="h-5 w-5 flex-shrink-0" />
                               )}
-                              {isFolder
-                                ? (isExpanded ? <FaFolderOpen className="h-4 w-4 flex-shrink-0" style={{ color: itemColor }} /> : <FaFolder className="h-4 w-4 flex-shrink-0" style={{ color: itemColor }} />)
-                                : <FaDna className="h-4 w-4 flex-shrink-0" style={{ color: itemColor }} />}
-                              <span className="truncate font-medium text-slate-900">{entry.name}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setShowFolderColorPickerId(showFolderColorPickerId === entry.id ? null : entry.id); }}
+                                className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-100"
+                                title={isFolder ? 'Change folder color' : 'Change file color'}
+                              >
+                                {isFolder
+                                  ? (isExpanded ? <FaFolderOpen className="h-4 w-4" style={{ color: itemColor }} /> : <FaFolder className="h-4 w-4" style={{ color: itemColor }} />)
+                                  : <FaDna className="h-4 w-4" style={{ color: itemColor }} />}
+                              </button>
+                              {showFolderColorPickerId === entry.id && (
+                                <div
+                                  ref={colorPickerRef}
+                                  className="absolute z-[250] mt-28 w-40 rounded-xl border border-slate-200 bg-white p-2 text-left shadow-2xl"
+                                  onClick={e => e.stopPropagation()}
+                                  onMouseDown={e => e.stopPropagation()}
+                                >
+                                  <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Change color</p>
+                                  <div className="grid grid-cols-5 gap-1">
+                                    {['#475569', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'].map(c => (
+                                      <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => {
+                                          updateLibraryItemsColor(selectedLibraryIds.includes(entry.id) ? selectedLibraryIds : [entry.id], c);
+                                          setShowFolderColorPickerId(null);
+                                        }}
+                                        className="h-5 w-5 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-110"
+                                        style={{ backgroundColor: c }}
+                                      />
+                                    ))}
+                                  </div>
+                                  {isFolder && (
+                                    <button
+                                      onClick={() => { applyColorToFolderFiles(entry.id, entry.color || '#475569'); setShowFolderColorPickerId(null); }}
+                                      className="mt-2 w-full rounded-md border-t border-slate-100 px-1.5 py-1 text-left text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                                    >
+                                      Apply folder color to files
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {renamingId === entry.id ? (
+                                <Input
+                                  autoFocus
+                                  value={renamingName}
+                                  onChange={e => setRenamingName(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') { updateLibraryItem(entry.id, { name: renamingName }); setRenamingId(null); }
+                                    if (e.key === 'Escape') setRenamingId(null);
+                                  }}
+                                  onBlur={() => { updateLibraryItem(entry.id, { name: renamingName }); setRenamingId(null); }}
+                                  onClick={e => e.stopPropagation()}
+                                  className="h-6 min-w-0 flex-1 border-teal-300 bg-white text-xs"
+                                />
+                              ) : (
+                                <span className="truncate font-medium text-slate-900" onDoubleClick={(e) => { e.stopPropagation(); startRenamingLibraryItem(entry); }}>{entry.name}</span>
+                              )}
+                            </div>
+                          ) : column.id === 'tags' && !isFolder ? (
+                            <div className="flex items-center gap-1">
+                              <div className="min-w-0 flex-1">{formatLibraryOverviewValue(entry, column.id)}</div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); addTagToLibraryEntry(entry.id); }}
+                                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-teal-700"
+                                title="Add tag"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
                             </div>
                           ) : (
-                            <div className={`${column.id === 'confirmed' ? 'flex justify-center' : 'truncate'}`}>{formatLibraryOverviewValue(entry, column.id)}</div>
+                            <div className={`${column.id === 'confirmed' || column.id === 'sequenced' ? 'flex justify-center' : 'truncate'}`}>{formatLibraryOverviewValue(entry, column.id)}</div>
                           )}
                         </td>
                       ))}
@@ -2722,6 +3551,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         const itemColor = item.color || '#111827';
         const parentColor = item.parentId ? (library.find(folder => folder.id === item.parentId)?.color || '#475569') : null;
         const colorChoices = ['#111827', '#475569', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
+        const batchIds = selectedLibraryIds.includes(item.id) ? selectedLibraryIds : [item.id];
+        const targetParentIdForNewItems = item.type === 'folder' ? item.id : item.parentId || null;
+        const isBatch = batchIds.length > 1;
         return (
           <div
             className="fixed z-[300] w-56 rounded-xl border border-slate-200 bg-white p-1.5 text-xs shadow-2xl"
@@ -2731,29 +3563,28 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             onContextMenu={e => e.preventDefault()}
           >
             <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 truncate">{item.name}</div>
-            <button
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
-              onClick={() => { startRenamingLibraryItem(item); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
-            >
-              <Edit3 className="h-3.5 w-3.5" /> Rename
-            </button>
-            {item.type === 'folder' && (
-              <>
-                <button
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
-                  onClick={() => { addFolder(item.id); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
-                >
-                  <LuFolderPlus className="h-3.5 w-3.5" /> Add folder
-                </button>
-                <button
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
-                  onClick={() => { startNewSequence(item.id); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
-                >
-                  <FiFilePlus className="h-3.5 w-3.5" /> Add file
-                </button>
-              </>
+            {!isBatch && (
+              <button
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
+                onClick={() => { startRenamingLibraryItem(item); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+              >
+                <Edit3 className="h-3.5 w-3.5" /> Rename
+              </button>
             )}
             <button
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
+              onClick={() => { addFolder(targetParentIdForNewItems); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+            >
+              <LuFolderPlus className="h-3.5 w-3.5" /> Add folder
+            </button>
+            <button
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
+              onClick={() => { startNewSequence(targetParentIdForNewItems); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+            >
+              <FiFilePlus className="h-3.5 w-3.5" /> Add file
+            </button>
+            <button
+              disabled={isBatch}
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
               onClick={() => { duplicateLibraryItem(item.id); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
             >
@@ -2778,15 +3609,23 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             </button>
             <button
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
-              onClick={() => { updateLibraryItem(item.id, { color: '#111827' }); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+              onClick={() => { updateLibraryItemsColor(batchIds, '#111827'); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
             >
               <X className="h-3.5 w-3.5" /> Remove color
             </button>
+            {item.type === 'folder' && !isBatch && (
+              <button
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-slate-700 hover:bg-slate-100"
+                onClick={() => { applyColorToFolderFiles(item.id, item.color || '#475569'); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+              >
+                <Palette className="h-3.5 w-3.5" /> Apply color to files
+              </button>
+            )}
             <button
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-red-600 hover:bg-red-50"
-              onClick={() => { if (confirm(`Are you sure you want to delete ${item.type === 'folder' ? 'folder' : 'file'} "${item.name}"?`)) deleteFromLibrary(item.id); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+              onClick={() => { if (confirm(`Are you sure you want to delete ${isBatch ? `${batchIds.length} items` : `${item.type === 'folder' ? 'folder' : 'file'} "${item.name}"`}?`)) deleteLibraryItems(batchIds); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
             >
-              <Trash2 className="h-3.5 w-3.5" /> Delete {item.type === 'folder' ? 'folder' : 'file'}
+              <Trash2 className="h-3.5 w-3.5" /> Delete {isBatch ? `${batchIds.length} items` : item.type === 'folder' ? 'folder' : 'file'}
             </button>
 
             {libraryContextPanel === 'move' && (
@@ -2794,7 +3633,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                 <div className="mb-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Move to</div>
                 <button
                   className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${item.parentId == null ? 'bg-teal-50 font-bold text-teal-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                  onClick={() => { moveItem(item.id, null); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+                  onClick={() => { moveLibraryItems(batchIds, null); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
                 >
                   <div className="flex h-4 w-4 items-center justify-center rounded bg-slate-100 text-[10px] text-slate-500">/</div>
                   Root Directory
@@ -2804,7 +3643,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                     <button
                       key={folder.id}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${item.parentId === folder.id ? 'bg-teal-50 font-bold text-teal-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                      onClick={() => { moveItem(item.id, folder.id); setLibraryContextMenu(null); setLibraryContextPanel(null); setExpandedFolders(prev => new Set([...prev, folder.id])); }}
+                      onClick={() => { moveLibraryItems(batchIds, folder.id); setLibraryContextMenu(null); setLibraryContextPanel(null); setExpandedFolders(prev => new Set([...prev, folder.id])); }}
                     >
                       <FaFolder className="h-4 w-4" style={{ color: folder.color || '#475569' }} />
                       <span className="truncate">{folder.name}</span>
@@ -2826,7 +3665,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                       key={c}
                       className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${itemColor === c ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
                       style={{ backgroundColor: c }}
-                      onClick={() => { updateLibraryItem(item.id, { color: c }); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+                      onClick={() => { updateLibraryItemsColor(batchIds, c); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
                     />
                   ))}
                 </div>
@@ -2836,7 +3675,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                     disabled={!parentColor}
                     onClick={() => {
                       if (!parentColor) return;
-                      updateLibraryItem(item.id, { color: parentColor });
+                      updateLibraryItemsColor(batchIds, parentColor);
                       setLibraryContextMenu(null);
                       setLibraryContextPanel(null);
                     }}
@@ -2847,7 +3686,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   </button>
                   <MacColorPicker
                     value={itemColor}
-                    onChange={color => { updateLibraryItem(item.id, { color }); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
+                    onChange={color => { updateLibraryItemsColor(batchIds, color); setLibraryContextMenu(null); setLibraryContextPanel(null); }}
                     buttonClassName="flex w-full items-center justify-start gap-1 rounded-md px-1.5 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
                   >
                     <span className="h-3 w-3 rounded-full border border-slate-200" style={{ backgroundColor: itemColor }} />
@@ -2914,11 +3753,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             <button onClick={() => setFeatureContextPanel(featureContextPanel === 'type' ? null : 'type')} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
               <ArrowUpDown className="h-3.5 w-3.5" /> Change type
             </button>
+            <button onClick={() => setFeatureContextPanel(featureContextPanel === 'direction' ? null : 'direction')} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
+              <TbArrowsExchange className="h-3.5 w-3.5" /> Change direction
+            </button>
             <MacColorPicker value={feat.color || '#6366f1'} onChange={color => { updateFeature(index, { color }); setFeatureContextMenu(null); setFeatureContextPanel(null); }} buttonClassName="flex w-full items-center justify-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100" title="Edit color">
               <Palette className="h-3.5 w-3.5 flex-shrink-0" /> <span className="block text-left">Edit color</span>
             </MacColorPicker>
-            <button onClick={() => { setSelectedRange({ start: feat.start, end: feat.end }); setSelectedMapItem({ kind: 'feature', index }); setViewMode('sequence'); setFeatureContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
-              <Search className="h-3.5 w-3.5" /> View sequence
+            <button onClick={() => { viewFeatureInSequence(index); setFeatureContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
+              <Search className="h-3.5 w-3.5" /> View in sequence page
+            </button>
+            <button onClick={() => { viewFeatureInMap(index); setFeatureContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
+              <BiDna className="h-3.5 w-3.5" /> View in map
             </button>
             <button onClick={() => { deleteFeature(index); setFeatureContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-red-600 hover:bg-red-50">
               <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -2936,6 +3781,55 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                 ))}
               </div>
             )}
+            {featureContextPanel === 'direction' && (
+              <div className="absolute right-full top-20 z-[310] mr-2 w-24 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                {['←', '→', '↔', '–'].map(symbol => (
+                  <button
+                    key={symbol}
+                    onClick={() => { updateFeature(index, { strand: symbolToStrand(symbol) }); setFeatureContextMenu(null); setFeatureContextPanel(null); }}
+                    className={`w-full rounded-lg px-2 py-1.5 text-center text-base hover:bg-slate-50 ${strandToSymbol(feat.strand) === symbol ? 'bg-teal-50 font-semibold text-teal-700' : 'text-slate-700'}`}
+                  >
+                    {symbol}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+      {primerContextMenu && (() => {
+        const { index } = primerContextMenu;
+        const primer = primers[index];
+        if (!primer) return null;
+        const sites = seq ? findPrimerSites(primer.seq, seq, primer.annealing || primer.seq) : [];
+        const firstSite = sites[0];
+        return (
+          <div
+            className="fixed z-[300] w-60 rounded-xl border border-slate-200 bg-white p-1.5 text-xs shadow-2xl"
+            style={{ left: primerContextMenu.x, top: primerContextMenu.y }}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
+            onContextMenu={e => e.preventDefault()}
+          >
+            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 truncate">{primer.name}</div>
+            <button onClick={() => { startPrimerLabelEdit(primer); setPrimerContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
+              <Edit3 className="h-3.5 w-3.5" /> Rename
+            </button>
+            <MacColorPicker value={primer.color || PRIMER_COLORS[0]} onChange={color => { updatePrimer(index, { color }); setPrimerContextMenu(null); }} buttonClassName="flex w-full items-center justify-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100" title="Edit color">
+              <Palette className="h-3.5 w-3.5 flex-shrink-0" /> <span className="block text-left">Edit color</span>
+            </MacColorPicker>
+            <button disabled={!firstSite} onClick={() => { viewPrimerSite(index, firstSite, 'sequence'); setPrimerContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 disabled:text-slate-300">
+              <Search className="h-3.5 w-3.5" /> View in sequence page
+            </button>
+            <button disabled={!firstSite} onClick={() => { viewPrimerSite(index, firstSite, 'map'); setPrimerContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 disabled:text-slate-300">
+              <BiDna className="h-3.5 w-3.5" /> View in map
+            </button>
+            <button onClick={() => { reverseComplementPrimer(index); setPrimerContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100">
+              <TbArrowsExchange className="h-3.5 w-3.5" /> Reverse complement the primer
+            </button>
+            <button onClick={() => { deletePrimer(index); setPrimerContextMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-red-600 hover:bg-red-50">
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
           </div>
         );
       })()}
@@ -3032,8 +3926,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         </div>
       )}
       {selectedRange && (
-        <div className="fixed z-[90] bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 shadow-2xl" onClick={e => e.stopPropagation()}>
-          <span className="font-semibold text-slate-600">{selectedRange.start + 1}..{selectedRange.end} ({selectedRange.end - selectedRange.start} bp)</span>
+        <div className="fixed z-[90] bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <button onClick={copySelectedRange} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-slate-800 hover:bg-slate-100">
+            <Copy className="h-3.5 w-3.5" /> Copy sequence
+          </button>
           <button onClick={() => handleAddFeatureFromSelection(selectedRange.start, selectedRange.end)} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-slate-800 hover:bg-slate-100">
             <Plus className="h-3.5 w-3.5" /> Make feature
           </button>
@@ -3061,6 +3957,39 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             )}
           </div>
           <button onClick={() => { setSelectedRange(null); setShowRangeColorTools(false); }} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+      {showFeatureImport && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-slate-900/30 p-4" onMouseDown={() => setShowFeatureImport(false)}>
+          <div className="max-h-[70vh] w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Import feature from library</h3>
+                <p className="text-xs text-slate-500">Only exact sequence matches in this plasmid are shown.</p>
+              </div>
+              <button onClick={() => setShowFeatureImport(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-[56vh] overflow-y-auto p-2">
+              {libraryFeatureOptions.map(({ entry, feature, match, index, matchIndex }) => (
+                <button
+                  key={`${entry.id}-${index}-${match.start}-${matchIndex}`}
+                  onClick={() => { importFeatureFromLibrary(feature); setShowFeatureImport(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-slate-50"
+                >
+                  <span className="h-4 w-4 flex-shrink-0 rounded-sm border border-slate-300" style={{ backgroundColor: feature.color || '#6366f1' }} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold text-slate-700">{feature.label}</span>
+                    <span className="block truncate text-[10px] text-slate-400">{entry.name}</span>
+                  </span>
+                  <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600">{match.start + 1}..{match.end}</span>
+                  <span className="w-5 text-center text-sm text-slate-500">{feature.strand === -1 ? '←' : '→'}</span>
+                </button>
+              ))}
+              {libraryFeatureOptions.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-slate-400">No exact matching library features found in this plasmid.</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
       {showMethylationEditor && (
@@ -3284,9 +4213,12 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         const isFolder = entry.type === 'folder';
                       const isExpanded = expandedFolders.has(entry.id);
                       const active = activeEntryId === entry.id;
+                      const selected = selectedLibraryIds.includes(entry.id);
                       const itemColor = entry.color || parentColor || '#475569';
                       const colorChoices = ['#475569', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'];
-                      const bgStyle = active
+                      const bgStyle = selected
+                        ? { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1', color: '#111827' }
+                        : active
                         ? { backgroundColor: '#f8fafc', borderColor: '#99f6e4', color: '#111827' }
                         : { backgroundColor: 'transparent', borderColor: 'transparent', color: '#111827' };
 
@@ -3295,7 +4227,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           <div
                             className={`group relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-all border ${active ? 'font-bold' : ''}`}
                             style={bgStyle}
-                            onClick={() => openLibraryItem(entry)}
+                            onClick={(event) => handleLibraryItemClick(event, entry)}
                             onDoubleClick={(e) => { e.stopPropagation(); startRenamingLibraryItem(entry); }}
                             onContextMenu={(e) => openLibraryContextMenu(e, entry)}>
                             {isFolder ? (
@@ -3363,6 +4295,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                     <span>Custom</span>
                                   </MacColorPicker>
                                 </div>
+                                {isFolder && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      applyColorToFolderFiles(entry.id, entry.color || itemColor);
+                                      setShowFolderColorPickerId(null);
+                                    }}
+                                    className="mt-2 w-full rounded-md border-t border-slate-100 px-1.5 py-1 text-left text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                                  >
+                                    Apply folder color to files
+                                  </button>
+                                )}
                               </div>
                             )}
                             
@@ -3521,13 +4465,32 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="flex h-full items-center justify-center overflow-hidden" style={{ transform: `scale(${mapZoom})`, transformOrigin: 'center center' }}>
+                  <div className="absolute left-3 top-16 z-30 flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-md">
+                    {[
+                      { key: 'enzymes', label: 'Enzymes', icon: BiGame },
+                      { key: 'features', label: 'Features', icon: PiTagBold },
+                      { key: 'primers', label: 'Primers', icon: TbArrowsExchange },
+                      { key: 'translations', label: 'Translations', icon: RiTextWrap },
+                      { key: 'orfs', label: 'ORFs', icon: VscGithubProject },
+                      { key: 'dnaColor', label: 'DNA color', icon: Palette },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <button
+                        key={key}
+                        onClick={() => setMapLayerVisibility(prev => ({ ...prev, [key]: !prev[key] }))}
+                        className={`flex h-9 w-9 items-center justify-center border-b border-slate-100 last:border-b-0 ${mapLayerVisibility[key] ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                        title={label}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex h-full items-center justify-center overflow-hidden pb-12" style={{ transform: `scale(${mapZoom})`, transformOrigin: 'center center' }}>
                     {isCircular
                       ? <CircularMap
                           seq={seq}
                           features={mapFeatures}
                           cutSites={activeCutSites}
-                          sequenceColors={sequenceColors}
+                          sequenceColors={mapLayerVisibility.dnaColor ? sequenceColors : []}
                           selectedMapItem={selectedMapItem}
                           selectedRange={selectedRange}
                           rangeColor={rangeColor}
@@ -3561,6 +4524,33 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           name={seqName}
                         />
                     }
+                  </div>
+                  <button
+                    onClick={() => setShowMapSearch(v => !v)}
+                    className="absolute bottom-9 left-3 z-40 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 hover:text-teal-700"
+                    title="Find DNA sequence"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                  {showMapSearch && (
+                    <div className="absolute bottom-6 left-0 right-0 z-30 flex h-9 items-center gap-2 border-t border-slate-200 bg-slate-100 px-12 py-1">
+                      <span className="flex-shrink-0 text-xs font-semibold text-slate-500">Find DNA sequence:</span>
+                      <Input
+                        value={mapSearchQuery}
+                        onChange={e => setMapSearchQuery(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') runMapSequenceSearch(); }}
+                        placeholder="ATGC..."
+                        className="h-7 min-w-0 flex-1 border-slate-300 bg-white font-mono text-xs"
+                      />
+                      <button onClick={runMapSequenceSearch} className="h-7 rounded-md bg-teal-600 px-2.5 text-xs font-semibold text-white hover:bg-teal-700">Search</button>
+                      <span className="w-12 text-center text-[11px] text-slate-500">{mapSearchMatches.length ? `${activeMapSearchIndex + 1}/${mapSearchMatches.length}` : ''}</span>
+                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(-1)} className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Previous</button>
+                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(1)} className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Next</button>
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 z-20 flex h-6 items-center border-t border-slate-200 bg-white px-3 text-[11px] text-slate-600">
+                    <span className="truncate">{selectedRangeSummary}</span>
+                    {mapSearchQuery && mapSearchMatches.length === 0 && <span className="ml-auto text-slate-400">No sequence match</span>}
                   </div>
                   </>
                 )}
@@ -3612,7 +4602,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                 )}
                 
                 {viewMode === 'enzymes' && (
-                  <div className="space-y-4">
+                  <div className="flex h-full min-h-0 flex-col gap-4">
                     <div className="flex flex-wrap items-center gap-2 pb-2">
                       <div className="relative flex-1 min-w-48">
                         <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -3692,8 +4682,9 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                             <button onClick={() => toggleAll(false)} className="text-[10px] font-bold text-slate-400 hover:underline flex items-center gap-1"><EyeOff className="w-3 h-3" /> Hide All</button>
                           </div>
                           
-                          <table className="w-full text-xs text-left border-collapse">
-                            <thead>
+                          <div className="min-h-0 flex-1 overflow-auto">
+                          <table className="w-full table-fixed text-xs text-left border-collapse">
+                            <thead className="sticky top-0 z-10 bg-white">
                               <tr className="border-b border-slate-200 text-slate-500">
                                 <th className="py-2 w-8">Map</th>
                                 {[
@@ -3705,7 +4696,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                 ].map(({ key, label }) => (
                                   <th 
                                     key={key} 
-                                    className="py-2 font-semibold cursor-pointer hover:text-teal-600 transition-colors"
+                                    className="relative py-2 font-semibold cursor-pointer hover:text-teal-600 transition-colors"
+                                    {...resizeHeaderProps(`enzymes-${key}`, 110)}
                                     onClick={() => {
                                       setEnzymeSort(prev => ({
                                         key,
@@ -3717,6 +4709,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                       {label}
                                       <ArrowUpDown className={`w-3 h-3 ${enzymeSort.key === key ? 'text-teal-500' : 'text-slate-300'}`} />
                                     </div>
+                                    {renderOverviewResizeHandle(`enzymes-${key}`, 110)}
                                   </th>
                                 ))}
                                 <th className="py-2 w-8"></th>
@@ -3832,33 +4825,41 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               })}
                             </tbody>
                           </table>
+                          </div>
                         </>
                       );
                     })()}
                   </div>
                 )}
                 {viewMode === 'features' && (
-                  <div className="space-y-4">
+                  <div className="flex h-full min-h-0 flex-col gap-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-bold text-slate-700">Sequence Features ({features.length})</h4>
-                      <Button size="sm" onClick={() => setShowAddFeature(true)} className="h-7 bg-teal-600 hover:bg-teal-700 gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                      <Button size="sm" variant="outline" onClick={() => setShowFeatureImport(v => !v)} className="h-7 gap-1.5">
+                        <Download className="w-3 h-3" /> Import
+                      </Button>
+                      <Button size="sm" onClick={() => openAddFeature('main')} className="h-7 bg-teal-600 hover:bg-teal-700 gap-1.5">
                         <Plus className="w-3 h-3" /> Add Feature
                       </Button>
+                      </div>
                     </div>
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead>
+                    <div className="min-h-0 flex-1 overflow-auto">
+                    <table className="w-full table-fixed text-xs text-left border-collapse">
+                      <thead className="sticky top-0 z-10 bg-white">
                         <tr className="border-b border-slate-200 text-slate-500">
-                          <th className="py-2 font-semibold w-10">Color</th>
+                          <th className="relative py-2 font-semibold w-10" {...resizeHeaderProps('features-color', 44)}>Color{renderOverviewResizeHandle('features-color', 44)}</th>
                           {[
-                            { key: 'label', label: 'Name' },
-                            { key: 'type', label: 'Type' },
-                            { key: 'length', label: 'Length (bp)' },
-                            { key: 'strand', label: 'Direction' },
-                            { key: 'visible', label: 'Visibility' }
-                          ].map(({ key, label }) => (
+                            { key: 'label', label: 'Name', width: 180 },
+                            { key: 'type', label: 'Type', width: 132 },
+                            { key: 'location', label: 'Location', width: 120 },
+                            { key: 'length', label: 'Length (bp)', width: 90 },
+                            { key: 'strand', label: 'Direction', width: 78 }
+                          ].map(({ key, label, width }) => (
                             <th 
                               key={key} 
-                              className="py-2 font-semibold cursor-pointer hover:text-teal-600 transition-colors"
+                              className="relative py-2 font-semibold cursor-pointer hover:text-teal-600 transition-colors"
+                              style={{ width }}
                               onClick={() => {
                                 setFeatureSort(prev => ({
                                   key,
@@ -3872,12 +4873,41 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               </div>
                             </th>
                           ))}
-                          <th className="py-2 w-8"></th>
-                          <th className="py-2 w-8"></th>
-                          <th className="py-2 w-8"></th>
+                          <th className="py-2 w-28 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
+                        {showAddFeature && addFeatureSurface === 'main' && (
+                          <tr className="border-b border-teal-100 bg-teal-50/40">
+                            <td className="py-2 px-1">
+                              <MacColorPicker value={newFeature.color || '#3b82f6'} onChange={color => setNewFeature(f => ({ ...f, color }))} buttonClassName="flex h-5 w-5 items-center justify-center rounded-sm border border-slate-900/70 p-0" swatchClassName="h-full w-full rounded-sm" />
+                            </td>
+                            <td className="py-2"><Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Feature name" className="h-7 text-xs" /></td>
+                            <td className="py-2">
+                              <select value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} className="h-7 w-full rounded-md border border-slate-200 bg-white px-1 text-xs">
+                                {FEATURE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                              </select>
+                            </td>
+                            <td className="py-2">
+                              <div className="flex gap-1">
+                                <Input value={newFeature.start} onChange={e => setNewFeature(f => ({ ...f, start: e.target.value }))} placeholder="Start" className="h-7 text-xs" type="number" />
+                                <Input value={newFeature.end} onChange={e => setNewFeature(f => ({ ...f, end: e.target.value }))} placeholder="End" className="h-7 text-xs" type="number" />
+                              </div>
+                            </td>
+                            <td className="py-2 text-slate-400">-</td>
+                            <td className="py-2">
+                              <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: parseInt(e.target.value) }))} className="h-7 w-10 rounded-md border border-slate-200 bg-white px-1 text-center text-sm">
+                                <option value="1">→</option><option value="-1">←</option><option value="0">↔</option>
+                              </select>
+                            </td>
+                            <td className="py-2">
+                              <div className="flex justify-end gap-1">
+                                <Button size="sm" onClick={addFeature} className="h-7 px-2 text-xs">Add</Button>
+                                <Button size="sm" variant="outline" onClick={() => setShowAddFeature(false)} className="h-7 px-2 text-xs">Cancel</Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         {(() => {
                           const sorted = [...features].sort((a, b) => {
                             const hiddenA = a.visible === false ? 1 : 0;
@@ -3886,8 +4916,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                             const { key, direction } = featureSort;
                             let valA = a[key];
                             let valB = b[key];
+                            if (key === 'location') { valA = a.start; valB = b.start; }
                             if (key === 'length') { valA = a.end - a.start; valB = b.end - b.start; }
-                            if (key === 'visible') { valA = a.visible !== false ? 1 : 0; valB = b.visible !== false ? 1 : 0; }
                             if (valA < valB) return direction === 'asc' ? -1 : 1;
                             if (valA > valB) return direction === 'asc' ? 1 : -1;
                             return 0;
@@ -3899,6 +4929,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                             return (
                               <React.Fragment key={feat.id || i}>
                                 <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : ''} ${isHidden ? 'opacity-40 grayscale-[0.5]' : ''}`}
+                                  onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setFeatureContextMenu({ index: i, x: e.clientX, y: e.clientY });
+                                  }}
                                   onClick={() => {
                                     const next = new Set(expandedFeatures);
                                     if (next.has(feat.id || i)) next.delete(feat.id || i);
@@ -3906,101 +4941,81 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                     setExpandedFeatures(next);
                                   }}>
                                   <td className="py-2 px-1">
-                                    <div className="w-5 h-5 rounded-full border border-white shadow-sm" style={{ backgroundColor: feat.color }} />
+                                    <FeatureColorControl value={feat.color} onChange={color => updateFeature(i, { color })} />
                                   </td>
-                                  <td className="py-2 font-bold text-slate-700">{feat.label}</td>
-                                  <td className="py-2 text-slate-500 uppercase text-[10px] tracking-wider">{feat.type}</td>
+                                  <td className="py-2 font-bold text-slate-700">
+                                    {editingFeatureLabelIdx === i ? (
+                                      <Input
+                                        ref={featureLabelInputRef}
+                                        value={featureLabelDraft}
+                                        onChange={e => setFeatureLabelDraft(e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        onBlur={() => finishFeatureLabelEdit(true)}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter') finishFeatureLabelEdit(true);
+                                          if (e.key === 'Escape') finishFeatureLabelEdit(false);
+                                        }}
+                                        className="h-7 border-teal-300 bg-white text-xs font-semibold"
+                                      />
+                                    ) : (
+                                      <span onDoubleClick={(e) => { e.stopPropagation(); startFeatureLabelEdit(i); }}>{feat.label}</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2">
+                                    <select
+                                      value={feat.type || 'misc_feature'}
+                                      onClick={e => e.stopPropagation()}
+                                      onChange={e => updateFeature(i, { type: e.target.value })}
+                                      className="h-7 max-w-36 rounded-md border border-slate-200 bg-white px-1 text-[10px] uppercase tracking-wider text-slate-500"
+                                    >
+                                      {FEATURE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                                    </select>
+                                  </td>
+                                  <td className="py-2 font-semibold text-slate-500">{feat.start + 1} .. {feat.end}</td>
                                   <td className="py-2 text-slate-600 font-bold">{feat.end - feat.start} bp</td>
                                   <td className="py-2">
-                                    <span className="text-slate-400 text-lg leading-none">{feat.strand === 1 ? '→' : feat.strand === -1 ? '←' : '↔︎'}</span>
+                                    <select
+                                      value={strandToSymbol(feat.strand)}
+                                      onClick={e => e.stopPropagation()}
+                                      onChange={e => updateFeature(i, { strand: symbolToStrand(e.target.value) })}
+                                      className="h-7 w-10 rounded-md border border-slate-200 bg-white px-1 text-center text-sm text-slate-600"
+                                    >
+                                      {['←', '→', '↔', '–'].map(symbol => <option key={symbol} value={symbol}>{symbol}</option>)}
+                                    </select>
                                   </td>
-                                  <td className="py-2 text-center">
+                                  <td className="py-2">
+                                    <div className="flex items-center justify-end gap-1">
                                     <button onClick={(e) => { e.stopPropagation(); updateFeature(i, { visible: !feat.visible }); }} className={`p-1.5 rounded-md hover:bg-slate-200 transition-colors ${feat.visible !== false ? 'text-teal-600' : 'text-slate-300'}`}>
                                       {feat.visible !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                                     </button>
-                                  </td>
-                                  <td className="py-2 text-center">
-                                    <button onClick={(e) => { e.stopPropagation(); setEditingFeatureIdx(i === editingFeatureIdx ? null : i); if (!isExpanded) { const next = new Set(expandedFeatures); next.add(feat.id || i); setExpandedFeatures(next); } }} className={`p-1.5 rounded-md hover:bg-slate-200 transition-colors ${editingFeatureIdx === i ? 'text-teal-600 bg-teal-50' : 'text-slate-400'}`}>
+                                    <button onClick={(e) => { e.stopPropagation(); const next = new Set(expandedFeatures); if (next.has(feat.id || i)) next.delete(feat.id || i); else next.add(feat.id || i); setExpandedFeatures(next); }} className="p-1.5 rounded-md hover:bg-slate-200 transition-colors text-slate-400">
                                       <Edit3 className="w-3.5 h-3.5" />
                                     </button>
-                                  </td>
-                                  <td className="py-2 text-center">
                                     <button onClick={(e) => { e.stopPropagation(); if (confirm(`Are you sure you want to delete feature "${feat.label}"?`)) deleteFeature(i); }} className="p-1.5 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
-                                  </td>
-                                  <td className="py-2 text-center">
                                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                                    </div>
                                   </td>
                                 </tr>
                                 {isExpanded && (
                                   <tr>
-                                    <td colSpan="9" className="px-4 py-2 bg-slate-50/50 border-b border-slate-200">
-                                      <div className="space-y-4">
-                                      {editingFeatureIdx === i ? (
-                                        <div className="grid grid-cols-2 gap-1 p-1 bg-white border border-teal-100 rounded-xl shadow-sm">
-                                          <div className="space-y-3">
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Name</label>
-                                              <Input value={feat.label} onChange={e => updateFeature(i, { label: e.target.value })} className="h-8 text-xs border-slate-200" />
-                                            </div>
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Type</label>
-                                              <Input value={feat.type} onChange={e => updateFeature(i, { type: e.target.value })} className="h-8 text-xs border-slate-200" />
-                                            </div>
-                                            <div className="flex gap-3">
-                                              <div className="flex-1">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Direction</label>
-                                                <select value={feat.strand} onChange={e => updateFeature(i, { strand: parseInt(e.target.value) })} className="w-full h-8 text-xs border border-slate-200 rounded-md px-1 bg-white">
-                                                  <option value="1">Forward (+)</option>
-                                                  <option value="-1">Reverse (−)</option>
-                                                  <option value="0">None / ↔︎</option>
-                                                </select>
-                                              </div>
-                                              <div>
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Color</label>
-                                                <MacColorPicker value={feat.color || '#3b82f6'} onChange={color => updateFeature(i, { color })} buttonClassName="flex h-8 w-full items-center justify-center rounded border border-slate-200 bg-white p-1" swatchClassName="h-5 w-full rounded" />
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="space-y-3 flex flex-col">
-                                            <div className="flex-1">
-                                              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Notes</label>
-                                              <Textarea value={feat.notes || ''} onChange={e => updateFeature(i, { notes: e.target.value })} className="h-[92px] text-xs border-slate-200 resize-none" placeholder="e.g. GenBank notes..." />
-                                            </div>
-                                            <Button size="sm" onClick={() => setEditingFeatureIdx(null)} className="bg-teal-600 hover:bg-teal-700 h-8 gap-1.5 self-end px-4">
-                                              <Check className="w-3.5 h-3.5" /> Save
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Location</p>
-                                              <p className="text-xs text-slate-600">{feat.start + 1} .. {feat.end} ({feat.strand === -1 ? 'complement' : 'forward'})</p>
-                                            </div>
-                                            <div>
-                                              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</p>
-                                              <p className="text-xs text-slate-600 italic">{feat.notes || 'No notes'}</p>
-                                            </div>
+                                    <td colSpan="7" className="px-4 py-2 bg-slate-50/50 border-b border-slate-200">
+                                      <div className="space-y-3">
+                                          <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</p>
+                                            <Textarea value={feat.notes || ''} onChange={e => updateFeature(i, { notes: e.target.value })} className="h-7 min-h-7 resize-y overflow-y-auto border-slate-200 bg-white text-xs" placeholder="e.g. GenBank notes..." />
                                           </div>
                                           <div>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Sequence Segment</p>
-                                            <div className="p-2 bg-white border border-slate-200 rounded font-mono text-[10px] break-all text-slate-500 leading-relaxed max-h-24 overflow-y-auto">
-                                              {sequence.slice(feat.start, feat.end)}
-                                            </div>
+                                            <Textarea readOnly value={sequence.slice(feat.start, feat.end)} className="h-7 min-h-7 resize-y overflow-y-auto border-slate-200 bg-white font-mono text-[10px] text-slate-500" />
                                           </div>
                                           {feat.type?.toLowerCase() === 'cds' && (
                                             <div>
                                               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Translation</p>
-                                              <div className="p-2 bg-teal-50/50 border border-teal-100 rounded font-mono text-[10px] break-all text-teal-800 leading-relaxed max-h-24 overflow-y-auto">
-                                                {translateDNA(feat.strand === -1 ? revComp(sequence.slice(feat.start, feat.end)) : sequence.slice(feat.start, feat.end))}
-                                              </div>
+                                              <Textarea readOnly value={translateDNA(feat.strand === -1 ? revComp(sequence.slice(feat.start, feat.end)) : sequence.slice(feat.start, feat.end))} className="h-7 min-h-7 resize-y overflow-y-auto border-teal-100 bg-white font-mono text-[10px] text-teal-800" />
                                             </div>
                                           )}
-                                        </>
-                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -4011,39 +5026,94 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         })()}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
 
                 {viewMode === 'primers' && (
-                  <div className="space-y-4">
+                  <div className="flex h-full min-h-0 flex-col gap-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-bold text-slate-700">Primers ({primers.length})</h4>
-                      <Button size="sm" onClick={() => setShowAddPrimer(true)} className="h-8 bg-teal-600 hover:bg-teal-700 gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                      <Button size="sm" variant="outline" onClick={() => setShowPrimerImport(v => !v)} className="h-8 gap-1.5">
+                        <Download className="w-3.5 h-3.5" /> Import
+                      </Button>
+                      <Button size="sm" onClick={() => openAddPrimer('main')} className="h-8 bg-teal-600 hover:bg-teal-700 gap-1.5">
                         <Plus className="w-3.5 h-3.5" /> Add Primer
                       </Button>
+                      </div>
                     </div>
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead>
+                    {showPrimerImport && viewMode === 'primers' && (
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                        <div className="mb-1 font-bold text-slate-600">Import primer from library</div>
+                        <div className="max-h-28 overflow-y-auto">
+                          {libraryPrimerOptions.map(({ entry, primer, index }) => (
+                            <button key={`${entry.id}-${index}`} onClick={() => importPrimerFromLibrary(primer)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-white">
+                              <span className="h-3 w-3 rounded-sm border border-slate-300" style={{ backgroundColor: primer.color || PRIMER_COLORS[0] }} />
+                              <span className="min-w-0 flex-1 truncate">{primer.name}</span>
+                              <span className="font-mono text-[10px] text-slate-400">{String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`).length}-mer</span>
+                              <span className="text-[10px] text-slate-400">{entry.name}</span>
+                            </button>
+                          ))}
+                          {libraryPrimerOptions.length === 0 && <div className="px-2 py-2 text-slate-400">No library primers available</div>}
+                        </div>
+                      </div>
+                    )}
+                    <div className="min-h-0 flex-1 overflow-auto">
+                    <table className="w-full table-fixed text-xs text-left border-collapse">
+                      <thead className="sticky top-0 z-10 bg-white">
                         <tr className="border-b border-slate-200 text-slate-500">
-                          <th className="py-2 font-semibold w-10">Kleur</th>
-                          <th className="py-2 font-semibold">Naam</th>
-                          <th className="py-2 font-semibold">Lengte</th>
-                          <th className="py-2 font-semibold">Binding site</th>
-                          <th className="py-2 font-semibold">Direction</th>
-                          <th className="py-2 font-semibold">Tm (℃)</th>
+                          {[
+                            ['primers-color', 'Kleur', 44],
+                            ['primers-name', 'Naam', 160],
+                            ['primers-length', 'Lengte', 72],
+                            ['primers-site', 'Binding site', 120],
+                            ['primers-direction', 'Direction', 80],
+                            ['primers-gc', 'GC%', 60],
+                            ['primers-tm', 'Tm (℃)', 72],
+                          ].map(([id, label, width]) => (
+                            <th key={id} className="relative py-2 font-semibold" {...resizeHeaderProps(id, width)}>
+                              {label}
+                              {renderOverviewResizeHandle(id, width)}
+                            </th>
+                          ))}
+                          <th className="py-2 w-8"></th>
                           <th className="py-2 w-8"></th>
                         </tr>
                       </thead>
                       <tbody>
+                        {showAddPrimer && addPrimerSurface === 'main' && (
+                          <tr className="border-b border-teal-100 bg-teal-50/40">
+                            <td className="py-2 px-1">
+                              <MacColorPicker value={newPrimerColor} onChange={setNewPrimerColor} buttonClassName="flex h-5 w-5 items-center justify-center rounded-sm border border-slate-900/70 p-0" swatchClassName="h-full w-full rounded-sm" />
+                            </td>
+                            <td className="py-2"><Input value={newPrimerName} onChange={e => setNewPrimerName(e.target.value)} placeholder="Primer name" className="h-7 text-xs" /></td>
+                            <td colSpan="5" className="py-2">
+                              <Input value={newPrimerRaw} onChange={e => setNewPrimerRaw(e.target.value)} placeholder="Primer sequence" className="h-7 font-mono text-xs" />
+                            </td>
+                            <td colSpan="2" className="py-2">
+                              <div className="flex justify-end gap-1">
+                                <Button size="sm" onClick={addPrimer} disabled={!newPrimerName || !newPrimerRaw} className="h-7 px-2 text-xs">Add</Button>
+                                <Button size="sm" variant="outline" onClick={() => setShowAddPrimer(false)} className="h-7 px-2 text-xs">Cancel</Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         {primers.map((p, i) => {
                           const isExpanded = expandedPrimers.has(p.id || i);
                           const sites = findPrimerSites(p.seq, seq, p.annealing || p.seq);
                           const site = sites[0];
-                          const tm = Math.round(64.9 + 41 * (p.annealing?.replace(/[^GC]/g, '').length - 16.4) / p.annealing?.length) || '-';
+                          const tm = primerTm(p.annealing || p.seq);
+                          const displayStrand = effectivePrimerStrand(p, sites);
 
                           return (
                             <React.Fragment key={p.id || i}>
                               <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : ''}`}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setPrimerContextMenu({ index: i, x: e.clientX, y: e.clientY });
+                                }}
                                 onClick={() => {
                                   const next = new Set(expandedPrimers);
                                   if (next.has(p.id || i)) next.delete(p.id || i);
@@ -4051,22 +5121,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                   setExpandedPrimers(next);
                                 }}>
                                 <td className="py-3 px-1">
-                                  <div className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: p.color }} />
+                                  <PrimerColorControl value={p.color} onChange={color => updatePrimer(i, { color })} compact />
                                 </td>
-                                <td className="py-3 font-bold text-slate-700">{p.name}</td>
+                                <td className="py-3 font-bold text-slate-700">{renderPrimerName(p, i, 'text-xs font-bold text-slate-700')}</td>
                                 <td className="py-3 text-slate-600 font-bold">{p.seq?.length || 0}-mer</td>
                                 <td className="py-3 text-slate-500 font-bold">
-                                  {site ? `${site.start + 1} ... ${site.end}` : 'Geen binding gevonden'}
+                                  {site ? `${site.start + 1} ... ${site.end}` : 'No annealing found'}
                                 </td>
-                                <td className="py-3 text-slate-400 text-lg leading-none">
-                                  {p.strand === 1 ? '→' : p.strand === -1 ? '←' : site?.strand === 1 ? '→' : site?.strand === -1 ? '←' : '↔︎'}
+                                <td className="py-3">
+                                  <span className="text-lg leading-none text-slate-500">{displayStrand === 1 ? '→' : '←'}</span>
                                 </td>
+                                <td className="py-3 text-slate-700 font-bold">{gcPercent(p.seq)}</td>
                                 <td className="py-3 text-slate-700 font-bold">{tm} ℃</td>
-                                <td className="py-3 text-center">
-                                  <button onClick={(e) => { e.stopPropagation(); setEditingPrimerIdx(i === editingPrimerIdx ? null : i); if (!isExpanded) { const next = new Set(expandedPrimers); next.add(p.id || i); setExpandedPrimers(next); } }} className={`p-1.5 rounded-md hover:bg-slate-200 transition-colors ${editingPrimerIdx === i ? 'text-teal-600 bg-teal-50' : 'text-slate-400'}`}>
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                  </button>
-                                </td>
                                 <td className="py-3 text-center">
                                   <button onClick={(e) => { e.stopPropagation(); if (confirm(`Weet je zeker dat je primer "${p.name}" wilt verwijderen?`)) deletePrimer(i); }} className="p-1.5 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -4078,66 +5144,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               </tr>
                               {isExpanded && (
                                 <tr>
-                                  <td colSpan="7" className="px-4 py-4 bg-slate-50/50 border-b border-slate-200">
-                                    <div className="space-y-4">
-                                      {editingPrimerIdx === i ? (
-                                        <div className="grid grid-cols-2 gap-4 p-4 bg-white border border-teal-100 rounded-xl shadow-sm">
-                                          <div className="space-y-3">
-                                            <div>
-                                              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Primer Naam</label>
-                                              <Input value={p.name} onChange={e => updatePrimer(i, { name: e.target.value })} className="h-8 text-xs border-slate-200" />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2">
-                                              <div>
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Annealing Seq</label>
-                                                <Input value={p.annealing || p.seq} onChange={e => updatePrimer(i, { annealing: e.target.value.toUpperCase().replace(/[^ATGCN]/g, '') })} className="h-8 text-xs font-mono border-slate-200" />
-                                              </div>
-                                              <div>
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Overhang Seq</label>
-                                                <Input value={p.overhang || ''} onChange={e => updatePrimer(i, { overhang: e.target.value.toUpperCase().replace(/[^ATGCN]/g, '') })} className="h-8 text-xs font-mono border-slate-200" />
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Label Kleur</label>
-                                              <MacColorPicker value={p.color || '#6366f1'} onChange={color => updatePrimer(i, { color })} buttonClassName="flex h-8 w-12 items-center justify-center rounded border border-slate-200 bg-white p-1" swatchClassName="h-5 w-8 rounded" />
-                                            </div>
-                                          </div>
-                                          <div className="space-y-3 flex flex-col">
-                                            <div className="flex-1">
-                                              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Notes</label>
-                                              <Textarea value={p.notes || ''} onChange={e => updatePrimer(i, { notes: e.target.value })} className="h-[92px] text-xs border-slate-200 resize-none" placeholder="Primer details..." />
-                                            </div>
-                                            <Button size="sm" onClick={() => setEditingPrimerIdx(null)} className="bg-teal-600 hover:bg-teal-700 h-8 gap-1.5 self-end px-4">
-                                              <Check className="w-3.5 h-3.5" /> Opslaan
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Overhang</p>
-                                              <p className="text-xs font-mono text-red-500 break-all">{p.overhang || 'Geen'}</p>
-                                            </div>
-                                            <div>
-                                              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Annealing Sequence</p>
-                                              <p className="text-xs font-mono text-teal-700 break-all">{p.annealing || p.seq}</p>
-                                            </div>
-                                          </div>
-                                          <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Full Sequence</p>
-                                            <div className="p-2 bg-white border border-slate-200 rounded font-mono text-[10px] break-all leading-relaxed">
-                                              <span className="text-red-500">{p.overhang}</span>
-                                              <span className="text-teal-700">{p.annealing || p.seq}</span>
-                                            </div>
-                                          </div>
-                                          <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</p>
-                                            <p className="text-xs text-slate-600 italic">{p.notes || 'Geen notes beschikbaar'}</p>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
+                                  <td colSpan="9" className="px-4 py-4 bg-slate-100/70 border-b border-slate-200">
+                                    {renderPrimerDetails(p, i, sites, { showSiteSummary: false })}
                                   </td>
                                 </tr>
                               )}
@@ -4146,6 +5154,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -4215,31 +5224,30 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   <div className="flex h-full min-h-0 flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">Features ({features.length})</span>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddFeature(s => !s)}>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openAddFeature('side')}>
                         <Plus className="w-3.5 h-3.5" /> Add
                       </Button>
                     </div>
-                    {showAddFeature && (
+                    {showAddFeature && addFeatureSurface === 'side' && (
                       <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <MacColorPicker value={newFeature.color || '#3b82f6'} onChange={color => setNewFeature(f => ({ ...f, color }))} buttonClassName="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 bg-white p-0" swatchClassName="h-full w-full rounded-sm" />
                           <Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Name" className="h-7 text-xs border-slate-200" />
-                          <Input value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} placeholder="Type (CDS, ori, etc)" className="h-7 text-xs border-slate-200" />
+                          <select value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} className="h-7 rounded-md border border-slate-200 bg-white px-1 text-xs text-slate-600">
+                            {FEATURE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                          </select>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5">
+                        <div className="flex items-center gap-1.5">
                           <Input value={newFeature.start} onChange={e => setNewFeature(f => ({ ...f, start: e.target.value }))} placeholder="Start (bp)" className="h-7 text-xs border-slate-200" type="number" />
                           <Input value={newFeature.end} onChange={e => setNewFeature(f => ({ ...f, end: e.target.value }))} placeholder="End (bp)" className="h-7 text-xs border-slate-200" type="number" />
+                          <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: parseInt(e.target.value) }))} className="h-7 w-10 text-xs border border-slate-200 rounded-md px-1 bg-white">
+                            <option value="1">→</option>
+                            <option value="-1">←</option>
+                            <option value="0">↔</option>
+                          </select>
                         </div>
-                        <select value={newFeature.strand} onChange={e => setNewFeature(f => ({ ...f, strand: parseInt(e.target.value) }))} className="w-full h-7 text-xs border border-slate-200 rounded-md px-1 bg-white">
-                          <option value="1">Forward (+)</option>
-                          <option value="-1">Reverse (−)</option>
-                          <option value="0">None / ↔︎</option>
-                        </select>
-                        <div className="flex items-center gap-2 py-0.5">
-                          <label className="text-xs text-slate-500 font-medium ml-1">Color:</label>
-                          <MacColorPicker value={newFeature.color || '#3b82f6'} onChange={color => setNewFeature(f => ({ ...f, color }))} buttonClassName="flex h-8 w-8 items-center justify-center rounded border border-slate-200 bg-white p-1" swatchClassName="h-5 w-5 rounded" />
-                        </div>
-                        <div className="flex gap-1.5">
-                          <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addFeature}>Add</Button>
+                        <div className="flex justify-end gap-1.5">
+                          <Button size="sm" className="h-7 text-xs bg-teal-600 hover:bg-teal-700" onClick={addFeature}>Add</Button>
                           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowAddFeature(false)}>Cancel</Button>
                         </div>
                       </div>
@@ -4270,23 +5278,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           >
                             <span className="h-full w-full rounded-[2px]" style={{ background: feat.color || '#6366f1' }} />
                           </MacColorPicker>
-                          {editingFeatureIdx === i ? (
-                            <div className="flex-1 flex flex-col gap-1 items-stretch" onClick={e => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5">
-                                <Input value={feat.label} onChange={e => updateFeature(i, { label: e.target.value })} className="h-7 text-xs border-slate-200 flex-1" placeholder="Name" />
-                                <Input value={feat.type || ''} onChange={e => updateFeature(i, { type: e.target.value })} className="h-7 text-xs border-slate-200 w-20 flex-shrink-0" placeholder="Type" />
-                              </div>
-                              <div className="flex items-center gap-1.5 justify-end">
-                                <select value={feat.strand ?? ''} onChange={e => updateFeature(i, { strand: e.target.value === '' ? null : parseInt(e.target.value) })} className="h-7 text-[10px] border border-slate-200 rounded-md bg-white text-slate-600 px-0.5 max-w-14">
-                                  <option value="1">→ (+)</option>
-                                  <option value="-1">← (−)</option>
-                                  <option value="0">↔ (0)</option>
-                                  <option value="">–</option>
-                                </select>
-                                <button onClick={() => setEditingFeatureIdx(null)} className="text-teal-600 hover:text-teal-700 flex-shrink-0 bg-teal-50 hover:bg-teal-100 p-1 rounded-md transition-colors"><Check className="w-4 h-4" /></button>
-                              </div>
-                            </div>
-                          ) : (
+                          {(
                             <>
                               <div className="flex-1 min-w-0 pr-1">
                                 {editingFeatureLabelIdx === i ? (
@@ -4502,11 +5494,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   <div className="flex h-full min-h-0 flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">Primers ({primers.length})</span>
-                      <button onClick={() => setShowAddPrimer(s => !s)} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
+                      <button onClick={() => openAddPrimer('side')} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium">
                         <Plus className="w-3.5 h-3.5" /> Add
                       </button>
                     </div>
-                    {showAddPrimer && (
+                    {showAddPrimer && addPrimerSurface === 'side' && (
                       <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
                         <Input value={newPrimerName} onChange={e => setNewPrimerName(e.target.value)} placeholder="Primer naam" className="h-7 text-xs border-slate-200" />
                         <div>
@@ -4520,15 +5512,16 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                             {newPrimerDetected.overhang && <span className="text-red-500">{newPrimerDetected.overhang.toLowerCase()}</span>}
                             <span className="text-slate-800 font-semibold">{newPrimerDetected.annealing}</span>
                             {!newPrimerDetected.overhang && !seq && <span className="text-slate-400 italic text-[10px]"> (laad een sequentie om overhang te detecteren)</span>}
-                            {!newPrimerDetected.overhang && seq && <span className="text-emerald-600 text-[10px] ml-1">✓ geen overhang</span>}
+                            {seq && newPrimerDetected.matched && !newPrimerDetected.overhang && <span className="text-emerald-600 text-[10px] ml-1">✓ geen overhang</span>}
+                            {seq && !newPrimerDetected.matched && <span className="text-slate-400 text-[10px] ml-1">geen binding gevonden</span>}
                           </div>
                         )}
                         <div className="flex items-center gap-1.5">
-                          <MacColorPicker value={newPrimerColor} onChange={setNewPrimerColor} buttonClassName="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white p-0.5" swatchClassName="h-4 w-4 rounded-full" />
+                          <MacColorPicker value={newPrimerColor} onChange={setNewPrimerColor} title="Custom primer color" buttonClassName="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border border-slate-200 bg-white p-0.5" swatchClassName="h-4 w-4 rounded-sm" />
                           <div className="flex gap-1 flex-wrap flex-1">
                             {PRIMER_COLORS.map(c => (
                               <button key={c} onClick={() => setNewPrimerColor(c)} style={{ background: c }}
-                                className={`w-4 h-4 rounded-full border-2 ${newPrimerColor === c ? 'border-slate-700' : 'border-transparent'}`} />
+                                className={`w-4 h-4 rounded-sm border-2 ${newPrimerColor === c ? 'border-slate-700' : 'border-transparent'}`} />
                             ))}
                           </div>
                         </div>
@@ -4538,58 +5531,37 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         </div>
                       </div>
                     )}
-                    <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
-                      {primers.map((p) => {
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+                      {primers.map((p, i) => {
                         const annealingSeq = p.annealing || p.seq;
                         const sites = seq ? findPrimerSites(p.seq, seq, annealingSeq) : [];
                         const isExpanded = expandedPrimerId === p.id;
+                        const displayStrand = effectivePrimerStrand(p, sites);
+                        const fullTm = primerTm(p.seq);
                         return (
-                          <div key={p.id}
-                            className={`rounded-lg border transition-colors cursor-pointer ${isExpanded ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200 hover:border-teal-200'}`}
-                            onClick={() => setExpandedPrimerId(isExpanded ? null : p.id)}>
-                            <div className="flex items-center gap-2 p-2">
-                              <MacColorPicker value={p.color} onChange={color => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color } : x))} buttonClassName="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full" swatchClassName="h-3.5 w-3.5 rounded-full" />
-                              <span className="text-xs font-medium text-slate-700 flex-1 truncate">{p.name}</span>
+                          <div key={p.id} className={`${isExpanded ? 'bg-slate-100/80' : ''}`}>
+                            <div
+                              className={`flex cursor-pointer items-center gap-2 border-b border-slate-100 px-2 py-2 transition-colors ${isExpanded ? 'bg-slate-100/80' : 'hover:bg-slate-50'}`}
+                              onClick={() => setExpandedPrimerId(isExpanded ? null : p.id)}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setPrimerContextMenu({ index: i, x: e.clientX, y: e.clientY });
+                              }}
+                            >
+                              <PrimerColorControl value={p.color} onChange={color => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color } : x))} compact />
+                              <div className="min-w-0 flex-1 pr-1">{renderPrimerName(p, i, 'block truncate text-xs font-medium text-slate-700')}</div>
+                              <span className="flex-shrink-0 text-center text-base leading-none text-slate-500">{displayStrand === 1 ? '→' : '←'}</span>
+                              <span className="w-9 flex-shrink-0 text-right text-[10px] font-bold text-slate-600">{fullTm}℃</span>
+                              <span className="w-6 flex-shrink-0 text-right text-[10px] font-bold text-slate-500">{sites.length ? `${sites.length}×` : '-'}</span>
                               <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, visible: !x.visible } : x)); }}
                                 className={`p-0.5 flex-shrink-0 ${p.visible ? 'text-slate-500' : 'text-slate-300'}`}>
                                 {p.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                               </button>
-                              <button onClick={e => { e.stopPropagation(); setPrimers(prev => prev.filter(x => x.id !== p.id)); }} className="text-slate-400 hover:text-red-500 p-0.5 flex-shrink-0">
-                                <Trash2 className="w-3 h-3" />
-                              </button>
                             </div>
-                            {isExpanded ? (
-                              <div className="px-2 pb-2 space-y-1.5" onClick={e => e.stopPropagation()}>
-                                <Input value={p.name} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, name: e.target.value } : x))} className="h-7 text-xs border-slate-200" placeholder="Name" />
-                                <div>
-                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Overhang</p>
-                                  <textarea value={p.overhang || ''} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, overhang: e.target.value.toLowerCase(), seq: e.target.value.toLowerCase() + (x.annealing || '') } : x))}
-                                    className="w-full h-8 text-xs font-mono border border-amber-200 rounded-md p-1 resize-none bg-amber-50 text-amber-700" placeholder="overhang..." />
-                                </div>
-                                <div>
-                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">Annealing</p>
-                                  <textarea value={p.annealing || p.seq} onChange={e => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, annealing: e.target.value.toUpperCase(), seq: (x.overhang || '') + e.target.value.toUpperCase() } : x))}
-                                    className="w-full h-12 text-xs font-mono border border-slate-200 rounded-md p-1.5 resize-none bg-white" placeholder="ATGCATGC..." />
-                                </div>
-                                <p className="text-xs">
-                                  {sites.length === 0
-                                    ? <span className="text-slate-400">Not found</span>
-                                    : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
-                                  }
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="px-2 pb-2">
-                                <p className="font-mono text-xs truncate">
-                                  {p.overhang && <span className="text-amber-500 italic">{p.overhang.toLowerCase()}</span>}
-                                  <span className="text-slate-700 font-semibold">{(p.annealing || p.seq).toUpperCase()}</span>
-                                </p>
-                                <p className="text-xs mt-0.5">
-                                  {sites.length === 0
-                                    ? <span className="text-slate-400">Not found</span>
-                                    : <span className="text-teal-600 font-medium">{sites.length}× · {sites.map(s => `${s.start + 1}${s.strand === 1 ? '→' : '←'}`).join(', ')}</span>
-                                  }
-                                </p>
+                            {isExpanded && (
+                              <div className="border-b border-slate-100 px-2 py-2">
+                                {renderPrimerDetails(p, i, sites)}
                               </div>
                             )}
                           </div>
