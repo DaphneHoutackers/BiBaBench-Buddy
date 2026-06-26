@@ -25,9 +25,9 @@ import { useHistory } from '@/context/HistoryContext';
 import { ENZYME_DB, getEnzymeDisplayName, getEnzymeVariants } from '@/lib/enzymes';
 import { makeId } from '@/utils/makeId';
 // ── Constants ─────────────────────────────────────────────────────────────────
-const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#9fd4c3', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#d97063' };
+const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#fff81f', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#e92542' };
 const RE_HIGHLIGHT_COLORS = ['#e4a72d', '#4a90d9', '#68a357', '#d16565', '#8a6fd1', '#5aa6a6', '#c9823b', '#7a8794', '#ef4444', '#14b8a6'];
-const PRIMER_COLORS = ['#4a90d9', '#a36ee8', '#d16565', '#5aa6a6', '#e4a72d', '#68a357', '#c9823b', '#7a8794'];
+const PRIMER_COLORS = ['#ff001f', '#00a42b', '#ff9100', '#b800f8', '#3d65ff', '#b5b5b5', '#c9823b', '#7a8794'];
 // Change map label fonts here.
 const MAP_LABEL_FONT_FAMILY = 'Verdana, Geneva, sans-serif';
 // Change library file/folder font here.
@@ -560,7 +560,7 @@ function CircularMap({
 }) {
   const totalLen = seq.length;
   if (!totalLen) return null;
-  const cx = 350, cy = 300, R = 190, FW = 18;
+  const cx = 350, cy = 300, R = 190;
   const ang = pos => (pos / totalLen) * 2 * Math.PI - Math.PI / 2;
   const point = (radius, angle) => ({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) });
   const posFromSvgEvent = (event) => {
@@ -1457,10 +1457,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       .map((f, index) => ({ ...f, kind: 'feature', sourceIndex: index }))
       .filter(f => f.visible !== false && normalizedFeatureType(f.type) !== 'source' && normalizedFeatureType(f.type) !== 'primer_bind');
     const primerFeats = primers
-      .filter(p => p.visible !== false && p.seq && seq)
-      .flatMap((p, primerIndex) => {
+      .map((p, primerIndex) => ({ p, primerIndex }))
+      .filter(({ p }) => p.visible !== false && p.seq && seq)
+      .flatMap(({ p, primerIndex }) => {
         const sites = findPrimerSites(p.seq, seq, p.annealing || p.seq);
-        return sites.map(s => ({ label: p.name, start: s.start, end: s.end, strand: s.strand, color: p.color, type: 'primer', kind: 'primer', sourceIndex: primerIndex }));
+        return sites.map(s => ({ label: p.name, start: s.start, end: s.end, strand: s.strand, color: p.color, type: 'primer', kind: 'primer', sourceIndex: primerIndex, primerId: p.id, primerIndex }));
       });
     return [...visibleFeats, ...primerFeats];
   }, [features, primers, seq]);
@@ -2010,170 +2011,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     ))
   );
 
-  const renderLibraryExplorer = () => {
-    const renderRows = (parentId = null, depth = 0) => {
-      const items = library.filter(i => (i.parentId || null) === parentId);
-      return items.flatMap(item => {
-        const isFolder = item.type === 'folder';
-        const isMoving = movingItemId === item.id;
-        const isExpanded = expandedFolders.has(item.id);
-        const hasChildren = library.some(i => i.parentId === item.id);
-        const itemColor = item.color || '#475569';
 
-        return [
-          <tr
-            key={item.id}
-            className={`hover:bg-slate-50/80 transition-colors group cursor-pointer ${activeEntryId === item.id ? 'bg-teal-50/30' : ''}`}
-            onClick={() => openLibraryItem(item)}
-            onContextMenu={(e) => openLibraryContextMenu(e, item)}
-          >
-            <td className="px-4 py-2.5">
-              <div className="flex items-center gap-2" style={{ paddingLeft: depth * 24 }}>
-                <div className="w-5 flex-shrink-0 flex items-center justify-center">
-                  {isFolder && hasChildren && (
-                    <button onClick={(e) => { e.stopPropagation(); toggleLibraryFolder(item.id); }} className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors">
-                      <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="relative flex items-center justify-center">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setShowFolderColorPickerId(showFolderColorPickerId === item.id ? null : item.id); }}
-                    className="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all flex items-center justify-center"
-                    style={{ color: itemColor }}
-                  >
-                    {isFolder
-                      ? (isExpanded ? <FaFolderOpen className="h-5 w-5" /> : <FaFolder className="h-5 w-5" />)
-                      : <FaDna className="h-5 w-5" />}
-                  </button>
-                  
-                  {showFolderColorPickerId === item.id && (
-                    <div ref={colorPickerRef} className="absolute top-full left-0 mt-2 z-[250] bg-white border border-slate-200 rounded-xl shadow-2xl p-3 w-48 text-left animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                      <p className="text-[12px] font-bold text-slate-400 uppercase mb-2">Change Color</p>
-                      <div className="grid grid-cols-5 gap-2 mb-3">
-                        {['#475569', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'].map(c => (
-                          <button key={c} onClick={() => { updateLibraryItem(item.id, { color: c }); setShowFolderColorPickerId(null); }}
-                            className="w-6 h-6 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-110" style={{ backgroundColor: c }} />
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between gap-2 border-t pt-2">
-                        <MacColorPicker value={itemColor} onChange={color => updateLibraryItem(item.id, { color })} buttonClassName="text-[10px] text-teal-600 font-bold hover:underline cursor-pointer flex items-center gap-1">
-                          <Plus className="w-3 h-3" /> More Colors
-                        </MacColorPicker>
-                        <button onClick={() => setShowFolderColorPickerId(null)} className="text-[10px] text-slate-400 font-bold hover:underline">Done</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {renamingId === item.id ? (
-                  <div className="flex items-center gap-1 flex-1" ref={renameInputRef}>
-                    <Input 
-                      value={renamingName} 
-                      onChange={e => setRenamingName(e.target.value)}
-                      className="h-8 text-xs py-0 max-w-[240px] bg-white"
-                      autoFocus
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { updateLibraryItem(item.id, { name: renamingName }); setRenamingId(null); }
-                        if (e.key === 'Escape') setRenamingId(null);
-                      }}
-                      onBlur={() => {
-                        if (renamingName.trim()) updateLibraryItem(item.id, { name: renamingName });
-                        setRenamingId(null);
-                      }}
-                    />
-                    <button onClick={() => { updateLibraryItem(item.id, { name: renamingName }); setRenamingId(null); }} className="p-1 text-slate-600 hover:bg-teal-50 rounded"><Check className="w-4 h-4" /></button>
-                  </div>
-                ) : (
-                  <span
-                    className={`text-sm font-medium transition-colors ${isFolder ? 'text-slate-700' : 'text-slate-900 group-hover:text-teal-600'}`}
-                  >
-                    {item.name}
-                  </span>
-                )}
-              </div>
-            </td>
-            <td className="px-4 py-2.5 text-slate-500 tabular-nums">
-              {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '-'}
-            </td>
-            <td className="px-4 py-2.5 text-slate-500 tabular-nums">
-              {item.dateEdited ? new Date(item.dateEdited).toLocaleDateString() : '-'}
-            </td>
-            <td className="px-4 py-2.5 text-right relative">
-              <div className="flex items-center justify-end gap-1">
-                <button onClick={(e) => { e.stopPropagation(); startRenamingLibraryItem(item); }} 
-                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="Rename">
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                
-                <div className="relative">
-                  <button onClick={(e) => { e.stopPropagation(); setMovingItemId(isMoving ? null : item.id); }}
-                          className={`p-1.5 rounded-lg transition-colors ${isMoving ? 'text-teal-600 bg-teal-50 shadow-inner' : 'text-slate-400 hover:text-teal-600 hover:bg-teal-50'}`} title="Move Item">
-                    <FiSend className={`w-4 h-4 transition-transform ${isMoving ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {isMoving && (
-                    <div ref={movePopupRef} className="absolute right-0 bottom-full mb-2 z-[250] bg-white border border-slate-200 rounded-xl shadow-2xl p-3 w-64 animate-in fade-in slide-in-from-bottom-2 text-left" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Move to...</span>
-                        <button onClick={() => setMovingItemId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-3 h-3" /></button>
-                      </div>
-                      <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                        <button onClick={(e) => { e.stopPropagation(); moveItem(item.id, null); }} 
-                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${item.parentId === null ? 'bg-teal-50 text-teal-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}>
-                          <div className="w-4 h-4 flex items-center justify-center bg-slate-100 rounded text-[10px]">/</div> Root Directory
-                        </button>
-                        {library.filter(f => f.type === 'folder' && f.id !== item.id && !getChildrenIds(item.id).includes(f.id)).map(folder => (
-                          <button key={folder.id} onClick={(e) => { e.stopPropagation(); moveItem(item.id, folder.id); }}
-                                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${item.parentId === folder.id ? 'bg-teal-50 text-teal-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}>
-                            <FaFolder className="w-4 h-4 text-amber-500" /> {folder.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <button onClick={(e) => { e.stopPropagation(); if (confirm(`Are you sure you want to delete ${isFolder ? 'folder' : 'file'} "${item.name}"?`)) deleteFromLibrary(item.id); }} 
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </td>
-          </tr>,
-          isFolder && isExpanded && renderRows(item.id, depth + 1)
-        ];
-      });
-    };
-
-    const rows = renderRows(null, 0);
-    return (
-      <div className="bg-white rounded-xl border border-slate-200 overflow-visible shadow-sm" style={{ fontFamily: LIBRARY_FONT_FAMILY }}>
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th className="px-4 py-3 font-semibold text-slate-600">Name</th>
-              <th className="px-4 py-3 font-semibold text-slate-600 w-32">Date Added</th>
-              <th className="px-4 py-3 font-semibold text-slate-600 w-32">Last Edited</th>
-              <th className="px-4 py-3 font-semibold text-slate-600 w-40 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.length > 0 ? rows : (
-              <tr>
-                <td colSpan="4" className="py-20 text-center text-slate-400">
-                  <Library className="w-12 h-12 mx-auto mb-3 opacity-10" />
-                  <p className="text-sm font-medium">Your library is empty</p>
-                  <p className="text-xs">Start by uploading a sequence or creating a folder</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
 
   const toggleEnzyme = (name, color) => {
     setSelectedEnzymes(prev => {
@@ -2873,15 +2711,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     );
   };
 
-  const openActiveSequenceEditor = () => {
-    if (activeLibraryEntry) {
-      setSeqName(activeLibraryEntry.name || seqName);
-      setRawInput(activeLibraryEntry.rawInput || activeLibraryEntry.sequence || sequence);
-      setTargetParentId(activeLibraryEntry.parentId || null);
-    }
-    autoOpenedLibraryRef.current = true;
-    setPhase('input');
-  };
+
 
   return (
     <div className="space-y-4 relative" onClick={handleMapClick}>
@@ -3094,7 +2924,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
             {featureContextPanel === 'type' && (
-              <div className="absolute left-full top-12 z-[310] ml-2 max-h-72 w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+              <div className="absolute right-full top-12 z-[310] mr-2 max-h-72 w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                 {FEATURE_TYPES.map(type => (
                   <button
                     key={type}
@@ -3621,8 +3451,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white overflow-hidden">
               
               {/* View Toggle Bar */}
-              <div className="flex h-[53px] items-center gap-1.5 border-b bg-slate-50/50 px-4">
-                <div className="flex bg-slate-200/60 p-1 rounded-xl">
+              <div className="flex h-[53px] items-center gap-1.5 border-b bg-slate-50/50 px-2.5">
+                <div className="flex bg-slate-200/60 p-0.5 rounded-xl">
                   {[
                     { id: 'map', label: 'Map', icon: BiDoughnutChart },
                     { id: 'sequence', label: 'Sequence', icon: BiDna },
@@ -3633,7 +3463,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                     <button
                       key={id}
                       onClick={() => setViewMode(id)}
-                      className={`flex items-middle gap-2 px-4 py-1 rounded-lg text-xs font-bold transition-all ${
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                         viewMode === id 
                           ? 'bg-white text-teal-700 shadow-sm' 
                           : 'text-slate-500 hover:text-slate-700'
@@ -3646,7 +3476,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                 </div>
                 <button
                   onClick={() => setViewMode('alignment')}
-                  className={`flex h-8 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-sm ${viewMode === 'alignment' ? 'border-teal-200 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-500 hover:text-teal-700'}`}
+                  className={`flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-bold shadow-sm ${viewMode === 'alignment' ? 'border-teal-200 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-500 hover:text-teal-700'}`}
                   title="Alignment"
                 >
                   <span className="text-[13px] leading-none">≡</span>
@@ -3664,9 +3494,11 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
               </div>
 
               <div ref={mapRef} className="relative flex-1 min-h-0 overflow-auto px-4 py-1">
+
+
                 {viewMode === 'map' && (
                   <>
-                  <div className="absolute right-4 top-3 z-30 flex overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="absolute left-4 top-3 z-30 flex overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                     <button
                       onClick={() => setMapZoom(prev => Math.max(0.65, Math.round((prev - 0.1) * 10) / 10))}
                       className="flex h-8 w-8 items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-teal-700"
@@ -4634,11 +4466,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                       }`}>{count}×</span>
                                   </td>
                                   <td className="py-1 px-1">
-                                    <div className="flex flex-col items-start gap-0.5">
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cutType === 'Blunt' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-600'
-                                        }`}>{cutType}</span>
-                                      {hasFD && <span className="text-[9px] font-bold text-rose-600 px-1 bg-rose-50 rounded">FD</span>}
-                                    </div>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cutType === 'Blunt' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-50 text-indigo-600'
+                                      }`}>{cutType}</span>
                                   </td>
                                 </tr>
                               );

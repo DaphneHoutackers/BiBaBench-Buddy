@@ -1089,7 +1089,7 @@ export default function Home() {
 
         <main 
           onClick={() => { if (sidebarOpen) setSidebarOpen(false); }}
-          className={`flex-1 px-2 sm:px-6 lg:px-8 pt-8 ${isHome ? 'pb-0' : 'pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col cursor-default`}
+          className={`flex-1 ${active === 'plasmid' ? 'px-1 sm:px-2.5 lg:px-3.5 pt-4 pb-4' : 'px-2 sm:px-6 lg:px-8 pt-8 pb-8'} ${isHome ? 'pb-0' : ''} overflow-y-auto overflow-x-hidden relative flex flex-col cursor-default`}
         >
 
           {/* ── HOME ── */}

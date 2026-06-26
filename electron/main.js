@@ -119,6 +119,9 @@ const createWindow = async () => {
       contextIsolation: true,
       sandbox: false,
       webSecurity: true,
+      contentSecurityPolicy: isDev
+        ? "default-src 'self' 'unsafe-inline' data:; connect-src 'self' ws://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' strict-dynamic;"
+        : "default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';"
     },
   });
 

@@ -9,7 +9,7 @@ export default function MacColorPicker({
 }) {
   return (
     <label
-      className={`relative inline-flex cursor-pointer items-center justify-center overflow-hidden ${buttonClassName || 'rounded-md border border-slate-200 bg-white p-1 shadow-sm hover:bg-slate-50'} ${className}`}
+      className={`relative inline-flex cursor-pointer items-center overflow-hidden ${buttonClassName || 'justify-center rounded-md border border-slate-200 bg-white p-1 shadow-sm hover:bg-slate-50'} ${className}`}
       title={title}
       onClick={event => event.stopPropagation()}
     >
