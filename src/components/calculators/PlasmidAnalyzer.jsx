@@ -1119,8 +1119,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     enzymes: true,
     features: true,
     primers: true,
-    translations: true,
-    orfs: false,
+    translationsOrfs: true,
     dnaColor: true,
   });
   const [expandedFeatures, setExpandedFeatures] = useState(() => loadExpState(EXP_FEATURES_KEY));
@@ -1773,12 +1772,23 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   }, [library, features, activeEntryId, seq]);
 
   const libraryPrimerOptions = useMemo(() => {
-    const currentKeys = new Set(primers.map(p => `${String(p.name || '').toLowerCase()}|${String(p.seq || '').toUpperCase()}`));
-    return library
+    const normalizePrimerKey = primer => String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`)
+      .toUpperCase()
+      .replace(/[^ATGCN]/g, '');
+    const currentKeys = new Set(primers.map(normalizePrimerKey).filter(Boolean));
+    const seen = new Set();
+    const options = [];
+    library
       .filter(entry => entry.type !== 'folder' && entry.id !== activeEntryId)
-      .flatMap(entry => (entry.primers || []).map((primer, index) => ({ entry, primer, index })))
-      .filter(({ primer }) => !currentKeys.has(`${String(primer.name || '').toLowerCase()}|${String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`).toUpperCase()}`))
-      .slice(0, 80);
+      .forEach(entry => {
+        (entry.primers || []).forEach((primer, index) => {
+          const key = normalizePrimerKey(primer);
+          if (!key || currentKeys.has(key) || seen.has(key)) return;
+          seen.add(key);
+          options.push({ entry, primer: { ...primer, seq: key }, index });
+        });
+      });
+    return options.slice(0, 80);
   }, [library, primers, activeEntryId]);
 
   const sequenceFocusRange = useMemo(() => {
@@ -2113,6 +2123,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setRenamingName(item.name);
   };
   const updateLibraryItem = (id, updates) => {
+    if (id === activeEntryId && updates.name !== undefined) {
+      setSeqName(updates.name);
+      setOpenTabs(prev => prev.map(tab => tab.activeEntryId === id ? { ...tab, name: updates.name } : tab));
+    }
     const dateEdited = Object.prototype.hasOwnProperty.call(updates, 'dateEdited')
       ? updates.dateEdited
       : new Date().toISOString();
@@ -2587,6 +2601,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     name: item.name || item.label,
     strand: item.strand,
     primerId: item.primerId,
+    start: item.start,
+    end: item.end,
     pos: kind === 'enzyme' || kind === 'position' ? item.pos : Math.round(((item.start || 0) + (item.end || 0)) / 2),
   });
 
@@ -2595,6 +2611,16 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     if (first.kind === 'primer' && second.kind === 'primer' && first.strand === second.strand) {
       setSelectedRange(null);
       return null;
+    }
+    if (first.kind === 'feature' && second.kind === 'feature') {
+      const starts = [first.start, second.start].map(value => Math.max(0, Math.min(seq.length, Number(value) || 0)));
+      const ends = [first.end, second.end].map(value => Math.max(0, Math.min(seq.length, Number(value) || 0)));
+      const start = Math.min(...starts);
+      const end = Math.max(...ends);
+      if (start === end) return null;
+      const range = { start, end, anchors: [first, second] };
+      setSelectedRange(range);
+      return range;
     }
     const a = Math.max(0, Math.min(seq.length, first.pos));
     const b = Math.max(0, Math.min(seq.length, second.pos));
@@ -2787,14 +2813,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
               <input
                 type="checkbox"
                 checked={!!metadata.sequenced}
-                onChange={e => {
-                  if (e.target.checked) {
-                    const sequencingUrl = metadata.sequencingUrl || window.prompt('Sequencing results URL', '') || '';
-                    updateActiveMetadata({ sequenced: true, sequencingUrl });
-                  } else {
-                    updateActiveMetadata({ sequenced: false });
-                  }
-                }}
+                onChange={e => updateActiveMetadata({ sequenced: e.target.checked })}
                 className="h-4 w-4 rounded border-slate-300 text-teal-600"
               />
               Sequenced
@@ -3992,6 +4011,39 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
           </div>
         </div>
       )}
+      {showPrimerImport && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-slate-900/30 p-4" onMouseDown={() => setShowPrimerImport(false)}>
+          <div className="max-h-[70vh] w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" onMouseDown={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Import primer from library</h3>
+                <p className="text-xs text-slate-500">Duplicate primers are grouped by sequence across the library.</p>
+              </div>
+              <button onClick={() => setShowPrimerImport(false)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-[56vh] overflow-y-auto p-2">
+              {libraryPrimerOptions.map(({ entry, primer, index }) => (
+                <button
+                  key={`${primer.seq}-${entry.id}-${index}`}
+                  onClick={() => { importPrimerFromLibrary(primer); setShowPrimerImport(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-slate-50"
+                >
+                  <span className="h-4 w-4 flex-shrink-0 rounded-sm border border-slate-300" style={{ backgroundColor: primer.color || PRIMER_COLORS[0] }} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold text-slate-700">{primer.name || 'Primer'}</span>
+                    <span className="block truncate text-[10px] text-slate-400">{entry.name}</span>
+                  </span>
+                  <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600">{String(primer.seq || '').length}-mer</span>
+                  <span className="max-w-[16rem] truncate font-mono text-[10px] text-slate-400">{primer.seq}</span>
+                </button>
+              ))}
+              {libraryPrimerOptions.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-slate-400">No library primers available.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {showMethylationEditor && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/30 p-4" onClick={() => setShowMethylationEditor(false)}>
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -4154,7 +4206,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       )}
 
       {toolTab === 'analyzer' && phase === 'map' && seq && (
-        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white min-h-0" style={{ height: 'calc(100vh - 155px)', minHeight: 560 }}>
+        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white min-h-0" style={{ height: 'calc(100dvh - 155px)', minHeight: 0 }}>
 
 
 
@@ -4467,24 +4519,24 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   </div>
                   <div className="absolute left-3 top-16 z-30 flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-md">
                     {[
-                      { key: 'enzymes', label: 'Enzymes', icon: BiGame },
-                      { key: 'features', label: 'Features', icon: PiTagBold },
-                      { key: 'primers', label: 'Primers', icon: TbArrowsExchange },
-                      { key: 'translations', label: 'Translations', icon: RiTextWrap },
-                      { key: 'orfs', label: 'ORFs', icon: VscGithubProject },
-                      { key: 'dnaColor', label: 'DNA color', icon: Palette },
-                    ].map(({ key, label, icon: Icon }) => (
+                      { key: 'enzymes', label: 'Enzymes', title: 'Show enzymes', icon: BiGame },
+                      { key: 'features', label: 'Features', title: 'Show features', icon: PiTagBold },
+                      { key: 'primers', label: 'Primers', title: 'Show primers', icon: TbArrowsExchange },
+                      { key: 'translationsOrfs', label: 'Translations and ORFs', title: 'Show translations and ORFs', icon: RiTextWrap },
+                      { key: 'dnaColor', label: 'DNA color', title: 'Show DNA color annotations', icon: Palette },
+                    ].map(({ key, label, title, icon: Icon }) => (
                       <button
                         key={key}
+                        aria-label={label}
                         onClick={() => setMapLayerVisibility(prev => ({ ...prev, [key]: !prev[key] }))}
                         className={`flex h-9 w-9 items-center justify-center border-b border-slate-100 last:border-b-0 ${mapLayerVisibility[key] ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-                        title={label}
+                        title={title}
                       >
                         <Icon className="h-4 w-4" />
                       </button>
                     ))}
                   </div>
-                  <div className="flex h-full items-center justify-center overflow-hidden pb-12" style={{ transform: `scale(${mapZoom})`, transformOrigin: 'center center' }}>
+                  <div className={`flex h-full items-center justify-center overflow-hidden ${showMapSearch ? 'pb-[3.5rem]' : 'pb-6'}`} style={{ transform: `scale(${mapZoom})`, transformOrigin: 'center center' }}>
                     {isCircular
                       ? <CircularMap
                           seq={seq}
@@ -4527,25 +4579,25 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   </div>
                   <button
                     onClick={() => setShowMapSearch(v => !v)}
-                    className="absolute bottom-9 left-3 z-40 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 hover:text-teal-700"
+                    className="absolute bottom-7 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 hover:text-teal-700"
                     title="Find DNA sequence"
                   >
                     <Search className="h-4 w-4" />
                   </button>
                   {showMapSearch && (
-                    <div className="absolute bottom-6 left-0 right-0 z-30 flex h-9 items-center gap-2 border-t border-slate-200 bg-slate-100 px-12 py-1">
+                    <div className="absolute bottom-6 left-0 right-0 z-30 flex h-8 items-center gap-2 border-t border-slate-200 bg-slate-100 px-12 py-0.5">
                       <span className="flex-shrink-0 text-xs font-semibold text-slate-500">Find DNA sequence:</span>
                       <Input
                         value={mapSearchQuery}
                         onChange={e => setMapSearchQuery(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') runMapSequenceSearch(); }}
                         placeholder="ATGC..."
-                        className="h-7 min-w-0 flex-1 border-slate-300 bg-white font-mono text-xs"
+                        className="h-6 min-w-0 flex-1 border-slate-300 bg-white font-mono text-xs"
                       />
-                      <button onClick={runMapSequenceSearch} className="h-7 rounded-md bg-teal-600 px-2.5 text-xs font-semibold text-white hover:bg-teal-700">Search</button>
+                      <button onClick={runMapSequenceSearch} className="h-6 rounded-md bg-teal-600 px-2.5 text-xs font-semibold text-white hover:bg-teal-700">Search</button>
                       <span className="w-12 text-center text-[11px] text-slate-500">{mapSearchMatches.length ? `${activeMapSearchIndex + 1}/${mapSearchMatches.length}` : ''}</span>
-                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(-1)} className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Previous</button>
-                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(1)} className="h-7 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Next</button>
+                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(-1)} className="h-6 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Previous</button>
+                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(1)} className="h-6 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Next</button>
                     </div>
                   )}
                   <div className="absolute bottom-0 left-0 right-0 z-20 flex h-6 items-center border-t border-slate-200 bg-white px-3 text-[11px] text-slate-600">
@@ -5035,7 +5087,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-bold text-slate-700">Primers ({primers.length})</h4>
                       <div className="flex items-center gap-1.5">
-                      <Button size="sm" variant="outline" onClick={() => setShowPrimerImport(v => !v)} className="h-8 gap-1.5">
+                      <Button size="sm" variant="outline" onClick={() => { setShowPrimerImport(true); setShowAddPrimer(false); }} className="h-8 gap-1.5">
                         <Download className="w-3.5 h-3.5" /> Import
                       </Button>
                       <Button size="sm" onClick={() => openAddPrimer('main')} className="h-8 bg-teal-600 hover:bg-teal-700 gap-1.5">
@@ -5043,22 +5095,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                       </Button>
                       </div>
                     </div>
-                    {showPrimerImport && viewMode === 'primers' && (
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
-                        <div className="mb-1 font-bold text-slate-600">Import primer from library</div>
-                        <div className="max-h-28 overflow-y-auto">
-                          {libraryPrimerOptions.map(({ entry, primer, index }) => (
-                            <button key={`${entry.id}-${index}`} onClick={() => importPrimerFromLibrary(primer)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-white">
-                              <span className="h-3 w-3 rounded-sm border border-slate-300" style={{ backgroundColor: primer.color || PRIMER_COLORS[0] }} />
-                              <span className="min-w-0 flex-1 truncate">{primer.name}</span>
-                              <span className="font-mono text-[10px] text-slate-400">{String(primer.seq || `${primer.overhang || ''}${primer.annealing || ''}`).length}-mer</span>
-                              <span className="text-[10px] text-slate-400">{entry.name}</span>
-                            </button>
-                          ))}
-                          {libraryPrimerOptions.length === 0 && <div className="px-2 py-2 text-slate-400">No library primers available</div>}
-                        </div>
-                      </div>
-                    )}
                     <div className="min-h-0 flex-1 overflow-auto">
                     <table className="w-full table-fixed text-xs text-left border-collapse">
                       <thead className="sticky top-0 z-10 bg-white">
