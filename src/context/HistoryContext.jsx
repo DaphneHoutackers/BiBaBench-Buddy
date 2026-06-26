@@ -4,6 +4,7 @@ import { makeId } from '@/utils/makeId';
 
 const HistoryContext = createContext(null);
 const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
+const HIDDEN_HISTORY_TOOL_IDS = new Set(['__seq_analyzer_library__']);
 
 
 function normalizeRemoteItem(row) {
@@ -34,6 +35,7 @@ function buildRemoteRow(item, userId) {
 
 export function HistoryProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [isRemoteLoading, setIsRemoteLoading] = useState(false);
   
   useEffect(() => {
     if (!isSyncEnabled()) return;
@@ -56,6 +58,7 @@ export function HistoryProvider({ children }) {
   useEffect(() => {
     if (!user) {
       setHistory([]);
+      setIsRemoteLoading(false);
       return;
     }
     const key = getStorageKey();
@@ -66,9 +69,8 @@ export function HistoryProvider({ children }) {
       setHistory([]);
     }
     
-    if (user) {
-      loadRemoteHistory([]); // pass empty to avoid syncing guest history to new user accidentally unless intended
-    }
+    setIsRemoteLoading(true);
+    loadRemoteHistory([]).finally(() => setIsRemoteLoading(false)); // pass empty to avoid syncing guest history to new user accidentally unless intended
   }, [user, getStorageKey]);
 
   // Keep a ref of history for reliable access in async callbacks
@@ -90,17 +92,26 @@ export function HistoryProvider({ children }) {
       await supabase.from('tool_history').upsert(rows, { onConflict: 'id' });
     }
 
-    // 2. Fetch all history for this account
+    // 2. Fetch visible history plus hidden app-state records for this account.
     const { data, error } = await supabase
       .from('tool_history')
       .select('*')
       .eq('user_id', user.id)
+      .neq('toolid', '__seq_analyzer_library__')
       .order('timestamp', { ascending: false })
       .limit(100);
 
+    const { data: hiddenData, error: hiddenError } = await supabase
+      .from('tool_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('toolid', '__seq_analyzer_library__');
+
     if (error || !data) return;
 
-    const normalized = data.map(normalizeRemoteItem);
+    const normalized = [...data, ...(!hiddenError && hiddenData ? hiddenData : [])]
+      .map(normalizeRemoteItem)
+      .sort((a, b) => b.timestamp - a.timestamp);
 
     setHistory(normalized);
     try {
@@ -209,8 +220,17 @@ export function HistoryProvider({ children }) {
   }, []);
 
   const clearHistory = useCallback(async () => {
-    setHistory([]);
-    localStorage.removeItem(getStorageKey());
+    setHistory((prev) => prev.filter((item) => HIDDEN_HISTORY_TOOL_IDS.has(item.toolId)));
+    try {
+      const hiddenItems = historyRef.current.filter((item) => HIDDEN_HISTORY_TOOL_IDS.has(item.toolId));
+      if (hiddenItems.length > 0) {
+        localStorage.setItem(getStorageKey(), JSON.stringify(hiddenItems));
+      } else {
+        localStorage.removeItem(getStorageKey());
+      }
+    } catch {
+      localStorage.removeItem(getStorageKey());
+    }
 
     if (!isSyncEnabled()) return;
 
@@ -223,13 +243,16 @@ export function HistoryProvider({ children }) {
     await supabase
       .from('tool_history')
       .delete()
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .neq('toolid', '__seq_analyzer_library__');
   }, [getStorageKey]);
 
   return (
     <HistoryContext.Provider
       value={{
         history,
+        user,
+        isRemoteLoading,
         addHistoryItem,
         deleteHistoryItem,
         clearHistory,

@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Copy, Palette, Plus, Trash2 } from 'lucide-react';
+import MacColorPicker from '@/components/shared/MacColorPicker';
 
 // Change sequence text font here if needed.
 const SEQUENCE_FONT_FAMILY = 'Menlo, "Liberation Mono", Consolas, "Courier New", monospace';
@@ -18,7 +19,7 @@ const CODON_TABLE = {
 
 const revComp = s => s.split('').reverse().map(b => ({A:'T',T:'A',G:'C',C:'G',N:'N'}[b]||b)).join('');
 
-export default function SequenceView({ seq, features, sequenceColors = [], selectedMapItem = null, onDelete, onAddFeature, onColorSequence, onAnnotationClick, onPositionClick, cutSites = [], focusRange = null }) {
+export default function SequenceView({ seq, features, sequenceColors = [], selectedMapItem = null, onDelete, onAddFeature, onColorSequence, onAnnotationClick, onPositionClick, cutSites = [], focusRange = null, basesPerRow = 60 }) {
   const [selection, setSelection] = useState(null);
   const [selectionColor, setSelectionColor] = useState('#4a90d9');
   const [showColorTools, setShowColorTools] = useState(false);
@@ -38,7 +39,7 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
     return () => document.removeEventListener('copy', handleCopy);
   }, [selection]);
 
-  const BPR = 60;
+  const BPR = basesPerRow;
   const totalLen = seq.length;
 
   useLayoutEffect(() => {
@@ -161,7 +162,7 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
   return (
     <div
       ref={containerRef}
-      style={{ fontFamily: SEQUENCE_FONT_FAMILY, fontSize: 13, lineHeight: 1.5, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative', maxHeight: 'calc(100vh - 250px)', paddingRight: 8, userSelect: 'none' }}
+      style={{ fontFamily: SEQUENCE_FONT_FAMILY, fontSize: 13, lineHeight: 1.5, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative', maxHeight: 'calc(100vh - 250px)', paddingRight: 8, userSelect: 'none', display: 'flex', justifyContent: 'center' }}
     >
       {selection?.rect && (
         <div
@@ -188,10 +189,10 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
                       <button key={color} onClick={() => setSelectionColor(color)} className={`h-6 w-6 rounded-full border ${selectionColor === color ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`} style={{ backgroundColor: color }} />
                     ))}
                   </div>
-                  <label className="mb-2 flex items-center justify-between gap-2 text-[11px] font-medium text-slate-600">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-medium text-slate-600">
                     Custom
-                    <input type="color" value={selectionColor} onChange={e => setSelectionColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0" />
-                  </label>
+                    <MacColorPicker value={selectionColor} onChange={setSelectionColor} swatchClassName="h-5 w-7 rounded" buttonClassName="rounded border border-slate-200 bg-white p-0.5" />
+                  </div>
                   <div className="grid grid-cols-3 gap-1.5">
                     <button onClick={() => applySequenceColor(1)} className="rounded-md bg-slate-100 px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200">Top</button>
                     <button onClick={() => applySequenceColor(-1)} className="rounded-md bg-slate-100 px-2 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200">Bottom</button>
@@ -209,6 +210,7 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
         </div>
       )}
 
+      <div style={{ minWidth: 'max-content', textAlign: 'left' }}>
       {rows.map(rowStart => {
         const rowEnd = Math.min(rowStart + BPR, totalLen);
         const fwd = seq.slice(rowStart, rowEnd);
@@ -361,6 +363,7 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

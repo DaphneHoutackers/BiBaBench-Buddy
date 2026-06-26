@@ -11,6 +11,7 @@ import { FaRegCheckCircle } from "react-icons/fa";
 import { PiCircleDashedBold } from "react-icons/pi";
 import { copyAsHtmlTable } from '@/components/shared/CopyTableButton';
 import CopyImageButton from '@/components/shared/CopyImageButton';
+import MacColorPicker from '@/components/shared/MacColorPicker';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
@@ -1080,19 +1081,15 @@ function BatchGibson({ historyData, isActive, sessionId }) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5">
-                        <div className="relative w-3.5 h-3.5 flex items-center justify-center cursor-pointer group">
-                          <div className="w-2.5 h-2.5 rounded-full group-hover:scale-125 transition-transform" style={{ background: color.border }}/>
-                          <input
-                            type="color"
-                            value={color.border && color.border.startsWith('#') ? color.border : '#22c55e'}
-                            onChange={(e) => {
-                              const newTheme = generateColorTheme(e.target.value);
-                              updateLigation(lig.id, 'color', newTheme);
-                            }}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                            title="Choose custom color"
-                          />
-                        </div>
+                        <MacColorPicker
+                          value={color.border && color.border.startsWith('#') ? color.border : '#22c55e'}
+                          onChange={(nextColor) => {
+                            const newTheme = generateColorTheme(nextColor);
+                            updateLigation(lig.id, 'color', newTheme);
+                          }}
+                          buttonClassName="flex h-3.5 w-3.5 items-center justify-center rounded-full"
+                          swatchClassName="h-2.5 w-2.5 rounded-full"
+                        />
                         <Input value={lig.label} onChange={e => updateLigation(lig.id, 'label', e.target.value)}
                           className="h-6 text-xs font-bold border-0 bg-transparent p-0 w-28 focus:ring-0 focus:border-b focus:border-slate-300 dark:focus:border-slate-700" style={{ color: color.text }} />
                       </div>

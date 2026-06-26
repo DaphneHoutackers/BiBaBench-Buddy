@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Microscope, Plus, Trash2, Copy, Check, Search, X, Grid } from 'lucide-react';
 import { FaSortAmountDown } from "react-icons/fa";
 import { useHistory } from '@/context/HistoryContext';
+import MacColorPicker from '@/components/shared/MacColorPicker';
 import {
   RECOGNITION_SEQS,
   searchEnzymes,
@@ -562,23 +563,7 @@ function DnaGelPanel({ activeLanes, selectedLadder, agarose, excisedBands, onBan
             return (
               <div key={lane.id} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 {onLaneColorChange ? (
-                  <label
-                    onClick={(e) => {
-                      const input = e.currentTarget.querySelector('input[type="color"]');
-                      if (input) input.click();
-                    }}
-                    className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer relative border border-slate-300"
-                    style={{ background: laneColor }}
-                    title="Change label color"
-                  >
-                    <input
-                      type="color"
-                      value={laneColor}
-                      onChange={e => onLaneColorChange(lane.id, e.target.value)}
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  </label>
+                  <MacColorPicker value={laneColor} onChange={color => onLaneColorChange(lane.id, color)} buttonClassName="flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-sm border border-slate-300" swatchClassName="h-2.5 w-2.5 rounded-sm" />
                 ) : (
                   <div className="w-3 h-3 rounded-sm flex-shrink-0 border border-slate-300" style={{ background: laneColor }} />
                 )}
@@ -822,10 +807,7 @@ function WesternBlotTab() {
               <div key={prot.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2">
                 <div className="flex items-center gap-2">
                   {/* Clickable color swatch */}
-                  <label className="w-5 h-5 rounded cursor-pointer border-2 border-slate-300 flex-shrink-0 relative" style={{ background: prot.color || '#000000' }} title="Click to change color">
-                    <input type="color" value={prot.color || '#000000'} onChange={e => updateProtein(prot.id, 'color', e.target.value)}
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-                  </label>
+                  <MacColorPicker value={prot.color || '#000000'} onChange={color => updateProtein(prot.id, 'color', color)} buttonClassName="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 border-slate-300 bg-white p-0.5" swatchClassName="h-3.5 w-3.5 rounded-sm" />
                   <Input value={prot.name}
                     onChange={e => updateProtein(prot.id, 'name', e.target.value)}
                     className="h-7 text-sm border-slate-200 dark:border-slate-700 w-32 bg-white dark:bg-slate-900" placeholder="Protein name" />
@@ -1123,23 +1105,7 @@ export default function GelAndWBSimulator({ historyData, isActive, externalTab, 
                     <CardContent className="p-3 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <label
-                            onClick={(e) => {
-                              const input = e.currentTarget.querySelector('input[type="color"]');
-                              if (input) input.click();
-                            }}
-                            className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer relative border border-slate-300"
-                            style={{ background: laneColors[lane.id] || '#000000' }}
-                            title="Change label color"
-                          >
-                            <input
-                              type="color"
-                              value={laneColors[lane.id] || '#000000'}
-                              onChange={e => setLaneColors(prev => ({ ...prev, [lane.id]: e.target.value }))}
-                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                              style={{ pointerEvents: 'none' }}
-                            />
-                          </label>
+                          <MacColorPicker value={laneColors[lane.id] || '#000000'} onChange={color => setLaneColors(prev => ({ ...prev, [lane.id]: color }))} buttonClassName="flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-sm border border-slate-300" swatchClassName="h-2.5 w-2.5 rounded-sm" />
                           <Input value={lane.label} onChange={e => updateLane(lane.id, 'label', e.target.value)} 
                             className="h-7 text-sm font-semibold border-transparent hover:border-slate-200 dark:border-slate-700 focus:bg-white dark:bg-slate-900 w-32 bg-transparent" />
                         </div>

@@ -38,6 +38,7 @@ const ImageAnnotator = lazy(() => import('./ImageAnnotator'));
 const PlasmidAnalyzer = lazy(() => import('@/components/calculators/PlasmidAnalyzer'));
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
+const HIDDEN_HISTORY_TOOL_IDS = new Set(['__seq_analyzer_library__']);
 
 class LazyToolErrorBoundary extends Component {
   constructor(props) {
@@ -196,6 +197,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
   const [expandedCalc, setExpandedCalc] = useState(null);
   const [historyExpanded, setHistoryExpanded] = useState(true);
   const { history, deleteHistoryItem, clearHistory } = useHistory();
+  const visibleHistory = history.filter(item => !item.data?.hidden && !HIDDEN_HISTORY_TOOL_IDS.has(item.toolId));
 
   // Auto-expand active tool's tabs
   useEffect(() => {
@@ -331,18 +333,18 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
         {historyExpanded && (
           <div className="animate-in slide-in-from-bottom-2 duration-300">
             <div className="flex justify-end px-1 mb-2">
-              {history.length > 0 && (
+              {visibleHistory.length > 0 && (
                 <button onClick={clearHistory} className={`text-[10px] uppercase font-bold hover:underline ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>
                   {labels.clearAll}
                 </button>
               )}
             </div>
 
-            {history.length === 0 ? (
+            {visibleHistory.length === 0 ? (
               <p className={`text-xs text-center p-4 italic ${isDark ? 'text-white/20' : 'text-slate-300'}`}>{labels.empty}</p>
             ) : (
               <div className="overflow-y-auto space-y-0.5 pr-1" style={{ maxHeight: '160px' }}>
-                {history.map(item => {
+                {visibleHistory.map(item => {
                   const displayTitle = item.data?.preview || item.toolName || item.toolId || 'History item';
                   const displayDate = new Date(item.createdAt || item.timestamp);
 

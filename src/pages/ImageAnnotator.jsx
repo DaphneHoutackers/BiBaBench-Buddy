@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useHistory } from '@/context/HistoryContext';
+import MacColorPicker from '@/components/shared/MacColorPicker';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -796,9 +797,7 @@ export default function ImageAnnotator({ historyData }) {
         {sep}
 
         {/* Color picker — single swatch */}
-        <label className="w-6 h-6 rounded border-2 border-slate-300 cursor-pointer flex-shrink-0 relative" style={{background:color}} title="Pick color">
-          <input type="color" value={color} onChange={e=>handleColorChange(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-        </label>
+        <MacColorPicker value={color} onChange={handleColorChange} buttonClassName="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border-2 border-slate-300 bg-white p-0.5" swatchClassName="h-4 w-4 rounded" />
 
         {sep}
 
@@ -888,9 +887,7 @@ export default function ImageAnnotator({ historyData }) {
             <span className="text-xs font-semibold text-slate-600">Edit band label: <span className="text-indigo-700">{band.label}</span></span>
             <label className="flex items-center gap-1.5 text-xs text-slate-500">
               Color
-              <label className="w-6 h-6 rounded border border-slate-300 cursor-pointer relative" style={{background: band.labelColor||'#111827'}}>
-                <input type="color" value={band.labelColor||'#111827'} onChange={e=>setFloatItems(prev=>prev.map(x=>x.id===editingBandId?{...x,labelColor:e.target.value}:x))} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
-              </label>
+              <MacColorPicker value={band.labelColor||'#111827'} onChange={nextColor=>setFloatItems(prev=>prev.map(x=>x.id===editingBandId?{...x,labelColor:nextColor}:x))} buttonClassName="flex h-6 w-6 items-center justify-center rounded border border-slate-300 bg-white p-0.5" swatchClassName="h-4 w-4 rounded" />
             </label>
             <label className="flex items-center gap-1.5 text-xs text-slate-500">
               Size

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   User,
-  Cpu,
   Palette,
   Check,
   X,
@@ -10,7 +9,6 @@ import {
   RefreshCw,
   ShieldCheck,
   ShieldAlert,
-  Globe,
   Mail,
   Clock,
   Lock,
@@ -22,6 +20,10 @@ import {
   ArrowLeft,
   Pencil,
 } from 'lucide-react';
+import { FaKey } from "react-icons/fa6";
+import { HiTranslate } from "react-icons/hi";
+import { RiGeminiFill, RiRobot2Line } from "react-icons/ri";
+import { BsOpenai } from "react-icons/bs";
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
 import { supabase, isSyncEnabled, getAppUrl } from '@/lib/supabase';
@@ -33,6 +35,14 @@ const THEME_GROUPS = [
   { key: 'special', label: 'Curated' },
   { key: 'muted', label: 'Muted Tones' },
 ];
+
+const Grok = ({ className = '', size = 14 }) => (
+  <span className={`inline-flex items-center justify-center rounded-full border border-current text-[9px] font-black leading-none ${className}`} style={{ width: size, height: size }}>G</span>
+);
+
+const OpenRouter = ({ className = '', size = 14 }) => (
+  <span className={`inline-flex items-center justify-center rounded-full border border-current text-[9px] font-black leading-none ${className}`} style={{ width: size, height: size }}>OR</span>
+);
 
 const TRANSLATIONS = {
   en: {
@@ -559,7 +569,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
         <div className="flex border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
           {[
             { id: 'appearance', label: t.appearance, icon: Palette },
-            { id: 'ai', label: t.aiSettings, icon: Cpu },
+            { id: 'ai', label: t.aiSettings, icon: RiRobot2Line },
             { id: 'account', label: t.account, icon: User },
           ].map((t) => {
             const Icon = t.icon;
@@ -664,7 +674,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
               <div>
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5" /> {t.language}
+                  <HiTranslate className="w-3.5 h-3.5" /> {t.language}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -691,7 +701,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
             <div className="space-y-6">
               <div>
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5" /> {t.aiProvider}
+                  <RiRobot2Line className="w-3.5 h-3.5" /> {t.aiProvider}
                 </p>
                 <select
                   value={settings.aiProvider || 'groq'}
@@ -757,7 +767,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
               <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" /> {t.apiKeys}
+                  <FaKey className="w-3.5 h-3.5" /> {t.apiKeys}
                 </p>
 
                 {!authUser && (
@@ -771,14 +781,19 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 )}
 
                 {[
-                  { prov: 'groq', key: 'groqApiKey', label: 'Groq API Key', ph: 'gsk_...', link: 'https://console.groq.com' },
-                  { prov: 'openai', key: 'openaiApiKey', label: 'OpenAI API Key', ph: 'sk-...', link: 'https://platform.openai.com' },
-                  { prov: 'gemini', key: 'geminiApiKey', label: 'Gemini API Key', ph: 'AIza...', link: 'https://aistudio.google.com' },
-                  { prov: 'openrouter', key: 'openrouterApiKey', label: 'OpenRouter API Key', ph: 'sk-or-...', link: 'https://openrouter.ai' },
-                ].map((item) => (
+                  { prov: 'groq', key: 'groqApiKey', label: 'Groq API Key', ph: 'gsk_...', link: 'https://console.groq.com', icon: Grok },
+                  { prov: 'openai', key: 'openaiApiKey', label: 'OpenAI API Key', ph: 'sk-...', link: 'https://platform.openai.com', icon: BsOpenai },
+                  { prov: 'gemini', key: 'geminiApiKey', label: 'Gemini API Key', ph: 'AIza...', link: 'https://aistudio.google.com', icon: RiGeminiFill },
+                  { prov: 'openrouter', key: 'openrouterApiKey', label: 'OpenRouter API Key', ph: 'sk-or-...', link: 'https://openrouter.ai', icon: OpenRouter },
+                ].map((item) => {
+                  const ProviderIcon = item.icon;
+                  return (
                   <div key={item.key} className="space-y-1">
                     <div className="flex justify-between items-center px-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{item.label}</label>
+                      <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                        <ProviderIcon className="h-3.5 w-3.5" size={14} />
+                        {item.label}
+                      </label>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => handleValidate(item.prov)}
@@ -820,7 +835,8 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                       className="w-full h-9 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:text-slate-400"
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl">
