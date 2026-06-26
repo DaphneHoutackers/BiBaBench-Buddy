@@ -24,6 +24,8 @@ release
 !.vscode/extensions.json
 .idea
 .DS_Store
+Icon?
+Icon
 *.suo
 *.ntvs*
 *.njsproj
