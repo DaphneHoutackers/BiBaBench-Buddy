@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Copy, Palette, Plus, Trash2 } from 'lucide-react';
 import MacColorPicker from '@/components/shared/MacColorPicker';
 
@@ -19,7 +19,92 @@ const CODON_TABLE = {
 
 const revComp = s => s.split('').reverse().map(b => ({A:'T',T:'A',G:'C',C:'G',N:'N'}[b]||b)).join('');
 
-export default function SequenceView({ seq, features, sequenceColors = [], selectedMapItem = null, onDelete, onAddFeature, onColorSequence, onAnnotationClick, onPositionClick, cutSites = [], focusRange = null, basesPerRow = 60 }) {
+const directionalPolygonPoints = (x1, x2, y1, y2, strand, requestedArrowWidth) => {
+  const midY = (y1 + y2) / 2;
+  const arrowWidth = Math.min(requestedArrowWidth, Math.max(0, (x2 - x1) * 0.35));
+  if (strand === 1) return `${x1},${y1} ${x2 - arrowWidth},${y1} ${x2},${midY} ${x2 - arrowWidth},${y2} ${x1},${y2}`;
+  if (strand === -1) return `${x1 + arrowWidth},${y1} ${x2},${y1} ${x2},${y2} ${x1 + arrowWidth},${y2} ${x1},${midY}`;
+  if (strand === 0) return `${x1 + arrowWidth},${y1} ${x2 - arrowWidth},${y1} ${x2},${midY} ${x2 - arrowWidth},${y2} ${x1 + arrowWidth},${y2} ${x1},${midY}`;
+  return `${x1},${y1} ${x2},${y1} ${x2},${y2} ${x1},${y2}`;
+};
+
+const getReadableTextColor = (color = '#6366f1') => {
+  const value = String(color).replace('#', '');
+  const hex = value.length === 3 ? value.split('').map(character => character + character).join('') : value;
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return '#ffffff';
+  const red = parseInt(hex.slice(0, 2), 16);
+  const green = parseInt(hex.slice(2, 4), 16);
+  const blue = parseInt(hex.slice(4, 6), 16);
+  return ((red * 299 + green * 587 + blue * 114) / 1000) > 155 ? '#111827' : '#ffffff';
+};
+
+const getVisibleAccentTextColor = (color) => getReadableTextColor(color) === '#111827' ? '#111827' : color;
+
+const packSegmentsIntoLanes = (segments) => {
+  const lanes = [];
+  [...segments].sort((left, right) => left.start - right.start || left.end - right.end).forEach(segment => {
+    const lane = lanes.find(candidate => candidate.end <= segment.start);
+    if (lane) {
+      lane.items.push(segment);
+      lane.end = segment.end;
+    } else {
+      lanes.push({ end: segment.end, items: [segment] });
+    }
+  });
+  return lanes;
+};
+
+function LinearSequenceOverview({ totalLen, features, visibleRange, onNavigate }) {
+  const width = 1000;
+  const padding = 12;
+  const trackWidth = width - padding * 2;
+  const xForPosition = position => padding + (Math.max(0, Math.min(totalLen, position)) / totalLen) * trackWidth;
+  const visibleStartX = xForPosition(visibleRange.start);
+  const visibleEndX = xForPosition(visibleRange.end);
+  const overviewFeatures = features.filter(feature => feature.visible !== false && feature.kind !== 'primer' && feature.end > feature.start);
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-30 h-14 border-t border-slate-300 bg-white px-2 py-1 shadow-[0_-4px_12px_rgba(15,23,42,0.08)]" title={`Visible sequence: ${visibleRange.start + 1}–${visibleRange.end}`}>
+      <svg
+        viewBox={`0 0 ${width} 46`}
+        preserveAspectRatio="none"
+        className="h-full w-full cursor-pointer"
+        aria-label="Linear plasmid overview"
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const viewX = ((event.clientX - rect.left) / rect.width) * width;
+          const ratio = Math.max(0, Math.min(1, (viewX - padding) / trackWidth));
+          onNavigate?.(Math.round(ratio * totalLen));
+        }}
+      >
+        <line x1={padding} y1="31" x2={width - padding} y2="31" stroke="#64748b" strokeWidth="2" />
+        {overviewFeatures.map((feature, index) => {
+          const x1 = xForPosition(feature.start);
+          const x2 = Math.max(x1 + 2, xForPosition(feature.end));
+          const y1 = 7 + (index % 2) * 10;
+          const y2 = y1 + 7;
+          return (
+            <polygon
+              key={feature.id || `${feature.sourceIndex}-${index}`}
+              points={directionalPolygonPoints(x1, x2, y1, y2, feature.strand, 7)}
+              fill={feature.color || '#94a3b8'}
+              stroke="#475569"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+        {visibleStartX > padding && <rect x={padding} y="0" width={visibleStartX - padding} height="38" fill="rgba(71,85,105,0.38)" />}
+        {visibleEndX < width - padding && <rect x={visibleEndX} y="0" width={width - padding - visibleEndX} height="38" fill="rgba(71,85,105,0.38)" />}
+        <rect x={visibleStartX} y="1" width={Math.max(2, visibleEndX - visibleStartX)} height="36" fill="none" stroke="#0f766e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <text x={padding} y="45" fill="#64748b" fontSize="9">1</text>
+        <text x={width - padding} y="45" textAnchor="end" fill="#64748b" fontSize="9">{totalLen.toLocaleString()} bp</text>
+      </svg>
+    </div>
+  );
+}
+
+export default function SequenceView({ seq, features, sequenceColors = [], selectedMapItem = null, onDelete, onAddFeature, onColorSequence, onAnnotationClick, onPositionClick, cutSites = [], focusRange = null, basesPerRow = 60, showTranslations = false }) {
   const [selection, setSelection] = useState(null);
   const [selectionColor, setSelectionColor] = useState('#4a90d9');
   const [showColorTools, setShowColorTools] = useState(false);
@@ -41,6 +126,68 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
 
   const BPR = basesPerRow;
   const totalLen = seq.length;
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: Math.min(totalLen, BPR) });
+  const aminoAcidsByFeature = useMemo(() => {
+    const translations = new Map();
+    if (!showTranslations) return translations;
+    features.forEach(feat => {
+      if (feat.type !== 'CDS' && feat.type !== 'gene') return;
+      const featureStart = Math.max(0, feat.start || 0);
+      const featureEnd = Math.min(totalLen, feat.end || 0);
+      const codingSequence = feat.strand === -1
+        ? revComp(seq.slice(featureStart, featureEnd))
+        : seq.slice(featureStart, featureEnd);
+      const aminoAcids = [];
+      for (let offset = 0; offset + 2 < codingSequence.length; offset += 3) {
+        const codonStart = feat.strand === -1
+          ? featureEnd - offset - 3
+          : featureStart + offset;
+        aminoAcids.push({
+          aminoAcid: CODON_TABLE[codingSequence.slice(offset, offset + 3)] || '?',
+          codonStart,
+          codonEnd: codonStart + 3,
+          position: codonStart + 1,
+        });
+      }
+      translations.set(feat, aminoAcids);
+    });
+    return translations;
+  }, [features, seq, showTranslations, totalLen]);
+
+  const updateVisibleRange = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || !totalLen) return;
+    const rows = Array.from(container.querySelectorAll('[data-row-start]'));
+    if (!rows.length) return;
+    const viewportTop = container.scrollTop;
+    const viewportBottom = viewportTop + container.clientHeight - 56;
+    const firstVisible = rows.find(row => row.offsetTop + row.offsetHeight > viewportTop) || rows[0];
+    const lastVisible = [...rows].reverse().find(row => row.offsetTop < viewportBottom) || firstVisible;
+    const start = Number(firstVisible.dataset.rowStart) || 0;
+    const end = Math.min(totalLen, (Number(lastVisible.dataset.rowStart) || start) + BPR);
+    setVisibleRange(current => current.start === start && current.end === end ? current : { start, end });
+  }, [BPR, totalLen]);
+
+  const navigateToOverviewPosition = useCallback((position) => {
+    const container = containerRef.current;
+    if (!container || !totalLen) return;
+    const clampedPosition = Math.max(0, Math.min(totalLen - 1, position));
+    const rowStart = Math.floor(clampedPosition / BPR) * BPR;
+    const row = container.querySelector(`[data-row-start="${rowStart}"]`);
+    if (!row) return;
+    const visibleHeight = Math.max(0, container.clientHeight - 56);
+    container.scrollTop = Math.max(0, row.offsetTop - (visibleHeight / 2) + (row.offsetHeight / 2));
+    updateVisibleRange();
+  }, [BPR, totalLen, updateVisibleRange]);
+
+  useLayoutEffect(() => {
+    updateVisibleRange();
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateVisibleRange);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [cutSites.length, features.length, showTranslations, updateVisibleRange]);
 
   useLayoutEffect(() => {
     if (!focusRange || !containerRef.current || !totalLen) return;
@@ -56,14 +203,6 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
   const rows = [];
   for (let i = 0; i < totalLen; i += BPR) rows.push(i);
   const cp = p => p + Math.floor(p / 10);
-
-  const getAAs = feat => {
-    if (feat.type !== 'CDS' && feat.type !== 'gene') return null;
-    const sub = feat.strand === 1 ? seq.slice(feat.start, feat.end) : revComp(seq.slice(feat.start, feat.end));
-    const aas = [];
-    for (let i = 0; i < sub.length - 2; i += 3) aas.push(CODON_TABLE[sub.slice(i, i + 3)] || '?');
-    return aas;
-  };
 
   const getBaseColor = (abs, strand) => {
     for (let i = sequenceColors.length - 1; i >= 0; i--) {
@@ -152,6 +291,22 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
     dragMovedRef.current = false;
   };
 
+  const handleAminoAcidClick = (event, codonStart, codonEnd) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+    const start = Math.max(0, codonStart);
+    const end = Math.min(totalLen, codonEnd);
+    const rect = event.currentTarget.getBoundingClientRect();
+    setSelection({
+      start,
+      end,
+      text: seq.slice(start, end),
+      rect: { top: rect.top, left: rect.left, width: rect.width },
+    });
+    setShowColorTools(false);
+  };
+
   useEffect(() => {
     const stopDragging = () => {
       dragActiveRef.current = false;
@@ -163,10 +318,12 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ fontFamily: SEQUENCE_FONT_FAMILY, fontSize: 13, lineHeight: 1.5, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative', maxHeight: 'calc(100vh - 250px)', paddingRight: 8, userSelect: 'none', display: 'flex', justifyContent: 'center' }}
-    >
+    <div style={{ position: 'relative', height: '100%', minHeight: 0, maxHeight: 'calc(100vh - 250px)' }}>
+      <div
+        ref={containerRef}
+        onScroll={updateVisibleRange}
+        style={{ fontFamily: SEQUENCE_FONT_FAMILY, fontSize: 13, lineHeight: 1.5, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative', height: '100%', maxHeight: 'calc(100vh - 250px)', paddingRight: 8, paddingBottom: 58, userSelect: 'none', display: 'flex', justifyContent: 'center' }}
+      >
       {selection?.rect && (
         <div
           style={{ position: 'fixed', top: selection.rect.top - 48, left: selection.rect.left + selection.rect.width / 2, transform: 'translateX(-50%)', zIndex: 1000, display: 'flex', alignItems: 'center', gap: 6, padding: 6, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 10px 30px rgba(15,23,42,0.15)', color: '#111827' }}
@@ -220,6 +377,40 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
         const rev = rc.slice(totalLen - rowEnd, totalLen - rowStart);
         const rowFeats = features.filter(f => f.visible !== false && f.start < rowEnd && f.end > rowStart);
         const rowCuts = cutSites.filter(cs => cs.pos >= rowStart && cs.pos < rowEnd);
+        const rowLength = rowEnd - rowStart;
+        const annotationSegments = rowFeats.map((feat, index) => {
+          const start = Math.max(feat.start - rowStart, 0);
+          const end = Math.min(feat.end - rowStart, rowLength);
+          if (end <= start) return null;
+          const left = cp(start);
+          const right = end < rowLength ? cp(end) : cp(end - 1) + 1;
+          const aminoAcids = (aminoAcidsByFeature.get(feat) || [])
+            .filter(({ codonStart, codonEnd }) => codonStart < rowEnd && codonEnd > rowStart)
+            .map(aminoAcid => {
+              const cellStart = Math.max(aminoAcid.codonStart, rowStart) - rowStart;
+              const cellEnd = Math.min(aminoAcid.codonEnd, rowEnd) - rowStart;
+              const cellLeft = cp(cellStart);
+              const cellRight = cellEnd < rowLength ? cp(cellEnd) : cp(cellEnd - 1) + 1;
+              return {
+                ...aminoAcid,
+                left: cellLeft - left,
+                width: Math.max(cellRight - cellLeft, 1),
+                showLabel: aminoAcid.position >= rowStart && aminoAcid.position < rowEnd,
+              };
+            });
+          return {
+            feat,
+            key: `${feat.id || `${feat.kind || feat.type || 'feature'}-${feat.sourceIndex ?? index}`}-${feat.start}-${feat.end}-${index}`,
+            kind: feat.kind || (feat.type === 'primer' ? 'primer' : 'feature'),
+            start,
+            end,
+            left,
+            width: Math.max(right - left, 1),
+            aminoAcids,
+          };
+        }).filter(Boolean);
+        const primerSegments = annotationSegments.filter(segment => segment.kind === 'primer');
+        const featureLanes = packSegmentsIntoLanes(annotationSegments.filter(segment => segment.kind !== 'primer'));
 
         return (
           <div key={rowStart} data-row-start={rowStart} style={{ marginBottom: 16 }}>
@@ -246,7 +437,7 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
                           fontSize: 8,
                           fontWeight: selected ? 900 : 700,
                           fontStyle: 'italic',
-                          color: csColor,
+                          color: getVisibleAccentTextColor(csColor),
                           backgroundColor: selected ? '#ccfbf1' : cs.color ? `${cs.color}18` : 'transparent',
                           border: selected ? '1px solid #0f766e' : cs.color ? `1px solid ${cs.color}55` : '1px solid transparent',
                           borderRadius: 3,
@@ -315,95 +506,138 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
               </span>
             </div>
 
-            {rowFeats.length > 0 && (
+            {annotationSegments.length > 0 && (
               <div style={{ marginTop: 3, marginLeft: '5ch' }}>
-                {rowFeats.map((feat, fi) => {
-                  const fS = Math.max(feat.start - rowStart, 0);
-                  const fE = Math.min(feat.end - rowStart, rowEnd - rowStart);
-                  if (fE <= fS) return null;
-                  const left = cp(fS);
-                  const width = cp(fE - 1) - cp(fS) + 1;
-                  const allAAs = getAAs(feat);
-                  let aaLine = null;
-                  if (allAAs) {
-                    const aaStart = Math.max(0, Math.floor((rowStart - feat.start) / 3));
-                    const aaEnd = Math.min(allAAs.length, Math.ceil((rowEnd - feat.start) / 3));
-                    aaLine = allAAs.slice(aaStart, aaEnd).join('  ');
-                  }
-                  const kind = feat.kind || (feat.type === 'primer' ? 'primer' : 'feature');
+                {primerSegments.map(({ feat, key, kind, left, width }) => {
                   const selected = isFeatureSelected(feat);
-
-                  if (kind === 'primer') {
-                    const color = feat.color || '#a855f7';
-                    const forward = feat.strand !== -1;
-                    const primerWidth = Math.max(width, 4);
-                    return (
-                      <div key={fi} style={{ marginBottom: 4 }}>
-                        <div
-                          onClick={(e) => onAnnotationClick?.(e, { kind, item: feat, start: feat.start, end: feat.end })}
-                          style={{
-                            userSelect: 'none',
-                            marginLeft: `${left}ch`,
-                            width: `${primerWidth}ch`,
-                            minWidth: 28,
-                            height: 24,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            outline: selected ? '2px solid #0f766e' : undefined,
-                            outlineOffset: selected ? 2 : undefined,
-                          }}
-                          title={`${feat.label} (${feat.start + 1}..${feat.end}) ${forward ? '→' : '←'}`}
-                        >
-                          <div
-                            style={{
-                              width: '100%',
-                              height: 16,
-                              border: `2px solid ${color}`,
-                              backgroundColor: '#ffffff',
-                              clipPath: forward
-                                ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)'
-                                : 'polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%)',
-                              boxShadow: selected ? '0 0 0 3px rgba(20,184,166,0.15)' : undefined,
-                            }}
-                          />
-                          <span style={{ color, fontSize: 10, fontWeight: 700, lineHeight: '12px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {feat.label}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  }
-
+                  const color = feat.color || '#a855f7';
+                  const forward = feat.strand !== -1;
+                  const primerWidth = Math.max(width, 4);
+                  const arrowWidth = Math.min(1.4, primerWidth * 0.35);
                   return (
-                    <div key={fi} style={{ marginBottom: 2 }}>
-                      {aaLine && <div style={{ marginLeft: `${left}ch`, fontSize: 10, color: feat.color || '#6366f1', whiteSpace: 'pre', overflow: 'hidden', width: `${width}ch` }}>{aaLine}</div>}
+                    <div key={key} style={{ marginBottom: 4 }}>
                       <div
                         onClick={(e) => onAnnotationClick?.(e, { kind, item: feat, start: feat.start, end: feat.end })}
                         style={{
                           userSelect: 'none',
                           marginLeft: `${left}ch`,
-                          width: `${Math.max(width, 1)}ch`,
+                          width: `${primerWidth}ch`,
+                          minWidth: 28,
+                          height: 24,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                        }}
+                        title={`${feat.label} (${feat.start + 1}..${feat.end}) ${forward ? '→' : '←'}`}
+                      >
+                        <svg
+                          viewBox={`0 0 ${primerWidth} 16`}
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                          style={{
+                            width: '100%',
+                            height: 16,
+                            overflow: 'visible',
+                            filter: selected ? 'drop-shadow(0 0 2px rgba(15,118,110,0.7))' : undefined,
+                          }}
+                        >
+                          <polygon
+                            points={forward
+                              ? `0.15,1 ${primerWidth - arrowWidth},1 ${primerWidth - 0.15},8 ${primerWidth - arrowWidth},15 0.15,15`
+                              : `${arrowWidth},1 ${primerWidth - 0.15},1 ${primerWidth - 0.15},15 ${arrowWidth},15 0.15,8`}
+                            fill="#ffffff"
+                            stroke={selected ? '#0f766e' : color}
+                            strokeWidth={selected ? 3 : 2}
+                            vectorEffect="non-scaling-stroke"
+                            strokeLinejoin="miter"
+                          />
+                        </svg>
+                        <span style={{ color: getVisibleAccentTextColor(selected ? '#0f766e' : color), fontSize: 10, fontWeight: 700, lineHeight: '12px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {feat.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {featureLanes.map((lane, laneIndex) => {
+                  const hasAminoAcids = lane.items.some(segment => segment.aminoAcids.length > 0);
+                  const laneHeight = hasAminoAcids ? 30 : 16;
+                  const barTop = 0;
+                  return (
+                    <div key={`feature-lane-${laneIndex}`} style={{ position: 'relative', height: laneHeight, marginBottom: 2 }}>
+                      {lane.items.map(({ feat, key, kind, left, width, aminoAcids }) => {
+                        const selected = isFeatureSelected(feat);
+                        const featureColor = feat.color || '#6366f1';
+                        const featureWidth = Math.max(width, 1);
+                        const featureArrowWidth = Math.min(1.4, featureWidth * 0.35);
+                        const directionSymbol = feat.strand === 1 ? '→' : feat.strand === -1 ? '←' : feat.strand === 0 ? '↔' : '–';
+                        return (
+                          <div key={key} style={{ position: 'absolute', left: `${left}ch`, top: 0, width: `${featureWidth}ch`, height: laneHeight }}>
+                            {aminoAcids.length > 0 && (
+                              <div style={{ position: 'absolute', inset: '16px 0 auto 0', height: 12, fontSize: 13, color: '#111827', overflow: 'hidden' }}>
+                                {aminoAcids.map(({ aminoAcid, codonStart, codonEnd, left: aminoAcidLeft, width: aminoAcidWidth, showLabel }) => (
+                                  <span
+                                    key={`${codonStart}-${aminoAcid}`}
+                                    onClick={(event) => handleAminoAcidClick(event, codonStart, codonEnd)}
+                                    style={{
+                                      position: 'absolute',
+                                      left: `${aminoAcidLeft}ch`,
+                                      width: `${aminoAcidWidth}ch`,
+                                      height: 12,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      boxSizing: 'border-box',
+                                      borderRight: '1px solid rgba(255,255,255,0.65)',
+                                      backgroundColor: aminoAcid === '*' ? '#ef4444' : '#fedb91',
+                                      color: aminoAcid === '*' ? '#ffffff' : '#111827',
+                                      fontWeight: aminoAcid === '*' ? 800 : 600,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <span style={{ fontSize: 10, lineHeight: 1 }}>{showLabel ? aminoAcid : ''}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                      <div
+                        onClick={(e) => onAnnotationClick?.(e, { kind, item: feat, start: feat.start, end: feat.end })}
+                        style={{
+                          userSelect: 'none',
+                                  position: 'absolute',
+                                  inset: `${barTop}px 0 auto 0`,
+                                  width: '100%',
                           height: 14,
-                          backgroundColor: feat.color || '#6366f1',
-                          borderRadius: 3,
-                          opacity: selected ? 1 : 0.85,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           overflow: 'hidden',
                           cursor: 'pointer',
-                          outline: selected ? '2px solid #0f766e' : undefined,
-                          outlineOffset: selected ? 1 : undefined,
-                          boxShadow: selected ? '0 0 0 3px rgba(20,184,166,0.18)' : undefined,
                         }}
-                        title={`${feat.label} (${feat.start + 1}..${feat.end}) ${feat.strand === 1 ? '→' : '←'}`}
+                        title={`${feat.label} (${feat.start + 1}..${feat.end}) ${directionSymbol}`}
                       >
-                        <span style={{ color: 'white', fontSize: 9, fontWeight: 600, whiteSpace: 'nowrap', padding: '0 4px' }}>
-                          {feat.strand === -1 ? '◀ ' : ''}{feat.label}{feat.strand === 1 ? ' ▶' : ''}
+                        <svg viewBox={`0 0 ${featureWidth} 14`} preserveAspectRatio="none" aria-hidden="true" style={{ position: 'absolute', inset: 0, height: '100%', width: '100%', overflow: 'visible', filter: selected ? 'drop-shadow(0 0 2px rgba(15,118,110,0.75))' : undefined }}>
+                          <polygon
+                            points={directionalPolygonPoints(0.12, featureWidth - 0.12, 0.75, 13.25, feat.strand, featureArrowWidth)}
+                                    fill={featureColor}
+                            fillOpacity={selected ? 1 : 0.86}
+                            stroke={selected ? '#0f766e' : '#475569'}
+                            strokeWidth={selected ? 2 : 1}
+                            vectorEffect="non-scaling-stroke"
+                            strokeLinejoin="miter"
+                          />
+                        </svg>
+                                <span style={{ position: 'relative', zIndex: 1, color: getReadableTextColor(featureColor), fontSize: 9, fontWeight: 600, whiteSpace: 'nowrap', padding: '0 4px' }}>
+                          {(feat.strand === -1 || feat.strand === 0) ? '◀ ' : ''}
+                          {feat.label}
+                          {(feat.strand === 1 || feat.strand === 0) ? ' ▶' : feat.strand !== -1 ? ' –' : ''}
                         </span>
                       </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -413,6 +647,8 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
         );
       })}
       </div>
+      </div>
+      <LinearSequenceOverview totalLen={totalLen} features={features} visibleRange={visibleRange} onNavigate={navigateToOverviewPosition} />
     </div>
   );
 }

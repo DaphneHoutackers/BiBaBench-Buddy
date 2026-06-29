@@ -152,6 +152,13 @@ const createWindow = async () => {
     }
   });
 
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 
   console.log('VITE_DEV_SERVER_URL:', devServerUrl);
