@@ -718,7 +718,7 @@ ${rawText}`;
     const serializedSteps = JSON.stringify(protocolSteps);
     const calcFields = variables
       .filter(v => v.label && v.id && serializedSteps.includes(`{{${v.id}}}`))
-      .map(({ isAiSuggestion, reason, ...rest }) => ({
+      .map(({ isAiSuggestion: _isAiSuggestion, reason: _reason, ...rest }) => ({
         ...rest,
         default: rest.default || '0',
       }));
