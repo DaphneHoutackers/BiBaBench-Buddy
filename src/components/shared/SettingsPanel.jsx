@@ -203,37 +203,38 @@ const AI_PROVIDERS = {
   groq: {
     label: 'Groq',
     models: [
-      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Fastest)' },
-      { id: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B' },
-      { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-      { id: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+      { id: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Fastest)' },
+      { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick' },
+      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+      { id: 'compound-beta', label: 'Compound Beta (Agentic)' },
     ]
   },
   openai: {
     label: 'OpenAI',
     models: [
-      { id: 'gpt-4o', label: 'GPT-4o (Best)' },
-      { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-      { id: 'o1-preview', label: 'o1 Preview' },
-      { id: 'o1-mini', label: 'o1 Mini' },
+      { id: 'gpt-5.5', label: 'GPT-5.5 (Best)' },
+      { id: 'gpt-5.4', label: 'GPT-5.4' },
+      { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
     ]
   },
   gemini: {
     label: 'Google Gemini',
     models: [
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-      { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Aanbevolen)' },
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+      { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Nieuwste)' },
     ]
   },
   openrouter: {
     label: 'OpenRouter',
     models: [
-      { id: 'openrouter/auto', label: 'Auto Router' },
-      { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-      { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
-      { id: 'openai/gpt-4o', label: 'OpenAI GPT-4o' },
-      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
+      { id: 'openrouter/auto', label: 'Auto Router', isFree: false },
+      { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron Ultra (Free)', isFree: true },
+      { id: 'google/gemini-3.5-flash', label: 'Gemini 3.5 Flash', isFree: false },
+      { id: 'anthropic/claude-opus-4.8', label: 'Claude Opus 4.8', isFree: false },
+      { id: 'openai/gpt-4o', label: 'OpenAI GPT-4o', isFree: false },
+      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B', isFree: false },
     ]
   }
 };
@@ -243,6 +244,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const [valStatus, setValStatus] = React.useState({});
   const [orModels, setOrModels] = React.useState([]);
   const [isFetchingOr, setIsFetchingOr] = React.useState(false);
+  const [orFreeOnly, setOrFreeOnly] = React.useState(false);
 
   const currentTheme = settings.appTheme || 'default';
   const [tab, setTab] = useState('appearance');
@@ -515,6 +517,12 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
 
   const handleSignOut = async () => {
     if (!isSyncEnabled()) return;
+    setAuthMode('login');
+    setEmail('');
+    setPassword('');
+    setAuthError('');
+    setAuthMessage('');
+    setIsEditingProfile(false);
     await logout();
   };
 
@@ -727,42 +735,60 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t.modelSelection}</p>
                   {settings.aiProvider === 'openrouter' && (
-                    <button
-                      onClick={handleFetchOR}
-                      disabled={isFetchingOr}
-                      className="text-[10px] text-teal-600 flex items-center gap-1 hover:underline disabled:opacity-50"
-                    >
-                      {isFetchingOr ? (
-                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-2.5 h-2.5" />
-                      )}
-                      {t.syncModels}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={orFreeOnly}
+                          onChange={(e) => setOrFreeOnly(e.target.checked)}
+                          className="w-3 h-3 rounded accent-teal-500 cursor-pointer"
+                        />
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                          {settings.language === 'nl' ? 'Alleen gratis' : 'Free only'}
+                        </span>
+                      </label>
+                      <button
+                        onClick={handleFetchOR}
+                        disabled={isFetchingOr}
+                        className="text-[10px] text-teal-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+                      >
+                        {isFetchingOr ? (
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-2.5 h-2.5" />
+                        )}
+                        {t.syncModels}
+                      </button>
+                    </div>
                   )}
                 </div>
-                <select
-                  value={
-                    settings.aiModel ||
-                    (settings.aiProvider === 'openrouter' && orModels.length > 0
-                      ? orModels[0].id
-                      : AI_PROVIDERS[settings.aiProvider || 'groq'].models[0].id)
-                  }
-                  onChange={(e) => onChange({ ...settings, aiModel: e.target.value })}
-                  className="w-full h-10 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900"
-                >
-                  {settings.aiProvider === 'openrouter' && orModels.length > 0
-                    ? orModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))
-                    : AI_PROVIDERS[settings.aiProvider || 'groq'].models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                </select>
+                {(() => {
+                  const sourceModels = settings.aiProvider === 'openrouter' && orModels.length > 0
+                    ? orModels
+                    : AI_PROVIDERS[settings.aiProvider || 'groq'].models;
+                  const displayModels = settings.aiProvider === 'openrouter' && orFreeOnly
+                    ? sourceModels.filter((m) => m.isFree || m.id === 'openrouter/auto')
+                    : sourceModels;
+                  return (
+                    <select
+                      value={settings.aiModel || displayModels[0]?.id || ''}
+                      onChange={(e) => onChange({ ...settings, aiModel: e.target.value })}
+                      disabled={settings.aiProvider === 'openrouter' && isFetchingOr}
+                      className="w-full h-10 px-3 text-sm border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white dark:bg-slate-900 disabled:opacity-60"
+                    >
+                      {settings.aiProvider === 'openrouter' && isFetchingOr
+                        ? <option value="">{settings.language === 'nl' ? 'Modellen laden...' : 'Loading models...'}</option>
+                        : displayModels.length === 0
+                          ? <option value="">{settings.language === 'nl' ? 'Geen gratis modellen gevonden' : 'No free models found'}</option>
+                          : displayModels.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.label}{m.isFree ? ' ✦' : ''}
+                            </option>
+                          ))
+                      }
+                    </select>
+                  );
+                })()}
               </div>
 
               <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">

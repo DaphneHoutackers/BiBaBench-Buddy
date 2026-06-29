@@ -15,6 +15,7 @@ import { HiMiniChartBar } from "react-icons/hi2";
 import { useHistory } from '@/context/HistoryContext';
 import ScienceJoke from '@/components/shared/ScienceJoke';
 import SettingsPanel from '@/components/shared/SettingsPanel';
+import { AuthWelcomeModal } from '@/components/shared/AuthWelcomeModal';
 import { APP_THEMES } from '@/styles/themes';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -38,6 +39,7 @@ const ImageAnnotator = lazy(() => import('./ImageAnnotator'));
 const PlasmidAnalyzer = lazy(() => import('@/components/calculators/PlasmidAnalyzer'));
 
 const SETTINGS_KEY = 'biba_bench_buddy_settings';
+const AUTH_WELCOME_COMPLETED_KEY = 'biba_auth_welcome_completed';
 const HIDDEN_HISTORY_TOOL_IDS = new Set(['__seq_analyzer_library__']);
 
 class LazyToolErrorBoundary extends Component {
@@ -390,13 +392,40 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
 const ALL_BODY_THEME_CLASSES = Object.values(APP_THEMES).map(t => t.bodyClass).filter(Boolean);
 
 export default function Home() {
-  const { user, profile, isPasswordRecovery } = useAuth();
+  const { user, profile, isLoadingAuth, isPasswordRecovery } = useAuth();
   const isMobile = useIsMobile();
   const [active, setActive] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [visitedIds, setVisitedIds] = useState(() => new Set());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAuthWelcome, setShowAuthWelcome] = useState(() => {
+    try {
+      return localStorage.getItem(AUTH_WELCOME_COMPLETED_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    if (!user) return;
+
+    try {
+      localStorage.setItem(AUTH_WELCOME_COMPLETED_KEY, 'true');
+    } catch {
+      // Keep the in-memory state working when persistent storage is unavailable.
+    }
+    setShowAuthWelcome(false);
+  }, [user]);
+
+  const dismissAuthWelcome = () => {
+    try {
+      localStorage.setItem(AUTH_WELCOME_COMPLETED_KEY, 'true');
+    } catch {
+      // The modal still stays dismissed for the current app session.
+    }
+    setShowAuthWelcome(false);
+  };
 
   // Auto-open settings panel for password recovery
   useEffect(() => {
@@ -1089,7 +1118,7 @@ export default function Home() {
 
         <main 
           onClick={() => { if (sidebarOpen) setSidebarOpen(false); }}
-          className={`flex-1 ${active === 'plasmid' ? 'px-1 sm:px-2.5 lg:px-3.5 pt-4 pb-4' : 'px-2 sm:px-6 lg:px-8 pt-8 pb-8'} ${isHome ? 'pb-0' : ''} overflow-y-auto overflow-x-hidden relative flex flex-col cursor-default`}
+          className={`flex-1 ${active === 'plasmid' ? 'px-1 sm:px-2.5 lg:px-3.5 pt-1 pb-4' : isHome ? 'px-2 sm:px-6 lg:px-8 pt-8 pb-0' : 'px-2 sm:px-6 lg:px-8 pt-2 pb-8'} overflow-y-auto overflow-x-hidden relative flex flex-col cursor-default`}
         >
 
           {/* ── HOME ── */}
@@ -1191,7 +1220,7 @@ export default function Home() {
               <div
                 key={id}
                 style={{ display: active === id ? 'block' : 'none' }}
-                className="transition-all duration-300 w-full pt-2"
+                className="transition-all duration-300 w-full"
               >
                 {TOOL_TABS[id] ? (
                   TOOL_TABS[id].map(subtab => {
@@ -1239,6 +1268,13 @@ export default function Home() {
           settings={settings}
           onChange={setSettings}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {!isLoadingAuth && !user && !isPasswordRecovery && (
+        <AuthWelcomeModal
+          open={showAuthWelcome}
+          onClose={dismissAuthWelcome}
         />
       )}
 

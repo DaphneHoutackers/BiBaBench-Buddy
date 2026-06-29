@@ -14,19 +14,19 @@ const getSettings = () => {
 const PROVIDER_CONFIGS = {
   groq: {
     url: 'https://api.groq.com/openai/v1/chat/completions',
-    defaultModel: 'llama-3.3-70b-versatile',
+    defaultModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
   },
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
-    defaultModel: 'gpt-4o',
+    defaultModel: 'gpt-5.5',
   },
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/models/',
-    defaultModel: 'gemini-2.0-flash',
+    defaultModel: 'gemini-2.5-flash',
   },
   openrouter: {
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    defaultModel: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    defaultModel: 'openrouter/auto',
   },
 };
 
@@ -103,7 +103,7 @@ async function invokeOpenAIStyle({ prompt, response_json_schema, apiKey, model, 
 
     if (!res.ok) {
       const err = await res.text();
-      console.error(`[${provider.toUpperCase()}] API error:`, res.status, err);
+      console.error(`[${provider.toUpperCase()}] API error (model: ${model}):`, res.status, err);
       return response_json_schema ? {} : `AI error (${res.status}). Check your API key.`;
     }
 
@@ -249,6 +249,7 @@ export async function FetchOpenRouterModels() {
       .map((m) => ({
         id: m.id,
         label: m.name || m.id,
+        isFree: m.pricing?.prompt === '0' && m.pricing?.completion === '0',
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
     return [OPENROUTER_AUTO_MODEL, ...models.filter((m) => m.id !== OPENROUTER_AUTO_MODEL.id)];
