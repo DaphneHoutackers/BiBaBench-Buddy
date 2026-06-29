@@ -22,12 +22,14 @@ import SequenceView from './SequenceView';
 import AlignmentView from './AlignmentView';
 import MacColorPicker from '@/components/shared/MacColorPicker';
 import { useHistory } from '@/context/HistoryContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { ENZYME_DB, getEnzymeDisplayName, getEnzymeVariants } from '@/lib/enzymes';
 import { makeId } from '@/utils/makeId';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FEATURE_DEFAULTS = { CDS: '#f2d64b', gene: '#8fd3ff', promoter: '#80b9e8', terminator: '#d97063', rep_origin: '#fff81f', primer_bind: '#a36ee8', misc_feature: '#f4a9c8', regulatory: '#d9b36a', polyA_signal: '#e92542' };
 const RE_HIGHLIGHT_COLORS = ['#e4a72d', '#4a90d9', '#68a357', '#d16565', '#8a6fd1', '#5aa6a6', '#c9823b', '#7a8794', '#ef4444', '#14b8a6'];
-const PRIMER_COLORS = ['#ff001f', '#00a42b', '#ff9100', '#b800f8', '#3d65ff', '#b5b5b5', '#c9823b', '#7a8794'];
+const FEATURE_PRESET_COLORS = ['#3b82f6', '#20D9F2', '#ef4444', '#f59e0b', '#fff81f', '#FF2ECB', '#F3A1CA', '#10b981', '#84cc16', '#a855f7'];
+const PRIMER_COLORS = ['#ff001f', '#00a42b', '#ff9100', '#b800f8', '#3d65ff', '#b5b5b5', '#c9823b', '#7a8794', '#06b6d4', '#ec4899'];
 const PRIMER_MIN_ANNEALING = 14;
 // Change map label fonts here.
 const MAP_LABEL_FONT_FAMILY = 'Verdana, Geneva, sans-serif';
@@ -456,54 +458,21 @@ function normalizePrimersAgainstSequence(primers = [], dnaSeq = '') {
   return primers.map(primer => normalizePrimerAgainstSequence(primer, dnaSeq));
 }
 
-function PrimerColorControl({ value, onChange, compact = false }) {
-  const [open, setOpen] = useState(false);
-  const pickerRef = useRef(null);
+function PrimerColorControl({ value, onChange, compact = false, onOpenPicker }) {
   const color = value || PRIMER_COLORS[0];
-  useEffect(() => {
-    if (!open) return;
-    const close = (event) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
   return (
-    <div ref={pickerRef} className="relative flex items-center gap-1.5" onClick={event => event.stopPropagation()}>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className={`${compact ? 'h-5 w-5' : 'h-7 w-7'} flex flex-shrink-0 items-center justify-center rounded-sm border border-black p-0 shadow-sm`}
-        title="Primer color"
-      >
-        <span className="h-full w-full rounded-[2px]" style={{ backgroundColor: color }} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-7 z-[220] w-36 rounded-lg border border-slate-200 bg-white p-2 shadow-2xl">
-          <div className="grid grid-cols-4 gap-1">
-            {PRIMER_COLORS.map(preset => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => { onChange?.(preset); setOpen(false); }}
-                className={`h-5 w-5 rounded-sm border ${color === preset ? 'border-black' : 'border-slate-200'}`}
-                style={{ backgroundColor: preset }}
-                title={preset}
-              />
-            ))}
-          </div>
-          <label className="mt-2 flex h-7 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-[10px] font-semibold text-slate-600 hover:bg-slate-50">
-            Custom color
-            <input
-              type="color"
-              value={color}
-              onChange={(event) => { onChange?.(event.target.value); setOpen(false); }}
-              className="absolute h-0 w-0 opacity-0"
-            />
-          </label>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        onOpenPicker?.(rect, color, onChange);
+      }}
+      className={`${compact ? 'h-5 w-5' : 'h-7 w-7'} flex flex-shrink-0 items-center justify-center rounded-sm border border-black p-0 shadow-sm hover:scale-105 transition-transform`}
+      title="Primer color"
+    >
+      <span className="h-full w-full rounded-[2px]" style={{ backgroundColor: color }} />
+    </button>
   );
 }
 
@@ -550,16 +519,21 @@ const tagStyle = (color = '#4a90d9') => ({
   border: `1px solid ${shadeHex(color, 0.85)}`,
 });
 
-function FeatureColorControl({ value, onChange, compact = true }) {
+function FeatureColorControl({ value, onChange, compact = true, onOpenPicker }) {
+  const color = value || '#3b82f6';
   return (
-    <MacColorPicker
-      value={value || '#6366f1'}
-      onChange={onChange}
-      buttonClassName={`${compact ? 'h-5 w-5' : 'h-7 w-7'} flex flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 p-0 shadow-sm`}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        onOpenPicker?.(rect, color, onChange);
+      }}
+      className={`${compact ? 'h-5 w-5' : 'h-7 w-7'} flex flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 p-0 shadow-sm hover:scale-105 transition-transform`}
       title="Change feature color"
     >
-      <span className="h-full w-full rounded-[2px]" style={{ background: value || '#6366f1' }} />
-    </MacColorPicker>
+      <span className="h-full w-full rounded-[2px]" style={{ backgroundColor: color }} />
+    </button>
   );
 }
 
@@ -725,6 +699,7 @@ function CircularMap({
   name,
   isCircular,
 }) {
+  const isMobile = useIsMobile();
   const totalLen = seq.length;
   if (!totalLen) return null;
   const cx = 350, cy = 300, R = 190;
@@ -794,7 +769,23 @@ function CircularMap({
     const right = { x: x + size * 0.7 * Math.cos(directionAngle - 2.35), y: y + size * 0.7 * Math.sin(directionAngle - 2.35) };
     return `${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`;
   };
-  const featureSelected = feat => selectedMapItem?.kind === feat.kind && selectedMapItem?.index === feat.sourceIndex;
+  const isFeatureSelected = (feat, index) => {
+    const kind = feat.kind || 'feature';
+    const idx = feat.sourceIndex ?? index;
+    if (selectedMapItem?.kind === kind && selectedMapItem?.index === idx) return true;
+    if (selectedRange && selectedRange.anchors) {
+      return selectedRange.anchors.some(anchor => anchor.kind === kind && anchor.index === idx);
+    }
+    return false;
+  };
+  const isEnzymeSelected = (site) => {
+    if (selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === site.name && selectedMapItem?.pos === site.pos) return true;
+    if (selectedRange && selectedRange.anchors) {
+      return selectedRange.anchors.some(anchor => anchor.kind === 'enzyme' && anchor.name === site.name && anchor.pos === site.pos);
+    }
+    return false;
+  };
+  const featureSelected = isFeatureSelected;
   const colorText = color => getReadableTextColor(color || '#e2e8f0');
   const labelModels = layoutExternalLabels([
     ...features.filter(feat => !featureLabelFits(feat, totalLen, R)).map((feat, index) => {
@@ -839,7 +830,7 @@ function CircularMap({
   return (
     <svg
       viewBox="-140 -95 980 790"
-      style={{ width: '100%', height: '100%', minHeight: 560 }}
+      style={{ width: '100%', height: '100%', minHeight: isMobile ? '100%' : 560 }}
       onClick={(e) => onMapPositionClick?.(e, posFromSvgEvent(e))}
     >
       <circle cx={cx} cy={cy} r={R} fill="none" stroke="#2f3437" strokeWidth="3.2" />
@@ -847,7 +838,7 @@ function CircularMap({
       {sequenceColors.map((region, index) => {
         const start = Math.max(0, Math.min(totalLen, region.start || 0));
         const end = Math.max(0, Math.min(totalLen, region.end || 0));
-        if (end <= start) return null;
+        if (start === end) return null;
         const paths = [];
         if (region.strand === 0 || region.strand === 1) paths.push({ key: 'top', radius: R + 5 });
         if (region.strand === 0 || region.strand === -1) paths.push({ key: 'bottom', radius: R });
@@ -877,7 +868,7 @@ function CircularMap({
           </g>
         );
       })}
-      {selectedRange && selectedRange.end > selectedRange.start && (
+      {selectedRange && selectedRange.start !== selectedRange.end && (
         <path d={arcLinePath(selectedRange.start, selectedRange.end, R + 12)} fill="none" stroke={rangeColor || '#0ea5e9'} strokeWidth="7" strokeLinecap="round" opacity="0.95" />
       )}
       {selectedMapItem?.kind === 'position' && (() => {
@@ -982,12 +973,10 @@ function CircularMap({
         const a = label.anchorAngle;
         const ring = point(R + 7, a);
         const edge = radialRectEdgePoint(ring.x, ring.y, label.lx, label.ly, label.width, label.height);
-        const selected = isEnzyme
-          ? selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === data.name && selectedMapItem?.pos === data.pos
-          : selectedMapItem?.kind === label.kind && selectedMapItem?.index === label.sourceIndex;
-        const baseColor = data.color || (isEnzyme ? '#111827' : '#cbd5e1');
+        const selected = isEnzyme ? isEnzymeSelected(data) : isFeatureSelected(data, label.sourceIndex);
+        const baseColor = selected ? '#2563eb' : (data.color || (isEnzyme ? '#111827' : '#cbd5e1'));
         const isPrimer = label.kind === 'primer';
-        const hasCard = (!isEnzyme && !isPrimer) || (isEnzyme && data.color && data.color !== '#111827');
+        const hasCard = (!isEnzyme && !isPrimer) || (isEnzyme && data.color && data.color !== '#111827') || selected;
         const cardStroke = isEnzyme ? baseColor : shadeHex(baseColor, 0.75);
         const rectX = label.lx - label.width / 2;
         const rectY = label.ly - label.height / 2;
@@ -1004,10 +993,10 @@ function CircularMap({
           >
             <path d={routeLeaderLine(label, ring, edge)} fill="none" stroke="#8c8c8c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
             {hasCard && (
-              <rect x={rectX} y={rectY} width={label.width} height={label.height} rx={4} fill={baseColor} stroke={selected ? '#0f766e' : cardStroke} strokeWidth={selected ? 2.4 : isEnzyme ? 1 : 1.2} />
+              <rect x={rectX} y={rectY} width={label.width} height={label.height} rx={4} fill={baseColor} stroke={selected ? '#1d4ed8' : cardStroke} strokeWidth={selected ? 2 : isEnzyme ? 1 : 1.2} />
             )}
-            {isPrimer && <circle cx={primerDotX} cy={label.ly} r={selected ? 4.8 : 4} fill={baseColor} stroke={selected ? '#0f766e' : '#ffffff'} strokeWidth={selected ? 1.8 : 1} />}
-            <text x={textX} y={label.ly + 0.5} textAnchor={isPrimer ? 'start' : 'middle'} dominantBaseline="middle" fill={hasCard ? colorText(baseColor) : isEnzyme ? '#111827' : '#334155'} fontSize="11" fontWeight={isEnzyme ? 800 : selected ? 650 : 500} fontFamily={MAP_LABEL_FONT_FAMILY}>
+            {isPrimer && <circle cx={primerDotX} cy={label.ly} r={selected ? 4.8 : 4} fill={data.color || '#cbd5e1'} stroke="#ffffff" strokeWidth={selected ? 1.8 : 1} />}
+            <text x={textX} y={label.ly + 0.5} textAnchor={isPrimer ? 'start' : 'middle'} dominantBaseline="middle" fill={selected ? (isEnzyme && data.color && data.color !== '#111827' ? data.color : '#ffffff') : (hasCard ? colorText(baseColor) : isEnzyme ? '#111827' : '#334155')} fontSize="11" fontWeight={isEnzyme ? 800 : selected ? 650 : 500} fontFamily={MAP_LABEL_FONT_FAMILY} fontStyle={isEnzyme ? 'italic' : undefined}>
               {label.label}
             </text>
           </g>
@@ -1025,6 +1014,25 @@ function LinearMap({ seq, features, cutSites, selectedMapItem, selectedRange, ra
   const totalLen = seq.length; if (!totalLen) return null;
   const W = 820, H = 240, trackY = 110, FW = 18, ml = 40, mr = 780, mw = 740;
   const xOf = pos => ml + (pos / totalLen) * mw;
+
+  const isFeatureSelected = (feat, index) => {
+    const kind = feat.kind || 'feature';
+    const idx = feat.sourceIndex ?? index;
+    if (selectedMapItem?.kind === kind && selectedMapItem?.index === idx) return true;
+    if (selectedRange && selectedRange.anchors) {
+      return selectedRange.anchors.some(anchor => anchor.kind === kind && anchor.index === idx);
+    }
+    return false;
+  };
+
+  const isEnzymeSelected = (site) => {
+    if (selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === site.name && selectedMapItem?.pos === site.pos) return true;
+    if (selectedRange && selectedRange.anchors) {
+      return selectedRange.anchors.some(anchor => anchor.kind === 'enzyme' && anchor.name === site.name && anchor.pos === site.pos);
+    }
+    return false;
+  };
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
       <line x1={ml} y1={trackY} x2={mr} y2={trackY} stroke="#2f3437" strokeWidth="3" />
@@ -1037,7 +1045,7 @@ function LinearMap({ seq, features, cutSites, selectedMapItem, selectedRange, ra
         const x1 = xOf(feat.start), x2 = xOf(feat.end), w = Math.max(x2 - x1, 2);
         const y = feat.strand === -1 ? trackY : trackY - FW;
         const aw = Math.min(w, 11);
-        const selected = selectedMapItem?.kind === (feat.kind || 'feature') && selectedMapItem?.index === feat.sourceIndex;
+        const selected = isFeatureSelected(feat, i);
         let points = "";
         if (feat.strand === 1 && w > aw) points = `${x1},${y} ${x2 - aw},${y} ${x2},${y + FW / 2} ${x2 - aw},${y + FW} ${x1},${y + FW}`;
         else if (feat.strand === -1 && w > aw) points = `${x1 + aw},${y} ${x2},${y} ${x2},${y + FW} ${x1 + aw},${y + FW} ${x1},${y + FW / 2}`;
@@ -1051,11 +1059,11 @@ function LinearMap({ seq, features, cutSites, selectedMapItem, selectedRange, ra
       })}
       {cutSites.map((site, i) => {
         const x = xOf(site.pos);
-        const selected = selectedMapItem?.kind === 'enzyme' && selectedMapItem?.name === site.name && selectedMapItem?.pos === site.pos;
+        const selected = isEnzymeSelected(site);
         return (
           <g key={`${site.name}-${site.pos}-${i}`} cursor="pointer" onClick={(e) => onEnzymeClick?.(e, site, i)} onContextMenu={(e) => onEnzymeContextMenu?.(e, site, i)} onMouseEnter={(e) => onEnzymeHover?.(e, site, i)} onMouseLeave={onEnzymeLeave}>
             <line x1={x} y1={trackY - FW - 9} x2={x} y2={trackY + FW + 9} stroke={selected ? '#0f766e' : site.color || '#111827'} strokeWidth={selected ? 3 : 1.7} />
-            <text x={x} y={trackY - FW - 16} textAnchor="middle" fill={site.color || '#111827'} fontSize="10" fontWeight="700" fontFamily={MAP_LABEL_FONT_FAMILY}>{site.name}</text>
+            <text x={x} y={trackY - FW - 16} textAnchor="middle" fill={site.color || '#111827'} fontSize="10" fontWeight="700" fontFamily={MAP_LABEL_FONT_FAMILY} fontStyle="italic">{site.name}</text>
           </g>
         );
       })}
@@ -1081,6 +1089,7 @@ const newEmptyTab = (name = '') => ({
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PlasmidAnalyzer({ historyData, isActive }) {
   const { history, user, isRemoteLoading, addHistoryItem } = useHistory();
+  const isMobile = useIsMobile();
   const [toolTab, setToolTab] = useState('analyzer');
   const [phase, setPhase] = useState('input');
 
@@ -1157,6 +1166,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [featureContextPanel, setFeatureContextPanel] = useState(null);
   const [primerContextMenu, setPrimerContextMenu] = useState(null);
   const [enzymeHighlightMenu, setEnzymeHighlightMenu] = useState(null);
+  const [activeColorPicker, setActiveColorPicker] = useState(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
@@ -1189,6 +1199,19 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   useEffect(() => { saveExpState(EXP_FEATURES_KEY, expandedFeatures); }, [expandedFeatures]);
   useEffect(() => { saveExpState(EXP_PRIMERS_KEY, expandedPrimers); }, [expandedPrimers]);
   useEffect(() => { saveExpState(EXP_ENZYMES_KEY, expandedEnzymes); }, [expandedEnzymes]);
+
+  // activeColorPicker click outside close
+  useEffect(() => {
+    if (!activeColorPicker) return;
+    const handleClose = (e) => {
+      const el = document.getElementById('fixed-color-picker-popover');
+      if (el && !el.contains(e.target)) {
+        setActiveColorPicker(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClose);
+    return () => document.removeEventListener('mousedown', handleClose);
+  }, [activeColorPicker]);
   
   // Resizable panels state
   const [leftWidth, setLeftWidth] = useState(260);
@@ -1222,6 +1245,14 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizingLeft, isResizingRight]);
+
+  // Collapse panels on mobile by default
+  useEffect(() => {
+    if (isMobile) {
+      setLeftPanelCollapsed(true);
+      setRightPanelCollapsed(true);
+    }
+  }, [isMobile]);
 
   const startNewSequence = (parentId = null) => {
     autoOpenedLibraryRef.current = true;
@@ -1622,8 +1653,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   };
 
   const copySelectedRange = async () => {
-    if (!selectedRange || selectedRange.end <= selectedRange.start) return;
-    const selectedSeq = sequence.slice(selectedRange.start, selectedRange.end);
+    if (!selectedRange || selectedRange.start === selectedRange.end) return;
+    const selectedSeq = selectedRange.end > selectedRange.start
+      ? sequence.slice(selectedRange.start, selectedRange.end)
+      : sequence.slice(selectedRange.start) + sequence.slice(0, selectedRange.end);
     try {
       await navigator.clipboard.writeText(selectedSeq);
     } catch {
@@ -1657,20 +1690,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     setSelectedMapItem(null);
   };
 
-  const selectedRangeSummary = useMemo(() => {
-    if (!selectedRange || selectedRange.end <= selectedRange.start) return '';
-    const length = selectedRange.end - selectedRange.start;
-    const selectedSeq = sequence.slice(selectedRange.start, selectedRange.end);
-    const gc = gcPercent(selectedSeq);
-    const anchors = selectedRange.anchors || [];
-    const sameKind = anchors.length === 2 && anchors[0]?.kind && anchors[0].kind === anchors[1]?.kind;
-    const kindLabel = sameKind && anchors[0].kind === 'primer'
-      ? '2 primers '
-      : sameKind && anchors[0].kind === 'feature'
-        ? '2 features '
-        : '';
-    return `Selected: ${kindLabel}(${selectedRange.start + 1} .. ${selectedRange.end} = ${length} bp) [${gc} GC]`;
-  }, [selectedRange, sequence]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1685,7 +1704,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
         setPopupData(null);
         return;
       }
-      if (key === 'c' && selectedRange && selectedRange.end > selectedRange.start) {
+      if (key === 'c' && selectedRange && selectedRange.start !== selectedRange.end) {
         e.preventDefault();
         copySelectedRange();
         return;
@@ -1799,6 +1818,55 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     const item = mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index);
     return item ? { start: item.start, end: item.end } : null;
   }, [selectedRange, selectedMapItem, mapFeatures, seq.length]);
+
+  const selectedRangeSummary = useMemo(() => {
+    // 1. If range selection is active
+    if (selectedRange && selectedRange.end > selectedRange.start) {
+      const length = selectedRange.end - selectedRange.start;
+      const selectedSeq = sequence.slice(selectedRange.start, selectedRange.end);
+      const gc = gcPercent(selectedSeq);
+      const anchors = selectedRange.anchors || [];
+      const sameKind = anchors.length === 2 && anchors[0]?.kind && anchors[0].kind === anchors[1]?.kind;
+      
+      if (sameKind) {
+        if (anchors[0].kind === 'feature') {
+          return `Selected: 2 features (${selectedRange.start + 1} .. ${selectedRange.end} = ${length} bp) [${gc}% GC]`;
+        }
+        if (anchors[0].kind === 'primer') {
+          return `Selected: 2 primers (${selectedRange.start + 1} .. ${selectedRange.end} = ${length} bp) [${gc}% GC]`;
+        }
+        if (anchors[0].kind === 'enzyme') {
+          const enzymeA = anchors[0].pos < anchors[1].pos ? anchors[0] : anchors[1];
+          const enzymeB = anchors[0].pos < anchors[1].pos ? anchors[1] : anchors[0];
+          return `Selected: ${enzymeA.name} (${enzymeA.pos + 1}) – ${enzymeB.name} (${enzymeB.pos + 1}) = ${length} bp [${gc}% GC]`;
+        }
+      }
+      
+      return `Selected: (${selectedRange.start + 1} .. ${selectedRange.end} = ${length} bp) [${gc}% GC]`;
+    }
+
+    // 2. If single item selection is active
+    if (selectedMapItem) {
+      if (selectedMapItem.kind === 'feature' || selectedMapItem.kind === 'primer') {
+        const feat = mapFeatures.find(f => f.kind === selectedMapItem.kind && f.sourceIndex === selectedMapItem.index);
+        if (feat) {
+          const length = feat.end - feat.start;
+          const selectedSeq = sequence.slice(feat.start, feat.end);
+          const gc = gcPercent(selectedSeq);
+          const displayName = feat.name || feat.label || 'Unnamed';
+          return `Selected: ${displayName} (${feat.start + 1} .. ${feat.end} = ${length} bp) [${gc}% GC]`;
+        }
+      }
+      if (selectedMapItem.kind === 'enzyme') {
+        return `Selected: ${selectedMapItem.name} (${selectedMapItem.pos + 1})`;
+      }
+      if (selectedMapItem.kind === 'position') {
+        return `Selected position: ${selectedMapItem.pos + 1}`;
+      }
+    }
+
+    return '';
+  }, [selectedRange, selectedMapItem, sequence, mapFeatures]);
 
   const parseImportedSequence = (name, text, existingPrimers = []) => {
     let parsed;
@@ -2589,7 +2657,8 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   };
 
   const colorSequenceRegion = (start, end, strand = 0, color = rangeColor) => {
-    if (start >= end) return;
+    if (start === end) return;
+    if (!isCircular && start > end) return;
     setSequenceColors(prev => [...prev, { id: `sc_${Date.now()}`, start, end, strand, color }]);
     setRangeColor(color);
     setShowRangeColorTools(false);
@@ -2608,9 +2677,26 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
   const selectRangeFromAnchors = (first, second) => {
     if (!first || !second || !seq.length) return null;
-    if (first.kind === 'primer' && second.kind === 'primer' && first.strand === second.strand) {
-      setSelectedRange(null);
-      return null;
+    if (first.kind === 'primer' && second.kind === 'primer') {
+      if (first.strand === second.strand) {
+        setSelectedRange(null);
+        return null;
+      }
+      const forwardPrimer = first.strand === 1 ? first : second;
+      const reversePrimer = first.strand === -1 ? first : second;
+      
+      const posF = forwardPrimer.start !== undefined ? forwardPrimer.start : forwardPrimer.pos;
+      const posR = reversePrimer.end !== undefined ? reversePrimer.end : reversePrimer.pos;
+      
+      if (!isCircular && posF > posR) {
+        const range = { start: Math.min(posF, posR), end: Math.max(posF, posR), anchors: [first, second] };
+        setSelectedRange(range);
+        return range;
+      }
+      
+      const range = { start: posF, end: posR, anchors: [first, second] };
+      setSelectedRange(range);
+      return range;
     }
     if (first.kind === 'feature' && second.kind === 'feature') {
       const starts = [first.start, second.start].map(value => Math.max(0, Math.min(seq.length, Number(value) || 0)));
@@ -3216,8 +3302,102 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
 
   const exportPNG = async () => {
     if (!mapRef.current) return;
-    const canvas = await html2canvas(mapRef.current, { backgroundColor: '#ffffff', scale: 2 });
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `${seqName || 'sequence'}_map.png`; a.click();
+    const svgEl = mapRef.current.querySelector('.plasmid-map-container svg');
+    if (!svgEl) return;
+
+    const fallbackHtml2Canvas = async () => {
+      try {
+        const mapContainer = mapRef.current.querySelector('.flex.h-full.items-center.justify-center.overflow-hidden') || mapRef.current;
+        const originalTransform = mapContainer.style.transform;
+        const originalPaddingBottom = mapContainer.style.paddingBottom;
+        
+        mapContainer.style.transform = 'none';
+        mapContainer.style.paddingBottom = '0px';
+
+        const canvas = await html2canvas(mapContainer, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false });
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = `${seqName || 'sequence'}_map.png`;
+        a.click();
+
+        mapContainer.style.transform = originalTransform;
+        mapContainer.style.paddingBottom = originalPaddingBottom;
+      } catch (err) {
+        console.error('Fallback html2canvas export failed:', err);
+      }
+    };
+
+    try {
+      // 1. Serialize SVG element to XML string
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(svgEl);
+
+      // Ensure SVG namespace is present
+      if (!svgString.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
+        svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      // 2. Parse viewBox to find natural dimensions of the map SVG
+      const viewBoxAttr = svgEl.getAttribute('viewBox');
+      let w = 1000;
+      let h = 800;
+      if (viewBoxAttr) {
+        const parts = viewBoxAttr.split(/[\s,]+/).map(Number);
+        if (parts.length === 4) {
+          w = parts[2];
+          h = parts[3];
+        }
+      }
+
+      // 3. Create high-resolution canvas (2x scale for sharp output)
+      const scale = 2;
+      const exportWidth = w * scale;
+      const exportHeight = h * scale;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        fallbackHtml2Canvas();
+        return;
+      }
+
+      // Draw solid white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, exportWidth, exportHeight);
+
+      // 4. Load SVG into Image object via Blob URL
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          a.download = `${seqName || 'sequence'}_map.png`;
+          a.click();
+        } catch (drawErr) {
+          console.error('Drawing SVG on canvas failed, trying fallback:', drawErr);
+          fallbackHtml2Canvas();
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+
+      img.onerror = (err) => {
+        console.warn('SVG Image load failed, falling back to html2canvas:', err);
+        URL.revokeObjectURL(url);
+        fallbackHtml2Canvas();
+      };
+
+      img.src = url;
+    } catch (error) {
+      console.warn('Direct SVG serialization failed, falling back to html2canvas:', error);
+      fallbackHtml2Canvas();
+    }
   };
 
   const handleFeatureClick = (e, feature, idx) => handleMapSelection(e, feature.kind || 'feature', feature, idx);
@@ -4206,14 +4386,22 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
       )}
 
       {toolTab === 'analyzer' && phase === 'map' && seq && (
-        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white min-h-0" style={{ height: 'calc(100dvh - 155px)', minHeight: 0 }}>
+        <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white min-h-0" style={{ height: isMobile ? 'calc(100dvh - 180px)' : 'calc(100dvh - 155px)', minHeight: 0 }}>
 
 
 
           {/* Sidebar + map row */}
           <div className="flex flex-1 min-h-0 overflow-hidden relative">
 
-            <div className="flex-shrink-0 border-r flex flex-col bg-slate-50 relative" style={{ width: leftPanelCollapsed ? 42 : leftWidth }}>
+            <div 
+              className={`flex-shrink-0 border-r flex flex-col bg-slate-50 transition-all duration-300 ${
+                isMobile && !leftPanelCollapsed ? 'absolute left-0 top-0 bottom-0 z-50 shadow-xl border-r border-slate-200 h-full' : 'relative'
+              }`}
+              style={{ 
+                position: isMobile && !leftPanelCollapsed ? 'absolute' : 'relative',
+                width: leftPanelCollapsed ? 42 : isMobile ? 'min(calc(100% - 42px), 280px)' : leftWidth
+              }}
+            >
               {leftPanelCollapsed ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex h-[53px] w-full items-center justify-center border-b border-slate-200 bg-white">
@@ -4436,7 +4624,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             </div>
 
             {/* Resize Handle Left */}
-            {!leftPanelCollapsed && (
+            {!leftPanelCollapsed && !isMobile && (
               <div 
                 onMouseDown={() => setIsResizingLeft(true)}
                 className="w-1 hover:bg-teal-400 cursor-col-resize transition-colors flex-shrink-0 bg-slate-200 z-10"
@@ -4444,41 +4632,43 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             )}
 
             {/* Main Window */}
-            <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white overflow-hidden relative">
               
               {/* View Toggle Bar */}
-              <div className="flex h-[53px] items-center gap-1.5 border-b bg-slate-50/50 px-2.5">
-                <div className="flex bg-slate-200/60 p-0.5 rounded-xl">
-                  {[
-                    { id: 'map', label: 'Map', icon: BiDoughnutChart },
-                    { id: 'sequence', label: 'Sequence', icon: BiDna },
-                    { id: 'features', label: 'Features', icon: PiTagBold },
-                    { id: 'enzymes', label: 'Enzymes', icon: BiGame },
-                    { id: 'primers', label: 'Primers', icon: TbArrowsExchange }
-                  ].map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      onClick={() => setViewMode(id)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                        viewMode === id 
-                          ? 'bg-white text-teal-700 shadow-sm' 
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {label}
-                    </button>
-                  ))}
+              <div className="flex h-[53px] items-center justify-between border-b bg-slate-50/50 px-2.5 gap-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 -my-1 flex-1 min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <div className="flex bg-slate-200/60 p-0.5 rounded-xl flex-shrink-0">
+                    {[
+                      { id: 'map', label: 'Map', icon: BiDoughnutChart },
+                      { id: 'sequence', label: 'Sequence', icon: BiDna },
+                      { id: 'features', label: 'Features', icon: PiTagBold },
+                      { id: 'enzymes', label: 'Enzymes', icon: BiGame },
+                      { id: 'primers', label: 'Primers', icon: TbArrowsExchange }
+                    ].map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        onClick={() => setViewMode(id)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0 ${
+                          viewMode === id 
+                            ? 'bg-white text-teal-700 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setViewMode('alignment')}
+                    className={`flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-bold shadow-sm flex-shrink-0 ${viewMode === 'alignment' ? 'border-teal-200 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-500 hover:text-teal-700'}`}
+                    title="Alignment"
+                  >
+                    <span className="text-[13px] leading-none">≡</span>
+                    Alignment
+                  </button>
                 </div>
-                <button
-                  onClick={() => setViewMode('alignment')}
-                  className={`flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-bold shadow-sm ${viewMode === 'alignment' ? 'border-teal-200 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-500 hover:text-teal-700'}`}
-                  title="Alignment"
-                >
-                  <span className="text-[13px] leading-none">≡</span>
-                  Alignment
-                </button>
-                <div className="ml-auto flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={undoChange} disabled={undoIndexRef.current <= 0} className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent" title="Undo">
                     <Undo2 className="w-4 h-4" />
                   </button>
@@ -4536,7 +4726,14 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                       </button>
                     ))}
                   </div>
-                  <div className={`flex h-full items-center justify-center overflow-hidden ${showMapSearch ? 'pb-[3.5rem]' : 'pb-6'}`} style={{ transform: `scale(${mapZoom})`, transformOrigin: 'center center' }}>
+                  <div 
+                    className="plasmid-map-container flex h-full items-center justify-center overflow-hidden" 
+                    style={{ 
+                      transform: `scale(${mapZoom})`, 
+                      transformOrigin: 'center center',
+                      paddingBottom: `${showMapSearch ? 40 : 16}px`
+                    }}
+                  >
                     {isCircular
                       ? <CircularMap
                           seq={seq}
@@ -4576,33 +4773,6 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           name={seqName}
                         />
                     }
-                  </div>
-                  <button
-                    onClick={() => setShowMapSearch(v => !v)}
-                    className="absolute bottom-7 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 hover:text-teal-700"
-                    title="Find DNA sequence"
-                  >
-                    <Search className="h-4 w-4" />
-                  </button>
-                  {showMapSearch && (
-                    <div className="absolute bottom-6 left-0 right-0 z-30 flex h-8 items-center gap-2 border-t border-slate-200 bg-slate-100 px-12 py-0.5">
-                      <span className="flex-shrink-0 text-xs font-semibold text-slate-500">Find DNA sequence:</span>
-                      <Input
-                        value={mapSearchQuery}
-                        onChange={e => setMapSearchQuery(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') runMapSequenceSearch(); }}
-                        placeholder="ATGC..."
-                        className="h-6 min-w-0 flex-1 border-slate-300 bg-white font-mono text-xs"
-                      />
-                      <button onClick={runMapSequenceSearch} className="h-6 rounded-md bg-teal-600 px-2.5 text-xs font-semibold text-white hover:bg-teal-700">Search</button>
-                      <span className="w-12 text-center text-[11px] text-slate-500">{mapSearchMatches.length ? `${activeMapSearchIndex + 1}/${mapSearchMatches.length}` : ''}</span>
-                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(-1)} className="h-6 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Previous</button>
-                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(1)} className="h-6 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Next</button>
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 z-20 flex h-6 items-center border-t border-slate-200 bg-white px-3 text-[11px] text-slate-600">
-                    <span className="truncate">{selectedRangeSummary}</span>
-                    {mapSearchQuery && mapSearchMatches.length === 0 && <span className="ml-auto text-slate-400">No sequence match</span>}
                   </div>
                   </>
                 )}
@@ -4932,7 +5102,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         {showAddFeature && addFeatureSurface === 'main' && (
                           <tr className="border-b border-teal-100 bg-teal-50/40">
                             <td className="py-2 px-1">
-                              <MacColorPicker value={newFeature.color || '#3b82f6'} onChange={color => setNewFeature(f => ({ ...f, color }))} buttonClassName="flex h-5 w-5 items-center justify-center rounded-sm border border-slate-900/70 p-0" swatchClassName="h-full w-full rounded-sm" />
+                              <FeatureColorControl
+                                value={newFeature.color || '#3b82f6'}
+                                onChange={color => setNewFeature(f => ({ ...f, color }))}
+                                compact
+                                onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                                  type: 'feature',
+                                  id: 'new-feature-main',
+                                  rect,
+                                  color: currentColor,
+                                  onChange: onChangeColor
+                                })}
+                              />
                             </td>
                             <td className="py-2"><Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Feature name" className="h-7 text-xs" /></td>
                             <td className="py-2">
@@ -4993,7 +5174,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                     setExpandedFeatures(next);
                                   }}>
                                   <td className="py-2 px-1">
-                                    <FeatureColorControl value={feat.color} onChange={color => updateFeature(i, { color })} />
+                                    <FeatureColorControl
+                                      value={feat.color}
+                                      onChange={color => updateFeature(i, { color })}
+                                      onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                                        type: 'feature',
+                                        id: i,
+                                        rect,
+                                        color: currentColor,
+                                        onChange: onChangeColor
+                                      })}
+                                    />
                                   </td>
                                   <td className="py-2 font-bold text-slate-700">
                                     {editingFeatureLabelIdx === i ? (
@@ -5121,7 +5312,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                         {showAddPrimer && addPrimerSurface === 'main' && (
                           <tr className="border-b border-teal-100 bg-teal-50/40">
                             <td className="py-2 px-1">
-                              <MacColorPicker value={newPrimerColor} onChange={setNewPrimerColor} buttonClassName="flex h-5 w-5 items-center justify-center rounded-sm border border-slate-900/70 p-0" swatchClassName="h-full w-full rounded-sm" />
+                              <PrimerColorControl
+                                value={newPrimerColor}
+                                onChange={setNewPrimerColor}
+                                compact
+                                onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                                  type: 'primer',
+                                  id: 'new-main',
+                                  rect,
+                                  color: currentColor,
+                                  onChange: onChangeColor
+                                })}
+                              />
                             </td>
                             <td className="py-2"><Input value={newPrimerName} onChange={e => setNewPrimerName(e.target.value)} placeholder="Primer name" className="h-7 text-xs" /></td>
                             <td colSpan="5" className="py-2">
@@ -5157,7 +5359,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                   setExpandedPrimers(next);
                                 }}>
                                 <td className="py-3 px-1">
-                                  <PrimerColorControl value={p.color} onChange={color => updatePrimer(i, { color })} compact />
+                                  <PrimerColorControl
+                                    value={p.color}
+                                    onChange={color => updatePrimer(i, { color })}
+                                    compact
+                                    onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                                      type: 'primer',
+                                      id: p.id || i,
+                                      rect,
+                                      color: currentColor,
+                                      onChange: onChangeColor
+                                    })}
+                                  />
                                 </td>
                                 <td className="py-3 font-bold text-slate-700">{renderPrimerName(p, i, 'text-xs font-bold text-slate-700')}</td>
                                 <td className="py-3 text-slate-600 font-bold">{p.seq?.length || 0}-mer</td>
@@ -5194,10 +5407,38 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                   </div>
                 )}
               </div>
+
+              {viewMode === 'map' && (
+                <>
+                  <button
+                    onClick={() => setShowMapSearch(v => !v)}
+                    className="absolute bottom-2 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 hover:text-teal-700"
+                    title="Find DNA sequence"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                  {showMapSearch && (
+                    <div className="absolute bottom-0 left-0 right-0 z-30 flex h-8 items-center gap-2 border-t border-slate-200 bg-slate-100 px-12 py-0.5">
+                      <span className="flex-shrink-0 text-xs font-semibold text-slate-500">Find DNA sequence:</span>
+                      <Input
+                        value={mapSearchQuery}
+                        onChange={e => setMapSearchQuery(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') runMapSequenceSearch(); }}
+                        placeholder="ATGC..."
+                        className="h-6 min-w-0 flex-1 border-slate-300 bg-white font-mono text-xs"
+                      />
+                      <button onClick={runMapSequenceSearch} className="h-6 rounded-md bg-teal-600 px-2.5 text-xs font-semibold text-white hover:bg-teal-700">Search</button>
+                      <span className="w-12 text-center text-[11px] text-slate-500">{mapSearchMatches.length ? `${activeMapSearchIndex + 1}/${mapSearchMatches.length}` : ''}</span>
+                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(-1)} className="h-6 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Previous</button>
+                      <button disabled={mapSearchMatches.length < 2} onClick={() => focusMapSearchMatch(1)} className="h-6 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Next</button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Resize Handle Right */}
-            {!rightPanelCollapsed && (
+            {!rightPanelCollapsed && !isMobile && (
               <div 
                 onMouseDown={() => setIsResizingRight(true)}
                 className="w-1 hover:bg-teal-400 cursor-col-resize transition-colors flex-shrink-0 bg-slate-200 z-10"
@@ -5205,7 +5446,19 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
             )}
 
             {/* Right panel */}
-            <div className={`flex flex-col overflow-visible relative min-h-0 ${rightPanelCollapsed ? 'bg-slate-50' : 'bg-white'}`} style={{ width: rightPanelCollapsed ? 42 : activePanel === 'info' ? Math.max(rightWidth, 360) : rightWidth, flexShrink: 0, display: viewMode === 'alignment' ? 'none' : undefined }}>
+            <div 
+              className={`flex flex-col overflow-visible min-h-0 transition-all duration-300 ${
+                rightPanelCollapsed ? 'bg-slate-50' : 'bg-white'
+              } ${
+                isMobile && !rightPanelCollapsed ? 'absolute right-0 top-0 bottom-0 z-50 shadow-xl border-l border-slate-200 h-full' : 'relative'
+              }`} 
+              style={{ 
+                position: isMobile && !rightPanelCollapsed ? 'absolute' : 'relative',
+                width: rightPanelCollapsed ? 42 : isMobile ? 'min(calc(100% - 42px), 280px)' : activePanel === 'info' ? Math.max(rightWidth, 360) : rightWidth, 
+                flexShrink: 0, 
+                display: viewMode === 'alignment' ? 'none' : undefined 
+              }}
+            >
               {rightPanelCollapsed ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex h-[53px] w-full items-center justify-center border-b border-slate-200 bg-white">
@@ -5267,7 +5520,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                     {showAddFeature && addFeatureSurface === 'side' && (
                       <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
                         <div className="flex items-center gap-1.5">
-                          <MacColorPicker value={newFeature.color || '#3b82f6'} onChange={color => setNewFeature(f => ({ ...f, color }))} buttonClassName="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 bg-white p-0" swatchClassName="h-full w-full rounded-sm" />
+                          <FeatureColorControl
+                            value={newFeature.color || '#3b82f6'}
+                            onChange={color => setNewFeature(f => ({ ...f, color }))}
+                            onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                              type: 'feature',
+                              id: 'new-feature-sidebar',
+                              rect,
+                              color: currentColor,
+                              onChange: onChangeColor
+                            })}
+                          />
                           <Input value={newFeature.label} onChange={e => setNewFeature(f => ({ ...f, label: e.target.value }))} placeholder="Name" className="h-7 text-xs border-slate-200" />
                           <select value={newFeature.type} onChange={e => setNewFeature(f => ({ ...f, type: e.target.value }))} className="h-7 rounded-md border border-slate-200 bg-white px-1 text-xs text-slate-600">
                             {FEATURE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
@@ -5306,14 +5569,17 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                             e.stopPropagation();
                             setFeatureContextMenu({ index: i, x: e.clientX, y: e.clientY });
                           }}>
-                          <MacColorPicker
-                            value={feat.color || '#6366f1'}
+                          <FeatureColorControl
+                            value={feat.color}
                             onChange={color => updateFeature(i, { color })}
-                            buttonClassName="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-sm border border-slate-900/70 p-0 shadow-sm"
-                            title="Change feature color"
-                          >
-                            <span className="h-full w-full rounded-[2px]" style={{ background: feat.color || '#6366f1' }} />
-                          </MacColorPicker>
+                            onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                              type: 'feature',
+                              id: i,
+                              rect,
+                              color: currentColor,
+                              onChange: onChangeColor
+                            })}
+                          />
                           {(
                             <>
                               <div className="flex-1 min-w-0 pr-1">
@@ -5438,53 +5704,26 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                       {getEnzymeDisplayName(name)}
                                     </span>
                                   </td>
-                                  <td className="relative py-1 px-1 text-center">
+                                  <td className="py-1 px-1 text-center">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setEnzymeHighlightMenu(enzymeHighlightMenu?.name === name ? null : { name });
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setActiveColorPicker({
+                                          type: 'enzyme',
+                                          id: name,
+                                          rect,
+                                          color: color || RE_HIGHLIGHT_COLORS[0],
+                                          onChange: (nextColor) => setEnzymeHighlight(name, nextColor),
+                                          onRemove: () => clearEnzymeHighlight(name)
+                                        });
                                       }}
-                                      className="relative inline-flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 shadow-sm hover:text-teal-700"
+                                      className="relative inline-flex h-6 w-6 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 shadow-sm hover:text-teal-700 hover:scale-105 transition-transform"
                                       style={color ? { backgroundColor: `${color}33`, borderColor: `${color}66` } : undefined}
                                       title="Highlight enzyme"
                                     >
-                                      <LuHighlighter className="relative z-10 h-3.5 w-3.5" />
+                                      <LuHighlighter className="relative z-10 h-3.5 w-3.5" style={color ? { color } : undefined} />
                                     </button>
-                                    {enzymeHighlightMenu?.name === name && (
-                                      <div
-                                        className="absolute right-0 top-7 z-[120] w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl"
-                                        onMouseDown={e => e.stopPropagation()}
-                                        onClick={e => e.stopPropagation()}
-                                      >
-                                        <div className="grid grid-cols-5 gap-1">
-                                          {RE_HIGHLIGHT_COLORS.slice(0, 10).map(preset => (
-                                            <button
-                                              key={preset}
-                                              onClick={() => { setEnzymeHighlight(name, preset); setEnzymeHighlightMenu(null); }}
-                                              className={`h-6 w-6 rounded border ${color === preset ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'}`}
-                                              style={{ backgroundColor: preset }}
-                                              title={preset}
-                                            />
-                                          ))}
-                                        </div>
-                                        <div className="mt-2 grid grid-cols-2 gap-1.5">
-                                          <button
-                                            onClick={() => { clearEnzymeHighlight(name); setEnzymeHighlightMenu(null); }}
-                                            className="h-7 rounded-md border border-slate-200 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
-                                          >
-                                            Remove
-                                          </button>
-                                          <MacColorPicker
-                                            value={color || RE_HIGHLIGHT_COLORS[0]}
-                                            onChange={nextColor => { setEnzymeHighlight(name, nextColor); setEnzymeHighlightMenu(null); }}
-                                            buttonClassName="flex h-7 items-center justify-center rounded-md border border-slate-200 bg-white text-[10px] font-semibold text-teal-700 hover:bg-teal-50"
-                                            title="Custom highlight color"
-                                          >
-                                            Custom
-                                          </MacColorPicker>
-                                        </div>
-                                      </div>
-                                    )}
                                   </td>
                                   <td className="py-1 px-1 text-center">
                                     <span className={`font-bold text-xs px-1.5 py-0.5 rounded ${count === 0 ? 'bg-slate-100 text-slate-400' :
@@ -5553,7 +5792,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                           </div>
                         )}
                         <div className="flex items-center gap-1.5">
-                          <MacColorPicker value={newPrimerColor} onChange={setNewPrimerColor} title="Custom primer color" buttonClassName="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border border-slate-200 bg-white p-0.5" swatchClassName="h-4 w-4 rounded-sm" />
+                          <PrimerColorControl
+                            value={newPrimerColor}
+                            onChange={setNewPrimerColor}
+                            compact
+                            onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                              type: 'primer',
+                              id: 'new-sidebar',
+                              rect,
+                              color: currentColor,
+                              onChange: onChangeColor
+                            })}
+                          />
                           <div className="flex gap-1 flex-wrap flex-1">
                             {PRIMER_COLORS.map(c => (
                               <button key={c} onClick={() => setNewPrimerColor(c)} style={{ background: c }}
@@ -5585,7 +5835,18 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                                 setPrimerContextMenu({ index: i, x: e.clientX, y: e.clientY });
                               }}
                             >
-                              <PrimerColorControl value={p.color} onChange={color => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color } : x))} compact />
+                              <PrimerColorControl
+                                value={p.color}
+                                onChange={color => setPrimers(prev => prev.map(x => x.id === p.id ? { ...x, color } : x))}
+                                compact
+                                onOpenPicker={(rect, currentColor, onChangeColor) => setActiveColorPicker({
+                                  type: 'primer',
+                                  id: p.id,
+                                  rect,
+                                  color: currentColor,
+                                  onChange: onChangeColor
+                                })}
+                              />
                               <div className="min-w-0 flex-1 pr-1">{renderPrimerName(p, i, 'block truncate text-xs font-medium text-slate-700')}</div>
                               <span className="flex-shrink-0 text-center text-base leading-none text-slate-500">{displayStrand === 1 ? '→' : '←'}</span>
                               <span className="w-9 flex-shrink-0 text-right text-[10px] font-bold text-slate-600">{fullTm}℃</span>
@@ -5617,8 +5878,163 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
               )}
             </div>
           </div>
+
+          {/* Status Bar */}
+          <div 
+            className="flex-shrink-0 flex items-center border-t border-slate-200 bg-slate-50 px-3 text-[10px] text-slate-600 font-medium z-20"
+            style={{ height: '22px', lineHeight: '22px' }}
+          >
+            <span className="truncate leading-none">{selectedRangeSummary || 'No selection'}</span>
+            {viewMode === 'map' && mapSearchQuery && mapSearchMatches.length === 0 && (
+              <span className="ml-auto text-slate-400 leading-none">No sequence match</span>
+            )}
+          </div>
         </div>
       )}
+      {activeColorPicker && (
+        <FixedColorPickerPopup 
+          activeColorPicker={activeColorPicker} 
+          setActiveColorPicker={setActiveColorPicker} 
+        />
+      )}
+    </div>
+  );
+}
+
+function FixedColorPickerPopup({ activeColorPicker, setActiveColorPicker }) {
+  const localStorageKey = `saved_colors_${activeColorPicker.type}`;
+  const [savedColors, setSavedColors] = React.useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(localStorageKey) || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const presets = 
+    activeColorPicker.type === 'feature' ? FEATURE_PRESET_COLORS :
+    activeColorPicker.type === 'primer' ? PRIMER_COLORS :
+    RE_HIGHLIGHT_COLORS;
+
+  const handleSelectColor = (color) => {
+    activeColorPicker.onChange(color);
+    setActiveColorPicker(null);
+  };
+
+  const handleSaveColor = () => {
+    const color = activeColorPicker.color;
+    if (!savedColors.includes(color)) {
+      const next = [...savedColors, color];
+      setSavedColors(next);
+      localStorage.setItem(localStorageKey, JSON.stringify(next));
+    }
+  };
+
+  const handleRemoveSavedColor = (colorToRemove) => {
+    const next = savedColors.filter(c => c !== colorToRemove);
+    setSavedColors(next);
+    localStorage.setItem(localStorageKey, JSON.stringify(next));
+  };
+
+  // Calculate coordinates relative to screen/viewport:
+  const spaceBelow = window.innerHeight - activeColorPicker.rect.bottom;
+  const showAbove = spaceBelow < 185;
+  const top = showAbove 
+    ? activeColorPicker.rect.top - 185
+    : activeColorPicker.rect.bottom + 4;
+  const left = Math.max(10, Math.min(window.innerWidth - 200, activeColorPicker.rect.left - 130));
+
+  return (
+    <div
+      id="fixed-color-picker-popover"
+      className="fixed z-[9999] w-48 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl transition-all select-none"
+      style={{
+        top: `${top}px`,
+        left: `${left}px`,
+      }}
+      onMouseDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+    >
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Presets</p>
+      <div className="grid grid-cols-5 gap-1 pb-2">
+        {presets.map(preset => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => handleSelectColor(preset)}
+            className={`h-6 w-6 rounded border ${activeColorPicker.color === preset ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'} hover:scale-105 transition-transform`}
+            style={{ backgroundColor: preset }}
+            title={preset}
+          />
+        ))}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saved Colors</p>
+          <button
+            type="button"
+            onClick={handleSaveColor}
+            className="text-[9px] font-bold text-teal-600 hover:text-teal-700 transition-colors hover:underline"
+            title="Save current color"
+          >
+            + Save current
+          </button>
+        </div>
+        
+        {savedColors.length > 0 ? (
+          <div className="grid grid-cols-5 gap-1">
+            {savedColors.map((color, idx) => (
+              <div key={idx} className="relative group h-6 w-6">
+                <button
+                  type="button"
+                  onClick={() => handleSelectColor(color)}
+                  className={`h-6 w-6 rounded border ${activeColorPicker.color === color ? 'ring-2 ring-slate-400 ring-offset-1' : 'border-slate-200'} hover:scale-105 transition-transform`}
+                  style={{ backgroundColor: color }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveSavedColor(color);
+                  }}
+                  className="absolute -top-1 -right-1 hidden group-hover:flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-extrabold shadow-sm leading-none"
+                  style={{ fontSize: '10px' }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[9px] text-slate-400 italic">No saved colors.</p>
+        )}
+      </div>
+
+      <div className="mt-2.5 pt-2 border-t border-slate-100 flex gap-1.5">
+        <label className="flex flex-1 h-7 cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors relative overflow-hidden">
+          Custom
+          <input
+            type="color"
+            value={activeColorPicker.color}
+            onChange={(e) => {
+              activeColorPicker.onChange(e.target.value);
+              setActiveColorPicker(null);
+            }}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+          />
+        </label>
+
+        {activeColorPicker.onRemove && (
+          <button
+            type="button"
+            onClick={() => { activeColorPicker.onRemove(); setActiveColorPicker(null); }}
+            className="h-7 px-2 rounded-md border border-slate-200 text-[10px] font-bold text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Remove
+          </button>
+        )}
+      </div>
     </div>
   );
 }

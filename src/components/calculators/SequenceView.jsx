@@ -68,7 +68,10 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
   const getBaseColor = (abs, strand) => {
     for (let i = sequenceColors.length - 1; i >= 0; i--) {
       const region = sequenceColors[i];
-      if (abs >= region.start && abs < region.end && (region.strand === 0 || region.strand === strand)) return region.color;
+      const isInside = region.start <= region.end
+        ? (abs >= region.start && abs < region.end)
+        : (abs >= region.start || abs < region.end);
+      if (isInside && (region.strand === 0 || region.strand === strand)) return region.color;
     }
     return null;
   };
@@ -242,6 +245,7 @@ export default function SequenceView({ seq, features, sequenceColors = [], selec
                         style={{
                           fontSize: 8,
                           fontWeight: selected ? 900 : 700,
+                          fontStyle: 'italic',
                           color: csColor,
                           backgroundColor: selected ? '#ccfbf1' : cs.color ? `${cs.color}18` : 'transparent',
                           border: selected ? '1px solid #0f766e' : cs.color ? `1px solid ${cs.color}55` : '1px solid transparent',
