@@ -55,7 +55,7 @@ const FEATURE_TYPES = [
   'enhancer', 'operator', 'origin', 'source', 'mRNA', 'rRNA', 'tRNA', 'ncRNA', 'exon',
   'intron', '5UTR', '3UTR', 'repeat_region', 'mobile_element'
 ];
-const SEQUENCE_CLASSES = [
+const _SEQUENCE_CLASSES = [
   'PRI - primate', 'ROD - rodent', 'MAM - other mammalian', 'VRT - other vertebrate',
   'INV - invertebrate', 'PLN - plant, fungal, and algal', 'BCT - bacterial', 'VRL - viral',
   'PHG - bacteriophage', 'UNA - unannotated', 'EST - expressed sequence tags',
@@ -1143,10 +1143,10 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   });
   const [expandedFeatures, setExpandedFeatures] = useState(() => loadExpState(EXP_FEATURES_KEY));
   const [expandedPrimers, setExpandedPrimers] = useState(() => loadExpState(EXP_PRIMERS_KEY));
-  const [editingFeatureIdx, setEditingFeatureIdx] = useState(null);
+  const [_editingFeatureIdx, setEditingFeatureIdx] = useState(null);
   const [editingFeatureLabelIdx, setEditingFeatureLabelIdx] = useState(null);
   const [featureLabelDraft, setFeatureLabelDraft] = useState('');
-  const [editingPrimerIdx, setEditingPrimerIdx] = useState(null);
+  const [_editingPrimerIdx, _setEditingPrimerIdx] = useState(null);
   const [editingPrimerLabelId, setEditingPrimerLabelId] = useState(null);
   const [primerLabelDraft, setPrimerLabelDraft] = useState('');
   const [expandedFolders, setExpandedFolders] = useState(() => loadExpState(EXP_FOLDERS_KEY));
@@ -1177,7 +1177,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
   const [featureContextMenu, setFeatureContextMenu] = useState(null);
   const [featureContextPanel, setFeatureContextPanel] = useState(null);
   const [primerContextMenu, setPrimerContextMenu] = useState(null);
-  const [enzymeHighlightMenu, setEnzymeHighlightMenu] = useState(null);
+  const [_enzymeHighlightMenu, setEnzymeHighlightMenu] = useState(null);
   const [activeColorPicker, setActiveColorPicker] = useState(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
@@ -1383,7 +1383,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     const snapshotId = getLibraryHistoryId(user?.id);
     return history.find(item => item.id === snapshotId || item.toolId === LIB_HISTORY_TOOL_ID);
   }, [history, user?.id]);
-  const activeLibraryEntry = useMemo(
+  const _activeLibraryEntry = useMemo(
     () => library.find(item => item.id === activeEntryId && item.type !== 'folder') || null,
     [library, activeEntryId]
   );
@@ -2205,7 +2205,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
     saveUserLib(user?.id, next);
     setExpandedFolders(prev => new Set([...prev, newFolder.id]));
   };
-  const moveItem = (itemId, newParentId) => {
+  const _moveItem = (itemId, newParentId) => {
     const next = library.map(item => 
       item.id === itemId ? { ...item, parentId: newParentId, dateEdited: new Date().toISOString() } : item
     );
@@ -5762,7 +5762,7 @@ export default function PlasmidAnalyzer({ historyData, isActive }) {
                               <tr><td colSpan={5} className="text-center text-slate-400 py-6 text-xs">No enzymes found</td></tr>
                             );
 
-                            return filtered.map(({ name, count, cutType, hasFD }) => {
+                            return filtered.map(({ name, count, cutType, hasFD: _hasFD }) => {
                               const isSel = !!selectedEnzymes[name];
                               const isMapFocused = selectedMapItem?.kind === 'enzyme' && selectedMapItem.name === name;
                               const color = isSel ? selectedEnzymes[name].color : null;
