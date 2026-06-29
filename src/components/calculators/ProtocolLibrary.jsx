@@ -3,11 +3,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Search, ChevronDown, ChevronUp, FlaskConical, Sparkles } from 'lucide-react';
+import { BookOpen, Search, ChevronDown, ChevronUp, FlaskConical, Sparkles, Plus, Trash2 } from 'lucide-react';
 import ProtocolAIChat from '@/components/calculators/ProtocolAIChat';
+import ProtocolBuilder, { RenderSteps } from '@/components/calculators/ProtocolBuilder';
 import { useHistory } from '@/context/HistoryContext';
 import { makeId } from '@/utils/makeId';
+
+// ─── Custom protocol localStorage helpers ─────────────────────────────────────
+const CUSTOM_KEY = 'biba_custom_protocols';
+function loadCustomProtocols() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; } catch { return []; }
+}
+function saveCustomProtocols(protocols) {
+  // Strip non-serialisable calc functions before saving
+  const serialisable = protocols.map(p => ({ ...p, calc: undefined }));
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(serialisable));
+}
 
 
 const PROTOCOLS = [
@@ -413,13 +426,51 @@ const PROTOCOLS = [
   },
 ];
 
-const SPECIAL_STYLES = {
-  ice: { bg: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700', badge: 'bg-blue-100 text-blue-700 dark:text-blue-300', label: '🧊 On Ice' },
-  toxic: { bg: 'bg-red-50 border-red-200', badge: 'bg-red-100 text-red-700', label: '☠️ Toxic — Gloves Required' },
-  warning: { bg: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800', badge: 'bg-amber-100 text-amber-700 dark:text-amber-400', label: '⚠️ Caution' },
-  'fume hood': { bg: 'bg-purple-50 border-purple-200', badge: 'bg-purple-100 text-purple-700', label: '🔬 Fume Hood' },
-  temp: { bg: 'bg-orange-50 border-orange-200', badge: 'bg-orange-100 text-orange-700', label: '🌡️ Temperature' },
-};
+// ─── Custom protocol card (with delete button) ────────────────────────────────
+function CustomProtocolCard({ protocol, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [calcVals, setCalcVals] = useState(
+    Object.fromEntries((protocol.calcFields || []).map(f => [f.id, f.default]))
+  );
+
+  return (
+    <Card className="border border-teal-200 dark:border-teal-800 shadow-sm bg-white dark:bg-slate-900">
+      <button className="w-full text-left p-5 flex items-start justify-between gap-4" onClick={() => setOpen(o => !o)}>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="font-semibold text-slate-800 dark:text-slate-100">{protocol.name}</span>
+            <Badge className="bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 text-xs">Custom</Badge>
+            {protocol.category && <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">{protocol.category}</Badge>}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(protocol.tags || []).map(t => <span key={t} className="text-xs text-slate-400 dark:text-slate-500">#{t}</span>)}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(protocol.id); }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+            title="Remove protocol"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          {open ? <ChevronUp className="w-5 h-5 text-slate-400 mt-0.5" /> : <ChevronDown className="w-5 h-5 text-slate-400 mt-0.5" />}
+        </div>
+      </button>
+
+      {open && (
+        <CardContent className="pt-0 pb-5 space-y-4">
+          <RenderSteps
+            steps={protocol.steps || []}
+            variables={protocol.calcFields || []}
+            values={calcVals}
+            onValueChange={(id, value) => setCalcVals(current => ({ ...current, [id]: value }))}
+          />
+        </CardContent>
+      )}
+    </Card>
+  );
+}
 
 function ProtocolCard({ protocol }) {
   const [open, setOpen] = useState(false);
@@ -475,31 +526,7 @@ function ProtocolCard({ protocol }) {
               )}
             </div>
           )}
-          <ol className="space-y-2">
-            {protocol.steps.map((step, i) => {
-              const style = step.special ? SPECIAL_STYLES[step.special] : null;
-              return (
-                <li key={i} className={`flex gap-3 p-3 rounded-lg border text-sm ${style ? style.bg : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'}`}>
-                  <span className="font-bold text-slate-500 dark:text-slate-400 w-5 flex-shrink-0">{i + 1}.</span>
-                  <div className="flex-1">
-                    <span className="text-slate-700 dark:text-slate-200">{step.text}</span>
-                    {step.param && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {Object.entries(step.param.options).map(([key, val]) => (
-                          <span key={key} className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-2 py-0.5 text-slate-600 dark:text-slate-300">
-                            <span className="text-slate-400 dark:text-slate-500">{key}:</span> {val}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {style && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium self-start flex-shrink-0 ${style.badge}`}>{style.label}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
+          <RenderSteps steps={protocol.steps} variables={protocol.calcFields || []} values={calcVals} />
         </CardContent>
       )}
     </Card>
@@ -512,6 +539,45 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user,
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeTab, setActiveTab] = useState(externalTab || 'library');
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [customProtocols, setCustomProtocols] = useState(() => loadCustomProtocols());
+
+  const handleSaveCustomProtocol = (protocol) => {
+    // Rebuild the calc function at runtime (not serialised)
+    const withCalc = {
+      ...protocol,
+      calc: protocol.calcFields?.length > 0
+        ? (vals) => protocol.calcFields
+            .filter(f => f.label)
+            .map(f => `${f.label}: ${parseFloat(vals[f.id]) || 0}${f.unit ? ' ' + f.unit : ''}`)
+            .join(' | ')
+        : undefined,
+    };
+    const updated = [withCalc, ...customProtocols];
+    setCustomProtocols(updated);
+    saveCustomProtocols(updated);
+    setShowBuilder(false);
+    setActiveTab('library');
+  };
+
+  const handleDeleteCustomProtocol = (id) => {
+    const updated = customProtocols.filter(p => p.id !== id);
+    setCustomProtocols(updated);
+    saveCustomProtocols(updated);
+  };
+
+  // Rebuild calc fns for loaded custom protocols (they lose their fn on serialisation)
+  React.useEffect(() => {
+    setCustomProtocols(prev => prev.map(p => ({
+      ...p,
+      calc: p.calcFields?.length > 0
+        ? (vals) => p.calcFields
+            .filter(f => f.label)
+            .map(f => `${f.label}: ${parseFloat(vals[f.id]) || 0}${f.unit ? ' ' + f.unit : ''}`)
+            .join(' | ')
+        : undefined,
+    })));
+  }, []);
 
   React.useEffect(() => {
     if (externalTab) setActiveTab(externalTab);
@@ -545,14 +611,18 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user,
     return () => clearTimeout(debounce);
   }, [search, selectedCategory, activeTab, isRestoring, addHistoryItem]);
 
-  const categories = ['All', ...Array.from(new Set(PROTOCOLS.map(p => p.category)))];
+  const allProtocols = [...customProtocols, ...PROTOCOLS];
+  const categories = ['All', ...Array.from(new Set(allProtocols.map(p => p.category)))];
 
-  const filtered = PROTOCOLS.filter(p => {
+  const filtered = allProtocols.filter(p => {
     const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
     const q = search.toLowerCase();
-    const matchSearch = !q || p.name.toLowerCase().includes(q) || p.tags.some(t => t.toLowerCase().includes(q));
+    const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.tags || []).some(t => t.toLowerCase().includes(q));
     return matchCat && matchSearch;
   });
+
+  const filteredCustom = filtered.filter(p => p.custom);
+  const filteredBuiltIn = filtered.filter(p => !p.custom);
 
   return (
     <div className="space-y-6">
@@ -560,13 +630,13 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user,
         <div className="p-2.5 rounded-xl bg-gradient-to-br from-yellow-400 to-red-600 text-white shadow-sm">
           <BookOpen className="w-6 h-6" />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">Protocol Library</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Standard workflows with scaling calculators and safety notes</p>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); onTabChange?.(v); }}>
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); onTabChange?.(v); setShowBuilder(false); }}>
         <TabsList className="bg-slate-200/90 dark:bg-slate-950/80 border border-slate-300/40 dark:border-slate-800/60 shadow-sm p-1">
           <TabsTrigger value="library" className="flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
@@ -581,30 +651,61 @@ export default function ProtocolLibrary({ historyData, isActive, settings, user,
         {tabs}
 
         <TabsContent value="library" className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search protocols..." className="pl-9 border-slate-200 dark:border-slate-700" />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {categories.map(cat => (
-                <button key={cat} onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-800/50'}`}>
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-3">
-            {filtered.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 dark:text-slate-500">
-                <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>No protocols found</p>
+          {showBuilder ? (
+            /* ── Builder view ───────────────────────────────────────────── */
+            <Card className="border-0 shadow-sm bg-white dark:bg-slate-900">
+              <CardContent className="p-5">
+                <ProtocolBuilder
+                  settings={settings}
+                  onSave={handleSaveCustomProtocol}
+                  onCancel={() => setShowBuilder(false)}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            /* ── Library view ───────────────────────────────────────────── */
+            <>
+              <div className="flex flex-wrap gap-3">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                  <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search protocols..." className="pl-9 border-slate-200 dark:border-slate-700" />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {categories.map(cat => (
+                    <button key={cat} onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat ? 'bg-teal-600 text-white' : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:bg-slate-800/50'}`}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  onClick={() => setShowBuilder(true)}
+                  className="bg-teal-600 hover:bg-teal-700 text-white gap-2 flex-shrink-0"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4" /> Add Protocol
+                </Button>
               </div>
-            ) : (
-              filtered.map(p => <ProtocolCard key={p.id} protocol={p} />)
-            )}
-          </div>
+
+              <div className="space-y-3">
+                {filtered.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 dark:text-slate-500">
+                    <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>No protocols found</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Custom protocols first */}
+                    {filteredCustom.map(p => (
+                      <CustomProtocolCard key={p.id} protocol={p} onDelete={handleDeleteCustomProtocol} />
+                    ))}
+                    {/* Built-in protocols */}
+                    {filteredBuiltIn.map(p => <ProtocolCard key={p.id} protocol={p} />)}
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="ai" className="mt-4">
