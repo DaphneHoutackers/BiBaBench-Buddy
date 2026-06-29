@@ -1,4 +1,3 @@
-
 # BiBaBenchBuddy
 
 <a href="https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases/latest" height="20">
@@ -16,10 +15,11 @@
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="20">
 </a>
 
-
 BiBaBenchBuddy is a desktop and web application designed for molecular biology workflows. It provides practical tools for calculations, visualization, and protocol support, helping streamline routine lab work and reduce manual errors.
 
-<img width="700" height="500" alt="Schermafbeelding 2026-03-18 om 16 10 05" src="https://github.com/user-attachments/assets/ec5de3a3-d48f-4f09-a635-cc0b7791d808" />
+<p align="center">
+  <img src="docs/app-screenshot.png" alt="BiBaBench Buddy screenshot" width="900">
+</p>
 
 ## Features
 
@@ -50,7 +50,7 @@ For a standalone experience with native performance:
 - **All versions & changelog:**  
   [Releases overview](https://github.com/DaphneHoutackers/BiBaBench-Buddy/releases)
 
-#### ⚠️ macOS: “App is damaged and can’t be opened” warning? ⚠️ 
+#### ⚠️ macOS: “App is damaged and can’t be opened” warning? ⚠️
 
 If you see the warning  
 ‘BiBaBench-Buddy.app is damaged and can’t be opened. You should move it to the Trash’  
@@ -59,6 +59,7 @@ when opening the app for the first time, run the following command in your Termi
 ```bash
 xattr -cr "/Applications/BiBaBench Buddy.app"
 ```
+
 After running this, try opening the app again. The warning should now be resolved.
 
 ## Usage
@@ -66,47 +67,50 @@ After running this, try opening the app again. The warning should now be resolve
 ### 1. Setup & Configuration
 
 Click the **Settings** icon in the top right:
+
 - **Sync:** Log in with **Email** or **GitHub** to keep your sessions and settings synced across your laptop and web browser.
 - **AI Settings:** Paste your API keys (e.g., Google Gemini, OpenAI, or Groq) to unlock the AI Buffer Assistant and smarter protocol generation.
 - **Appearance:** Choose from various themes, including _Modern Dark_, _Glass MacOS_, and curated styles like _pretty pink💕_.
 
 ![alt text](<Kapture 2026-03-19 at 03.03.31.gif>)
 
-
 ## 🚀 Features
+
 🧬 **Calculators (Lab Math)**
-  * **Digestion**: Batch process restriction digests with a vast library of NEB and Thermo enzymes.
-  * **Ligation**: Calculate optimal vector-to-insert molar ratios for standard ligations.
-  * **Gibson**: Multi-fragment assembly planning with molarity and volume calculations.
-  * **Protein**:
-    * **Protein Concentration**: Accurately determine protein concentration using A280 readings, MW, and extinction coefficients.
-    * **Sample preparation**: automatically creates the sample preparation mix table for the measured protein samples in the Protein Concentration tool.
-  * **PCR Calculator**:
-    * **PCR Mix**: Calculate mastermixes for multiple samples with different template concentrations.
-    * **Ta Calculator**: Advanced annealing temperature prediction using the nearest-neighbor model. Provides Tm, MW, and GC content analysis.
-    * **OE-PCR**: Plan Overlap Extension PCRs for site-directed mutagenesis or fragment joining.
-    * **Product Sequence**: Automatically generate the final DNA sequence based on your primers and template.
-  * **Dilution**: Simple or serial dilution calculations with molarity or percentage support.
+
+- **Digestion**: Batch process restriction digests with a vast library of NEB and Thermo enzymes.
+- **Ligation**: Calculate optimal vector-to-insert molar ratios for standard ligations.
+- **Gibson**: Multi-fragment assembly planning with molarity and volume calculations.
+- **Protein**:
+  - **Protein Concentration**: Accurately determine protein concentration using A280 readings, MW, and extinction coefficients.
+  - **Sample preparation**: automatically creates the sample preparation mix table for the measured protein samples in the Protein Concentration tool.
+- **PCR Calculator**:
+  - **PCR Mix**: Calculate mastermixes for multiple samples with different template concentrations.
+  - **Ta Calculator**: Advanced annealing temperature prediction using the nearest-neighbor model. Provides Tm, MW, and GC content analysis.
+  - **OE-PCR**: Plan Overlap Extension PCRs for site-directed mutagenesis or fragment joining.
+  - **Product Sequence**: Automatically generate the final DNA sequence based on your primers and template.
+- **Dilution**: Simple or serial dilution calculations with molarity or percentage support.
 
 🧪 **Lab & Visualization**
-  * **Gel Simulator**: Simulate agarose gels. Manually enter band sizes or paste your DNA sequence and select enzymes to visualize the fragments on gel automatically. Mark bands for extraction directly on the gel.
-  * **Western Blot**: Predict protein migration patterns. Select specific PAGE gel types and use specialized protein ladders.
-  * **Plasmid Analyzer**:
-    * **Map Visualization**: View circular or linear plasmid maps with auto-detection of common features and ORFs.
-    * **Alignment**: Align two sequences to identify mismatches 
-  * **Image Annotator (BETA)**: Upload your own gel or blot images. Add annotations, arrows, and lane labels.
+
+- **Gel Simulator**: Simulate agarose gels. Manually enter band sizes or paste your DNA sequence and select enzymes to visualize the fragments on gel automatically. Mark bands for extraction directly on the gel.
+- **Western Blot**: Predict protein migration patterns. Select specific PAGE gel types and use specialized protein ladders.
+- **Plasmid Analyzer**:
+  - **Map Visualization**: View circular or linear plasmid maps with auto-detection of common features and ORFs.
+  - **Alignment**: Align two sequences to identify mismatches
+- **Image Annotator (BETA)**: Upload your own gel or blot images. Add annotations, arrows, and lane labels.
 
 🤖 **Protocols & AI**
-  * **General AI Assistant**: Available via the top-bar icon to answer lab-related questions or explain tool functionalities.
-  * * **Protocol Library**: A searchable database of standard molecular biology protocols that can be customized and exported.
-  * **AI Buffer Assistant**: A conversational AI optimized for lab chemistry. Describe the buffer you need (e.g., "1X TAE with 10mM EDTA"), and it will generate a recipe you can save to your history.
 
+- **General AI Assistant**: Available via the top-bar icon to answer lab-related questions or explain tool functionalities.
+- - **Protocol Library**: A searchable database of standard molecular biology protocols that can be customized and exported.
+- **AI Buffer Assistant**: A conversational AI optimized for lab chemistry. Describe the buffer you need (e.g., "1X TAE with 10mM EDTA"), and it will generate a recipe you can save to your history.
 
 ## 🧭 Planned Features
 
-* [ ] Gibson tool
-* [ ] Primer designer tool 
-* [ ] General extra's for all tools
+- [ ] Gibson tool
+- [ ] Primer designer tool
+- [ ] General extra's for all tools
 
 ## 📄 Development
 
@@ -120,20 +124,18 @@ npm run dev #web
 npm run app:dev #desktop
 ```
 
-
 ## ⚠️ Known Issues
 
 The following issues are known:
-* Ta Calculator - The Annealing Temperature (Ta) logic is currently being refined and may not be 100% accurate for high-GC or complex primer pairs.
-* Image Annotator - This tool is in active beta. While basic labeling and exporting work, some advanced selection and scaling features may still behave unexpectedly.
-* Sequence Analyzer - The feature labeling is not very nicely visualized yet.
 
+- Ta Calculator - The Annealing Temperature (Ta) logic is currently being refined and may not be 100% accurate for high-GC or complex primer pairs.
+- Image Annotator - This tool is in active beta. While basic labeling and exporting work, some advanced selection and scaling features may still behave unexpectedly.
+- Sequence Analyzer - The feature labeling is not very nicely visualized yet.
 
 ## 📜 Changelog
 
 Zie: [CHANGELOG.md](./CHANGELOG.md)
 Of bekijk [Releases](../../releases)
-
 
 ## ☕ Support
 
