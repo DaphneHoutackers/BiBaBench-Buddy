@@ -1,4 +1,10 @@
-import { reconcileHistory, sameHistoryRevision, retainHistory } from '@/lib/historySync';
+import {
+  applyRemoteHistoryChange,
+  reconcileVisibleHistory,
+  sameHistoryRevision,
+  shouldRunCatchUp,
+  retainHistory,
+} from '@/lib/historySync';
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSyncEnabled } from '@/lib/supabase';
 import { makeId } from '@/utils/makeId';
@@ -7,6 +13,10 @@ import { useAuth } from '@/lib/AuthContext';
 const HistoryContext = createContext(null);
 const LOCAL_STORAGE_KEY = 'bibabenchbuddy_tool_history';
 const HIDDEN_HISTORY_TOOL_IDS = new Set(['__seq_analyzer_library__']);
+const HISTORY_COLUMNS = 'id,toolid,toolname,timestamp,data';
+const ACCOUNT_STATE_PREFIX = '__account_state__:';
+const CATCH_UP_INTERVAL_MS = 60_000;
+const FORCED_CATCH_UP_DEDUPE_MS = 2_000;
 
 
 function normalizeRemoteItem(row) {
@@ -60,8 +70,16 @@ export function HistoryProvider({ children }) {
   }, [user?.id]);
 
   const [history, setHistory] = useState([]);
+  const historyRef = useRef(history);
   const accountRef = useRef(user?.id);
   accountRef.current = user?.id;
+  const historyLoadRef = useRef(null);
+  const lastHistoryLoadStartedAtRef = useRef(0);
+  const sequenceLibraryLoadRef = useRef(null);
+  const lastSequenceLibraryLoadStartedAtRef = useRef(0);
+  const sequenceLibraryRequestedAccountRef = useRef(null);
+  const sequenceLibraryReadyForRef = useRef(null);
+  const [sequenceLibraryReadyFor, setSequenceLibraryReadyFor] = useState(null);
 
   const uploadQueueRef = useRef(Promise.resolve());
   const [syncError, setSyncError] = useState(null);
@@ -86,94 +104,183 @@ export function HistoryProvider({ children }) {
     return task;
   }, [user?.id]);
 
+  const loadRemoteHistory = useCallback((currentLocalHistory = [], { force = false } = {}) => {
+    if (!isSyncEnabled() || !user) return Promise.resolve(false);
+    const accountId = user.id;
+    if (historyLoadRef.current?.accountId === accountId) return historyLoadRef.current.promise;
+
+    const now = Date.now();
+    const minimumInterval = force ? FORCED_CATCH_UP_DEDUPE_MS : CATCH_UP_INTERVAL_MS;
+    if (!shouldRunCatchUp(lastHistoryLoadStartedAtRef.current, now, minimumInterval)) {
+      return Promise.resolve(false);
+    }
+    lastHistoryLoadStartedAtRef.current = now;
+
+    const promise = (async () => {
+      const unsynced = Array.isArray(currentLocalHistory)
+        ? currentLocalHistory.filter(item => !item.synced)
+        : [];
+
+      if (unsynced.length > 0) {
+        await uploadRows(unsynced.map(item => buildRemoteRow(item, accountId)));
+      }
+
+      const { data, error } = await supabase
+        .from('tool_history')
+        .select(HISTORY_COLUMNS)
+        .eq('user_id', accountId)
+        .neq('toolid', '__seq_analyzer_library__')
+        .not('toolid', 'like', `${ACCOUNT_STATE_PREFIX}%`)
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      if (!data || accountRef.current !== accountId) return false;
+
+      const normalized = deduplicateHistory(
+        data.map(normalizeRemoteItem).sort((a, b) => b.timestamp - a.timestamp)
+      );
+      setHistory(prev => reconcileVisibleHistory(prev, normalized));
+      setSyncError(null);
+      return true;
+    })().catch(error => {
+      if (accountRef.current === accountId) setSyncError(error.message || 'Sync failed');
+      return false;
+    }).finally(() => {
+      if (historyLoadRef.current?.promise === promise) historyLoadRef.current = null;
+    });
+
+    historyLoadRef.current = { accountId, promise };
+    return promise;
+  }, [user?.id, uploadRows]);
+
+  const loadSequenceLibrary = useCallback(({ force = false } = {}) => {
+    if (!isSyncEnabled() || !user) return Promise.resolve(false);
+    const accountId = user.id;
+    sequenceLibraryRequestedAccountRef.current = accountId;
+    if (!force && sequenceLibraryReadyForRef.current === accountId) return Promise.resolve(true);
+    if (sequenceLibraryLoadRef.current?.accountId === accountId) return sequenceLibraryLoadRef.current.promise;
+    const now = Date.now();
+    if (force && !shouldRunCatchUp(lastSequenceLibraryLoadStartedAtRef.current, now, FORCED_CATCH_UP_DEDUPE_MS)) {
+      return Promise.resolve(false);
+    }
+    lastSequenceLibraryLoadStartedAtRef.current = now;
+
+    const promise = (async () => {
+      const { data, error } = await supabase
+        .from('tool_history')
+        .select(HISTORY_COLUMNS)
+        .eq('user_id', accountId)
+        .eq('toolid', '__seq_analyzer_library__')
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data && accountRef.current === accountId) {
+        const item = normalizeRemoteItem(data);
+        setHistory(prev => applyRemoteHistoryChange(prev, { eventType: 'UPDATE', item }));
+      }
+      return true;
+    })().catch(error => {
+      console.warn('Sequence library sync failed; using the local copy:', error);
+      return false;
+    }).finally(() => {
+      if (accountRef.current === accountId) {
+        sequenceLibraryReadyForRef.current = accountId;
+        setSequenceLibraryReadyFor(accountId);
+      }
+      if (sequenceLibraryLoadRef.current?.promise === promise) sequenceLibraryLoadRef.current = null;
+    });
+
+    sequenceLibraryLoadRef.current = { accountId, promise };
+    return promise;
+  }, [user?.id]);
+
   // Load history whenever user changes
   useEffect(() => {
     if (!user) {
       setHistory([]);
       setIsRemoteLoading(false);
+      setSequenceLibraryReadyFor(null);
+      sequenceLibraryReadyForRef.current = null;
+      sequenceLibraryRequestedAccountRef.current = null;
       return;
     }
     const key = getStorageKey();
+    let localHistory = [];
     try {
       const saved = localStorage.getItem(key);
       const parsed = saved ? JSON.parse(saved) : [];
-      setHistory(deduplicateHistory(parsed));
+      localHistory = deduplicateHistory(parsed);
+      setHistory(localHistory);
     } catch {
       setHistory([]);
     }
-    
+
+    lastHistoryLoadStartedAtRef.current = 0;
+    lastSequenceLibraryLoadStartedAtRef.current = 0;
+    setSequenceLibraryReadyFor(null);
+    sequenceLibraryReadyForRef.current = null;
+    sequenceLibraryRequestedAccountRef.current = null;
     setIsRemoteLoading(true);
-    loadRemoteHistory([]).finally(() => setIsRemoteLoading(false)); // pass empty to avoid syncing guest history to new user accidentally unless intended
-  }, [user?.id, getStorageKey]);
+    loadRemoteHistory(localHistory, { force: true }).finally(() => {
+      if (accountRef.current === user.id) setIsRemoteLoading(false);
+    });
+  }, [user?.id, getStorageKey, loadRemoteHistory]);
 
   // Keep a ref of history for reliable access in async callbacks
-  const historyRef = useRef(history);
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
 
-  const loadRemoteHistory = useCallback(async (currentLocalHistory = []) => {
-    if (!isSyncEnabled() || !user) return;
-
-    // 1. If there's local unsynced history, upload it to the account
-    const unsynced = Array.isArray(currentLocalHistory)
-      ? currentLocalHistory.filter(item => !item.synced)
-      : [];
-
-    if (unsynced.length > 0) {
-      const rows = unsynced.map(item => buildRemoteRow(item, user.id));
-      await supabase.from('tool_history').upsert(rows, { onConflict: 'id' });
-    }
-
-    // 2. Fetch visible history plus hidden app-state records for this account.
-    const { data, error } = await supabase
-      .from('tool_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .neq('toolid', '__seq_analyzer_library__')
-      .not('toolid', 'like', '__account_state__:%')
-      .order('timestamp', { ascending: false })
-      .limit(100);
-
-    const { data: hiddenData, error: hiddenError } = await supabase
-      .from('tool_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('toolid', '__seq_analyzer_library__');
-
-    if (error || !data || accountRef.current !== user.id) return;
-
-    const normalized = deduplicateHistory(
-      [...data, ...(!hiddenError && hiddenData ? hiddenData : [])]
-        .map(normalizeRemoteItem)
-        .sort((a, b) => b.timestamp - a.timestamp)
-    );
-
-    setHistory(prev => reconcileHistory(prev, normalized));
-
-  }, [user, getStorageKey]);
-
-  // Keep already-open devices current and refresh again when a mobile/desktop
-  // app returns to the foreground. The user_id filter is backed by RLS.
+  // Realtime applies only the changed row. A throttled catch-up after foregrounding,
+  // reconnecting, or coming online covers missed events without background polling.
   useEffect(() => {
     if (!user || !isSyncEnabled()) return undefined;
-    const refresh = () => loadRemoteHistory([]);
+    const accountId = user.id;
+    let hasSubscribed = false;
+    const catchUp = ({ force = false } = {}) => {
+      loadRemoteHistory(historyRef.current, { force });
+      if (sequenceLibraryRequestedAccountRef.current === accountId) {
+        loadSequenceLibrary({ force });
+      }
+    };
+    const applyChange = payload => {
+      const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+      if (!row?.id || (row.user_id && row.user_id !== accountId)) return;
+      if (String(row.toolid || '').startsWith(ACCOUNT_STATE_PREFIX)) return;
+      if (row.toolid === '__seq_analyzer_library__' && sequenceLibraryRequestedAccountRef.current !== accountId) return;
+
+      if (payload.eventType === 'DELETE') {
+        setHistory(prev => applyRemoteHistoryChange(prev, { eventType: 'DELETE', id: row.id }));
+        return;
+      }
+      const item = normalizeRemoteItem(row);
+      setHistory(prev => deduplicateHistory(
+        applyRemoteHistoryChange(prev, { eventType: payload.eventType, item })
+      ));
+    };
     const channel = supabase.channel(`tool-history-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tool_history', filter: `user_id=eq.${user.id}` }, refresh)
-      .subscribe();
-    const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
-    const poll = window.setInterval(refresh, 5000);
-    window.addEventListener('online', refresh);
-    window.addEventListener('focus', refresh);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tool_history', filter: `user_id=eq.${user.id}` }, applyChange)
+      .subscribe(status => {
+        if (status !== 'SUBSCRIBED') return;
+        if (hasSubscribed) catchUp({ force: true });
+        hasSubscribed = true;
+      });
+    const onVisibility = () => { if (document.visibilityState === 'visible') catchUp(); };
+    const onOnline = () => catchUp({ force: true });
+    const onFocus = () => catchUp();
+    window.addEventListener('online', onOnline);
+    window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      window.clearInterval(poll);
-      window.removeEventListener('online', refresh);
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, loadRemoteHistory]);
+  }, [user?.id, loadRemoteHistory, loadSequenceLibrary]);
 
   useEffect(() => {
     if (!history || history.length === 0 && !user) return;
@@ -342,9 +449,11 @@ export function HistoryProvider({ children }) {
         addHistoryItem,
         saveHistoryItems,
         syncError,
+        isSequenceLibraryReady: !user || sequenceLibraryReadyFor === user.id,
+        loadSequenceLibrary,
         deleteHistoryItem,
         clearHistory,
-        reloadHistory: loadRemoteHistory,
+        reloadHistory: () => loadRemoteHistory(historyRef.current, { force: true }),
       }}
     >
       {children}

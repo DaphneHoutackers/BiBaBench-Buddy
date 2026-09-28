@@ -1321,7 +1321,16 @@ const newEmptyTab = (name = '', isCircular = true, mapLayout = undefined) => ({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PlasmidAnalyzer({ historyData, isActive, settings }) {
-  const { history, user, isRemoteLoading, addHistoryItem, saveHistoryItems, syncError } = useHistory();
+  const {
+    history,
+    user,
+    isRemoteLoading,
+    isSequenceLibraryReady,
+    loadSequenceLibrary,
+    addHistoryItem,
+    saveHistoryItems,
+    syncError,
+  } = useHistory();
   const isMobile = useIsMobile();
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -1679,6 +1688,7 @@ export default function PlasmidAnalyzer({ historyData, isActive, settings }) {
     const snapshotId = getLibraryHistoryId(user?.id);
     return history.find(item => item.id === snapshotId || item.toolId === LIB_HISTORY_TOOL_ID);
   }, [history, user?.id]);
+  const isLibrarySyncPending = isRemoteLoading || !isSequenceLibraryReady;
   const _activeLibraryEntry = useMemo(
     () => library.find(item => item.id === activeEntryId && item.type !== 'folder') || null,
     [library, activeEntryId]
@@ -1690,6 +1700,10 @@ export default function PlasmidAnalyzer({ historyData, isActive, settings }) {
   const activeMetadata = infoLibraryEntry?.metadata || defaultPlasmidMetadata();
 
   useEffect(() => {
+    if (user && isActive) loadSequenceLibrary();
+  }, [user?.id, isActive, loadSequenceLibrary]);
+
+  useEffect(() => {
     libraryHydratedRef.current = !user;
     const localLib = loadUserLib(user?.id);
     setLibrary(localLib);
@@ -1698,7 +1712,7 @@ export default function PlasmidAnalyzer({ historyData, isActive, settings }) {
 
   useEffect(() => {
     if (!user) return;
-    if (isRemoteLoading) return;
+    if (isLibrarySyncPending) return;
     // Do not replace edits that have not yet entered the durable history queue.
     if (libraryHydratedRef.current && JSON.stringify(library) !== lastSavedLibraryJsonRef.current) return;
     if (libraryHydratedRef.current && !librarySnapshot?.synced) return;
@@ -1741,14 +1755,14 @@ export default function PlasmidAnalyzer({ historyData, isActive, settings }) {
     saveUserLib(user.id, nextLibrary);
     lastSavedLibraryJsonRef.current = JSON.stringify(nextLibrary);
     libraryHydratedRef.current = true;
-  }, [user, isRemoteLoading, librarySnapshot]);
+  }, [user, isLibrarySyncPending, librarySnapshot]);
 
   useEffect(() => {
     if (phase === 'library') setPhase(sequence ? 'map' : 'input');
   }, [phase, sequence]);
 
   useEffect(() => {
-    if (user && (!libraryHydratedRef.current || isRemoteLoading)) return;
+    if (user && (!libraryHydratedRef.current || isLibrarySyncPending)) return;
 
     const libraryJson = JSON.stringify(library);
     if (libraryJson === lastSavedLibraryJsonRef.current) return;
@@ -1771,7 +1785,7 @@ export default function PlasmidAnalyzer({ historyData, isActive, settings }) {
         },
       });
     }
-  }, [library, user, isRemoteLoading, addHistoryItem]);
+  }, [library, user, isLibrarySyncPending, addHistoryItem]);
 
   // Handle click outside for popups and rename input
   useEffect(() => {
