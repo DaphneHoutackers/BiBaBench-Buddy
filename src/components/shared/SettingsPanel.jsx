@@ -28,7 +28,7 @@ import { RiGeminiFill, RiRobot2Line } from "react-icons/ri";
 import { BsOpenai } from "react-icons/bs";
 import { ValidateApiKey, FetchOpenRouterModels } from '@/api/gemini';
 import { Button } from "@/components/ui/button";
-import { supabase, isSyncEnabled, getAppUrl } from '@/lib/supabase';
+import { supabase, isSyncEnabled, getAppUrl, signInWithGithub } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { FONT_SIZES, APP_THEMES } from '@/styles/themes';
 
@@ -242,7 +242,7 @@ const AI_PROVIDERS = {
 };
 
 export default function SettingsPanel({ settings, onChange, onClose }) {
-  const { user: authUser, profile, setProfile, refreshProfile, logout, isLoadingAuth, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user: authUser, profile, setProfile, refreshProfile, logout, isLoadingAuth, isPasswordRecovery, clearPasswordRecovery, authError: desktopAuthError } = useAuth();
   const [valStatus, setValStatus] = React.useState({});
   const [orModels, setOrModels] = React.useState([]);
   const [isFetchingOr, setIsFetchingOr] = React.useState(false);
@@ -260,6 +260,10 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  useEffect(() => {
+    if (desktopAuthError) setAuthError(desktopAuthError);
+  }, [desktopAuthError]);
   const [authLoading, setAuthLoading] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -514,13 +518,7 @@ export default function SettingsPanel({ settings, onChange, onClose }) {
     setAuthMessage('');
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${getAppUrl()}/`,
-        },
-      });
-      if (error) throw error;
+      await signInWithGithub();
     } catch (err) {
       setAuthError(err.message || 'GitHub sign-in mislukt');
     }

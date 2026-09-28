@@ -14,4 +14,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   exportNotePdf: (data) => ipcRenderer.invoke('export-note-pdf', data),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  openAuthUrl: (url) => ipcRenderer.invoke('open-auth-url', url),
+  consumeAuthCallback: () => ipcRenderer.invoke('consume-auth-callback'),
+  onAuthCallbackAvailable: (callback) => {
+    const subscription = () => callback();
+    ipcRenderer.on('auth-callback-available', subscription);
+    return () => ipcRenderer.removeListener('auth-callback-available', subscription);
+  },
 });

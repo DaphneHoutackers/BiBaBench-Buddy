@@ -5,6 +5,65 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const AUTH_PROTOCOL = 'bibabenchbuddy';
+
+let mainWindow = null;
+let pendingAuthCallback = null;
+
+const isAuthCallbackUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === `${AUTH_PROTOCOL}:` && url.hostname === 'auth' && url.pathname === '/callback';
+  } catch {
+    return false;
+  }
+};
+
+const isTrustedAuthStartUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'https:' &&
+      url.hostname.endsWith('.supabase.co') &&
+      url.pathname === '/auth/v1/authorize' &&
+      url.searchParams.get('provider') === 'github'
+    );
+  } catch {
+    return false;
+  }
+};
+
+const queueAuthCallback = (value) => {
+  if (!isAuthCallbackUrl(value)) return false;
+  pendingAuthCallback = value;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('auth-callback-available');
+  }
+  return true;
+};
+
+if (process.defaultApp && process.argv[1]) {
+  app.setAsDefaultProtocolClient(AUTH_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+} else {
+  app.setAsDefaultProtocolClient(AUTH_PROTOCOL);
+}
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const callbackUrl = commandLine.find(isAuthCallbackUrl);
+    if (callbackUrl) queueAuthCallback(callbackUrl);
+  });
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  queueAuthCallback(url);
+});
 
 if (process.platform === 'win32' && process.argv.includes('--squirrel-firstrun')) {
   app.quit();
@@ -404,12 +463,13 @@ const createWindow = async () => {
   return mainWindow;
 };
 
-let mainWindow = null;
-
 app.whenReady().then(async () => {
   createMenu();
 
   mainWindow = await createWindow();
+
+  const startupCallback = process.argv.find(isAuthCallbackUrl);
+  if (startupCallback) queueAuthCallback(startupCallback);
 
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify();
@@ -561,6 +621,18 @@ ipcMain.handle('open-external', async (_event, url) => {
     return true;
   }
   return false;
+});
+
+ipcMain.handle('open-auth-url', async (_event, url) => {
+  if (!isTrustedAuthStartUrl(url)) return false;
+  await shell.openExternal(url);
+  return true;
+});
+
+ipcMain.handle('consume-auth-callback', async () => {
+  const callback = pendingAuthCallback;
+  pendingAuthCallback = null;
+  return callback;
 });
 
 // Set quitting flag so the window close handler allows actual quit

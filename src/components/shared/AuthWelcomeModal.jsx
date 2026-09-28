@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Github, Loader2, LockKeyhole, Mail, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,10 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getAppUrl, isSyncEnabled, supabase } from '@/lib/supabase';
+import { isSyncEnabled, signInWithGithub, supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
 import appLogo from '@/assets/icon-512.png';
 
 export function AuthWelcomeModal({ open, onClose }) {
+  const { authError: desktopAuthError } = useAuth();
   const [mode, setMode] = useState('login');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -22,6 +24,12 @@ export function AuthWelcomeModal({ open, onClose }) {
   const [message, setMessage] = useState('');
 
   const authAvailable = isSyncEnabled();
+
+  useEffect(() => {
+    if (!desktopAuthError) return;
+    setError(desktopAuthError);
+    setIsSubmitting(false);
+  }, [desktopAuthError]);
 
   const switchMode = nextMode => {
     setMode(nextMode);
@@ -75,11 +83,7 @@ export function AuthWelcomeModal({ open, onClose }) {
     setMessage('');
 
     try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: { redirectTo: `${getAppUrl()}/` },
-      });
-      if (oauthError) throw oauthError;
+      await signInWithGithub();
     } catch (authError) {
       setError(authError?.message || 'GitHub sign-in failed. Please try again.');
       setIsSubmitting(false);

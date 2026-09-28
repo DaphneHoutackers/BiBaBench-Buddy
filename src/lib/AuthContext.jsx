@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from './supabase';
+import { completeDesktopOAuth, supabase } from './supabase';
 
 const AuthContext = createContext(null);
 
@@ -213,9 +213,41 @@ export const AuthProvider = ({ children }) => {
         },
       };
 
+    const consumeDesktopAuthCallback = async () => {
+      if (!window.electronAPI?.consumeAuthCallback) return;
+
+      try {
+        const callbackUrl = await window.electronAPI.consumeAuthCallback();
+        if (!callbackUrl) return;
+
+        setIsLoadingAuth(true);
+        _setAuthError(null);
+        const session = await completeDesktopOAuth(callbackUrl);
+        if (!mounted) return;
+
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        }
+      } catch (error) {
+        if (mounted) {
+          _setAuthError(error?.message || 'GitHub sign-in failed. Please try again.');
+        }
+      } finally {
+        if (mounted) setIsLoadingAuth(false);
+      }
+    };
+
+    const unsubscribeDesktopAuth = window.electronAPI?.onAuthCallbackAvailable?.(() => {
+      void consumeDesktopAuthCallback();
+    });
+    void consumeDesktopAuthCallback();
+
     return () => {
       mounted = false;
       listener?.subscription?.unsubscribe?.();
+      unsubscribeDesktopAuth?.();
     };
   }, []);
 

@@ -12,7 +12,7 @@
         "url": "https://github.com/DaphneHoutackers/BiBaBenchBuddy"
     },
     "main": "dist-electron/main.js",
-    "version": "2.2.2",
+    "version": "2.2.3",
     "scripts": {
         "test": "node --test src/lib/*.test.js",
         "dev": "vite",
@@ -84,6 +84,14 @@
     "build": {
         "appId": "com.bibabenchbuddy.app",
         "productName": "BiBaBenchBuddy",
+        "protocols": [
+            {
+                "name": "BiBaBenchBuddy authentication",
+                "schemes": [
+                    "bibabenchbuddy"
+                ]
+            }
+        ],
         "directories": {
             "output": "release"
         },
