@@ -2,6 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Quiet workspace surfaces: keep color reserved for tool identity and status. */
+:root {
+  --workspace-border: rgba(148, 163, 184, 0.24);
+  --workspace-panel: rgba(255, 255, 255, 0.82);
+  --workspace-muted: #64748b;
+}
+
+.tool-workspace-frame {
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 1rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: 1rem;
+  background: var(--workspace-panel);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --workspace-border: rgba(148, 163, 184, 0.18);
+    --workspace-panel: rgba(15, 23, 42, 0.58);
+    --workspace-muted: #94a3b8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

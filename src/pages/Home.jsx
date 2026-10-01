@@ -422,6 +422,7 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
               setShowFullHistoryModal(true);
             }}
             title={lang === 'nl' ? 'Volledige geschiedenis openen' : 'Open full history'}
+            aria-label={lang === 'nl' ? 'Volledige geschiedenis openen' : 'Open full history'}
             className={`p-1 rounded-md transition-colors ${isDark ? 'hover:bg-white/10 text-white/40 hover:text-white' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-700'}`}
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -439,8 +440,9 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                   const displayDate = new Date(item.createdAt || item.timestamp);
 
                   return (
-                    <div
+                    <button
                       key={item.id}
+                      type="button"
                       className={`group flex items-start justify-between rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}
                       onClick={() => onRestoreHistory(item)}
                     >
@@ -456,16 +458,26 @@ function Sidebar({ active, onSelect, onSelectTab, activeTab, isDark, iconStyle, 
                         </p>
                       </div>
 
-                      <button
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteHistoryItem(item.id);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteHistoryItem(item.id);
+                          }
+                        }}
+                        aria-label={lang === 'nl' ? 'Geschiedenisitem verwijderen' : 'Delete history item'}
                         className="opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5 text-slate-400 hover:text-red-500 transition-all"
                       >
                         <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
+                      </span>
+                    </button>
                   );
                 })}
               </div>
@@ -751,6 +763,7 @@ const ALL_BODY_THEME_CLASSES = Object.values(APP_THEMES).map(t => t.bodyClass).f
 
 export default function Home() {
   const { user, profile, isLoadingAuth, isPasswordRecovery } = useAuth();
+  const { history } = useHistory();
   const isMobile = useIsMobile();
   const [active, setActive] = useState(() => {
     try {
@@ -864,6 +877,10 @@ export default function Home() {
   const [historyData, setHistoryData] = useState(null);
   const [editingTab, setEditingTab] = useState(null); // { toolKey, tabId, name }
   const [contextMenu, setContextMenu] = useState(null); // { x: number, y: number, toolKey: string, tab: object }
+  const visibleHistory = useMemo(
+    () => history.filter(item => !item.data?.hidden && !isHiddenHistoryTool(item.toolId)),
+    [history]
+  );
 
   const getSubtoolKey = (toolId) => {
     if (!TOOL_TABS[toolId]) return toolId;
@@ -1622,13 +1639,52 @@ export default function Home() {
           {isHome && (
             <div className="space-y-7 flex-1 flex flex-col">
               <div className="mb-2">
-                <div className="text-center mb-2">
-                  <h2 className={`text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight ${titleColor}`}>
-                    Lab tools that actually save time
+                <div className="mb-5 max-w-3xl">
+                  <p className={`mb-2 text-xs font-semibold uppercase tracking-[0.18em] ${sectionLabelColor}`}>
+                    {lang === 'nl' ? 'Werkruimte' : 'Workspace'}
+                  </p>
+                  <h2 className={`text-3xl sm:text-4xl font-semibold tracking-tight ${titleColor}`}>
+                    {lang === 'nl' ? 'Waar wil je vandaag aan werken?' : 'What do you want to work on today?'}
                   </h2>
+                  <p className={`mt-2 max-w-xl text-sm ${isDark ? 'text-white/55' : 'text-slate-500'}`}>
+                    {lang === 'nl'
+                      ? 'Open een tool, hervat een recente berekening of zoek direct in je lab.'
+                      : 'Open a tool, resume a recent calculation, or search your lab directly.'}
+                  </p>
                 </div>
                 <ScienceJoke isDark={isDark} />
               </div>
+
+              {visibleHistory.length > 0 && (
+                <section className={`rounded-2xl border p-4 sm:p-5 ${isDark ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-white'}`} aria-labelledby="recent-heading">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h3 id="recent-heading" className={`text-sm font-semibold ${cardTextPrimary}`}>
+                        {lang === 'nl' ? 'Recent' : 'Recent'}
+                      </h3>
+                      <p className={`mt-0.5 text-xs ${isDark ? 'text-white/45' : 'text-slate-500'}`}>
+                        {lang === 'nl' ? 'Ga verder waar je gebleven was.' : 'Pick up where you left off.'}
+                      </p>
+                    </div>
+                    <span className={`text-xs ${isDark ? 'text-white/35' : 'text-slate-400'}`}>
+                      {visibleHistory.length} {lang === 'nl' ? 'opgeslagen' : 'saved'}
+                    </span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {visibleHistory.slice(0, 3).map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleRestoreHistory(item)}
+                        className={`min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${isDark ? 'border-white/10 hover:bg-white/[0.06]' : 'border-slate-200 hover:bg-slate-50'}`}
+                      >
+                        <span className={`block truncate text-sm font-medium ${cardTextPrimary}`}>{item.data?.preview || item.toolName || item.toolId}</span>
+                        <span className={`mt-1 block text-xs ${isDark ? 'text-white/40' : 'text-slate-400'}`}>{new Date(item.createdAt || item.timestamp).toLocaleDateString(lang === 'nl' ? 'nl-NL' : 'en-US')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <div className="grid grid-cols-1 gap-8 min-[1080px]:grid-cols-[minmax(360px,.88fr)_minmax(520px,1.12fr)]">
                 <div className="grid content-start gap-6">
@@ -1636,8 +1692,8 @@ export default function Home() {
                     <h3 className={`px-1 text-xs font-bold uppercase tracking-widest ${sectionLabelColor}`}>Calculators</h3>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4">
                       {CALCULATORS.map(calc => (
-                        <button key={calc.id} onClick={() => { setActive(calc.id); setHistoryData(null); }} className={`group flex min-h-[124px] flex-col items-center justify-center rounded-2xl p-3 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
-                          <div className={`mb-3 inline-flex rounded-xl p-3 shadow-md transition-transform group-hover:scale-110 ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}><calc.icon className={`h-6 w-6 ${theme?.iconTextColor || 'text-white'}`} /></div>
+                        <button type="button" key={calc.id} onClick={() => { setActive(calc.id); setHistoryData(null); }} className={`group flex min-h-[112px] flex-col items-center justify-center rounded-xl border p-3 text-center transition-colors ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
+                          <div className={`mb-3 inline-flex rounded-lg p-2.5 ${iconStyle ? '' : `bg-gradient-to-br ${calc.gradient}`}`} style={iconStyle || {}}><calc.icon className={`h-5 w-5 ${theme?.iconTextColor || 'text-white'}`} /></div>
                           <p className={`mb-1 text-sm font-semibold leading-tight sm:text-base ${cardTextPrimary}`}>{calc.name}</p>
                         </button>
                       ))}
@@ -1652,8 +1708,8 @@ export default function Home() {
                       <div className={`grid grid-cols-2 gap-3 md:gap-4 ${group.columns}`}>
                         {group.tools.map(tool => (
                         <button key={tool.id} onClick={() => { setActive(tool.id); setHistoryData(null); }}
-                          className={`group flex min-h-[112px] min-w-0 flex-col items-center justify-center rounded-2xl p-3 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
-                          <div className={`mb-3 inline-flex rounded-xl p-3 shadow-md transition-transform group-hover:scale-110 ${iconStyle ? '' : `${tool.direction || 'bg-gradient-to-br'} ${tool.gradient}`}`} style={iconStyle || {}}>
+                          className={`group flex min-h-[104px] min-w-0 flex-col items-center justify-center rounded-xl border p-3 text-center transition-colors ${cardBg} ${theme.isGlass ? 'backdrop-blur-xl' : ''}`}>
+                          <div className={`mb-3 inline-flex rounded-lg p-2.5 ${iconStyle ? '' : `${tool.direction || 'bg-gradient-to-br'} ${tool.gradient}`}`} style={iconStyle || {}}>
                             <tool.icon className={`h-6 w-6 ${theme?.iconTextColor || 'text-white'}`} />
                           </div>
                           <p className={`w-full break-words text-sm font-semibold leading-tight ${cardTextPrimary}`}>{tool.name}</p>
@@ -1726,7 +1782,7 @@ export default function Home() {
                             key={inst.id}
                             style={{ display: activeInst === inst.id ? 'block' : 'none' }}
                           >
-                            {getComponent(id, inst.id, subtab.id)}
+                            <div className="tool-workspace-frame">{getComponent(id, inst.id, subtab.id)}</div>
                           </div>
                         ))}
                       </div>
@@ -1738,7 +1794,7 @@ export default function Home() {
                       key={inst.id}
                       style={{ display: activeInstance[id] === inst.id ? 'block' : 'none' }}
                     >
-                      {getComponent(id, inst.id)}
+                      <div className="tool-workspace-frame">{getComponent(id, inst.id)}</div>
                     </div>
                   ))
                 )}
